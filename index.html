@@ -68,10 +68,28 @@
       <button class="act" id="bPet"><span class="emo">✋</span>Pet</button>
       <button class="act" id="bTrick"><span class="emo">🌟</span>Trick</button>
       <button class="act" id="bPlay" style="display:none"><span class="emo">🧸</span>Play</button>
+      <button class="act" id="bSnake"><span class="emo">🐍</span>Snake</button>
     </div>
     <div class="actrow" data-group="health" hidden>
       <button class="act" id="bRest"><span class="emo">😴</span>Rest</button>
       <button class="act" id="bVet"><span class="emo">🩺</span>Vet</button>
+    </div>
+  </div>
+
+  <!-- ---------- Bunny Snake minigame ---------- -->
+  <div id="snake" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>🐍 Bunny Snake</span><button id="snakeClose">✕</button></div>
+      <div class="mgscore">Score <b id="snScore">0</b> &nbsp;·&nbsp; Best <b id="snBest">0</b></div>
+      <div class="mgstage">
+        <canvas id="snakeCanvas"></canvas>
+        <div id="snakeOverlayMsg" class="mgmsg"></div>
+      </div>
+      <div class="mgpad">
+        <button data-d="up">▲</button>
+        <div class="mgrow"><button data-d="left">◀</button><button data-d="down">▼</button><button data-d="right">▶</button></div>
+      </div>
+      <div class="mghint">Steer with arrow keys, swipe, or the buttons. Eat the hay 🌾 — don't hit the walls or yourself.</div>
     </div>
   </div>
 

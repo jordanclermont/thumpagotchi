@@ -217,6 +217,7 @@ let lastPetGain = 0, lastFeetPet = 0;
 let autosaveT = 0;
 let pixelMode = false, pxBuf = null, pxCtx = null;   // pixel-art post-process buffer
 let flatTheme = false;   // comic/pixel: flatten wall+floor so posterize doesn't band them
+let minigameActive = false;   // freezes the pet sim while a minigame overlay is open
 
 /* ============================================================================ *
  *  SAVE / LOAD  (localStorage)
@@ -1362,6 +1363,8 @@ let last=now();
 function frame(){
   const t=now(); let dt=t-last; last=t; dt=Math.min(dt,0.05);
 
+  if(minigameActive){ requestAnimationFrame(frame); return; }   // pause the pet sim
+
   ctx.clearRect(0,0,W,H);
 
   if(cutscene){ drawNight(dt); pixelate(); requestAnimationFrame(frame); return; }
@@ -1740,6 +1743,148 @@ function startGame(fromSave, saved){
   toast(`Welcome home, ${rab.name}! ${cap(P().s)} does a happy binky. Care for ${P().o} to earn 🥕 and grow your Bond.`);
   save();
 }
+
+/* ============================================================================ *
+ *  BUNNY SNAKE — a self-contained minigame (you play as your rabbit)
+ * ============================================================================ */
+const SNAKE_BEST_KEY = 'thumpagotchi.snakeBest';
+const SN = { cols:17, rows:15, cell:22, snake:[], dir:{x:1,y:0}, nextDir:{x:1,y:0},
+             food:{x:0,y:0}, score:0, best:0, timer:null, stepMs:150, state:'idle', on:false };
+let snCanvas=null, snCtx=null;
+
+function roundRectCtx(c2,x,y,w,h,r){
+  r=Math.min(r,w/2,h/2); c2.beginPath(); c2.moveTo(x+r,y);
+  c2.arcTo(x+w,y,x+w,y+h,r); c2.arcTo(x+w,y+h,x,y+h,r);
+  c2.arcTo(x,y+h,x,y,r); c2.arcTo(x,y,x+w,y,r); c2.closePath();
+}
+function openSnake(){
+  if(rab.cold){ coldRefuse(); return; }
+  snCanvas = $('snakeCanvas'); snCtx = snCanvas.getContext('2d');
+  try{ SN.best = parseInt(localStorage.getItem(SNAKE_BEST_KEY))||0; }catch(e){ SN.best=0; }
+  $('snBest').textContent = SN.best;
+  $('snake').classList.add('show');
+  minigameActive = true;
+  snResize(); snReset();
+}
+function closeSnake(){
+  if(SN.timer){ clearInterval(SN.timer); SN.timer=null; }
+  SN.on=false; SN.state='idle'; minigameActive=false;
+  $('snake').classList.remove('show');
+  last = now();   // prevent a giant dt when the pet sim resumes
+}
+function snResize(){
+  const wCss = Math.min((window.innerWidth||360)*0.9, 440);
+  SN.cell = Math.max(14, Math.floor(wCss/SN.cols));
+  const w=SN.cell*SN.cols, h=SN.cell*SN.rows, dpr=Math.min(window.devicePixelRatio||1,2);
+  snCanvas.style.width=w+'px'; snCanvas.style.height=h+'px';
+  snCanvas.width=Math.floor(w*dpr); snCanvas.height=Math.floor(h*dpr);
+  snCtx.setTransform(dpr,0,0,dpr,0,0);
+}
+function snReset(){
+  SN.snake=[{x:8,y:7},{x:7,y:7},{x:6,y:7}];
+  SN.dir={x:1,y:0}; SN.nextDir={x:1,y:0}; SN.score=0; SN.stepMs=150; SN.state='play'; SN.on=true;
+  $('snScore').textContent=0; $('snakeOverlayMsg').classList.remove('show');
+  snPlaceFood();
+  if(SN.timer) clearInterval(SN.timer);
+  SN.timer=setInterval(snStep, SN.stepMs);
+  snDraw();
+}
+function snPlaceFood(){
+  let p; do{ p={x:(Math.random()*SN.cols)|0, y:(Math.random()*SN.rows)|0}; }
+  while(SN.snake.some(s=>s.x===p.x&&s.y===p.y));
+  SN.food=p;
+}
+function snSetDir(x,y){
+  if(SN.state!=='play') return;
+  if(x===-SN.dir.x && y===-SN.dir.y) return;   // no instant reverse
+  SN.nextDir={x,y};
+}
+function snStep(){
+  if(SN.state!=='play') return;
+  SN.dir=SN.nextDir;
+  const head={x:SN.snake[0].x+SN.dir.x, y:SN.snake[0].y+SN.dir.y};
+  if(head.x<0||head.y<0||head.x>=SN.cols||head.y>=SN.rows || SN.snake.some(s=>s.x===head.x&&s.y===head.y)){
+    snGameOver(); return;
+  }
+  SN.snake.unshift(head);
+  if(head.x===SN.food.x && head.y===SN.food.y){
+    SN.score++; $('snScore').textContent=SN.score; snPlaceFood();
+    if(SN.score%4===0 && SN.stepMs>78){ SN.stepMs-=8; clearInterval(SN.timer); SN.timer=setInterval(snStep,SN.stepMs); }
+  } else { SN.snake.pop(); }
+  snDraw();
+}
+function snGameOver(){
+  SN.state='over'; SN.on=false;
+  if(SN.timer){ clearInterval(SN.timer); SN.timer=null; }
+  const reward = SN.score;
+  if(reward>0){ rab.carrots += reward; addXP(Math.min(15, SN.score)); }
+  const isBest = SN.score>SN.best && SN.score>0;
+  if(isBest){ SN.best=SN.score; try{ localStorage.setItem(SNAKE_BEST_KEY, SN.best); }catch(e){} }
+  $('snBest').textContent=SN.best;
+  save();
+  const msg=$('snakeOverlayMsg');
+  msg.innerHTML=`<div class="mgover"><h3>${SN.score>0?'Nice run!':'Oops!'}</h3>
+    <p>Score ${SN.score}${reward>0?` &middot; +${reward}🥕`:''}${isBest?' &middot; 🏆 new best!':''}</p>
+    <div class="mgbtns"><button id="snRetry">Play again</button><button id="snDone">Done</button></div></div>`;
+  msg.classList.add('show');
+  $('snRetry').onclick=snReset;
+  $('snDone').onclick=closeSnake;
+}
+function snDraw(){
+  const c=SN.cell, ww=SN.cols*c, hh=SN.rows*c;
+  snCtx.fillStyle='#5f958c'; snCtx.fillRect(0,0,ww,hh);          // rug-green board
+  snCtx.fillStyle='rgba(255,255,255,.05)';
+  for(let y=0;y<SN.rows;y++) for(let x=0;x<SN.cols;x++) snCtx.fillRect(x*c+c/2-1,y*c+c/2-1,2,2);
+  // food (hay) — bright disc behind it so the target always reads clearly
+  const fx=SN.food.x*c+c/2, fy=SN.food.y*c+c/2;
+  snCtx.fillStyle='#ecc85a';
+  snCtx.beginPath(); snCtx.arc(fx, fy, c*0.34, 0, 7); snCtx.fill();
+  snCtx.fillStyle='rgba(255,255,255,.35)';
+  snCtx.beginPath(); snCtx.arc(fx-c*0.1, fy-c*0.1, c*0.12, 0, 7); snCtx.fill();
+  snCtx.font=`${Math.floor(c*0.66)}px system-ui`; snCtx.textAlign='center'; snCtx.textBaseline='middle';
+  snCtx.fillText('🌾', fx, fy+1);
+  // body segments in the rabbit's coat colours
+  for(let i=SN.snake.length-1;i>=1;i--){
+    const seg=SN.snake[i];
+    snCtx.fillStyle = (i%2)? coat.bodySh : coat.body;
+    roundRectCtx(snCtx, seg.x*c+2, seg.y*c+2, c-4, c-4, c*0.32); snCtx.fill();
+  }
+  // head = a little rabbit face with ears
+  const h=SN.snake[0], cx=h.x*c+c/2, cy=h.y*c+c/2;
+  snCtx.fillStyle=coat.pointMid;
+  snCtx.beginPath();snCtx.ellipse(cx-c*0.15, cy-c*0.32, c*0.09, c*0.2, 0,0,7);snCtx.fill();
+  snCtx.beginPath();snCtx.ellipse(cx+c*0.15, cy-c*0.32, c*0.09, c*0.2, 0,0,7);snCtx.fill();
+  snCtx.fillStyle=coat.body;
+  roundRectCtx(snCtx, h.x*c+1, h.y*c+1, c-2, c-2, c*0.36); snCtx.fill();
+  snCtx.fillStyle='#140f0b';
+  snCtx.beginPath();snCtx.arc(cx-c*0.16, cy, c*0.085,0,7);snCtx.fill();
+  snCtx.beginPath();snCtx.arc(cx+c*0.16, cy, c*0.085,0,7);snCtx.fill();
+}
+/* wiring (runs once at load; DOM is ready since the script is at end of <body>) */
+(function wireSnake(){
+  window.addEventListener('keydown', e=>{
+    if(!SN.on) return;
+    if(e.key==='ArrowUp'||e.key==='w') snSetDir(0,-1);
+    else if(e.key==='ArrowDown'||e.key==='s') snSetDir(0,1);
+    else if(e.key==='ArrowLeft'||e.key==='a') snSetDir(-1,0);
+    else if(e.key==='ArrowRight'||e.key==='d') snSetDir(1,0);
+    else return;
+    e.preventDefault();
+  });
+  document.querySelectorAll('#snake .mgpad button').forEach(b=>{
+    b.addEventListener('click',()=>{ const d=b.dataset.d;
+      if(d==='up')snSetDir(0,-1); else if(d==='down')snSetDir(0,1);
+      else if(d==='left')snSetDir(-1,0); else snSetDir(1,0); });
+  });
+  const cv=$('snakeCanvas'); let tsx=0,tsy=0;
+  cv.addEventListener('touchstart',e=>{ const t=e.touches[0]; tsx=t.clientX; tsy=t.clientY; },{passive:true});
+  cv.addEventListener('touchend',e=>{ const t=e.changedTouches[0]; const dx=t.clientX-tsx, dy=t.clientY-tsy;
+    if(Math.abs(dx)<16 && Math.abs(dy)<16) return;
+    if(Math.abs(dx)>Math.abs(dy)) snSetDir(dx>0?1:-1,0); else snSetDir(0,dy>0?1:-1); },{passive:true});
+  window.addEventListener('resize',()=>{ if(minigameActive){ snResize(); snDraw(); } });
+  bind('bSnake', openSnake);
+  bind('snakeClose', closeSnake);
+})();
 
 /* ---------------- Boot ---------------- */
 try{ applyTheme(localStorage.getItem(THEME_KEY) || 'cozy'); }catch(e){ applyTheme('cozy'); }
