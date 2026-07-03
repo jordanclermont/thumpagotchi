@@ -45,7 +45,7 @@ const COATS = {
   blue:       {name:'Blue (Grey)',         body:'#909196', bodySh:'#727379', hi:'#bcbdc3', point:'#4d4e53', pointMid:'#6b6c71', sable:false},
   fawn:       {name:'Fawn / Orange',       body:'#e2ab61', bodySh:'#c98f47', hi:'#f4cb88', point:'#c07f3d', pointMid:'#dba25a', sable:false},
   // ---- Netherland Dwarf coats ----
-  ndBlackTan: {name:'Black & Tan (Elvis)', body:'#2c2825', bodySh:'#1a1613', hi:'#463d36', point:'#100d0b', pointMid:'#2b2622', sable:false, tan:true, tanCol:'#c68a3e'},
+  ndBlackTan: {name:'Black & Tan (Elvis)', body:'#2c2825', bodySh:'#1a1613', hi:'#463d36', point:'#100d0b', pointMid:'#2b2622', sable:false, tan:true, tanCol:'#c68a3e', belly:'#f2ece0'},
   ndBlueOtter:{name:'Blue Otter',          body:'#8f9096', bodySh:'#6f7076', hi:'#b6b7bd', point:'#4a4b50', pointMid:'#67686d', sable:false, tan:true, tanCol:'#ddd2be'},
   ndChestnut: {name:'Chestnut Agouti',     body:'#9a6b3c', bodySh:'#79512b', hi:'#c08c52', point:'#4a2f18', pointMid:'#6b4526', sable:false},
   ndTort:     {name:'Tortoise',            body:'#cd925a', bodySh:'#a06f3d', hi:'#e6ad72', point:'#3c2416', pointMid:'#6e4526', sable:false},
@@ -64,7 +64,7 @@ let coatKey = 'sableGrey';
 const BREEDS = {
   holland:    {name:'Holland Lop',      ears:'lop', mane:false, scale:1.0,  headScale:1.0,               emoji:'🐰', desc:'Floppy lop ears, cobby & chill.'},
   netherland: {name:'Netherland Dwarf', ears:'up',  mane:false, scale:0.84, headScale:1.16, earLen:0.95, emoji:'🐇', desc:'Tiny body, big head, upright ears.'},
-  lionhead:   {name:'Lionhead',         ears:'up',  mane:true,  scale:0.94, headScale:1.06, earLen:1.2,  emoji:'🦁', desc:'A majestic fluffy mane.', unlock:'bond10'},
+  lionhead:   {name:'Lionhead',         ears:'up',  mane:true,  scale:0.94, headScale:1.06, earLen:1.2,  emoji:'🦁', desc:'A majestic fluffy mane.', unlock:'bond5'},
 };
 const BREED_COATS = {
   holland:    ['sableGrey','sableSepia','chestnut','black','blue','fawn'],
@@ -155,15 +155,17 @@ function resize(){
   W = canvas.clientWidth; H = canvas.clientHeight;
   canvas.width = Math.floor(W*DPR); canvas.height = Math.floor(H*DPR);
   ctx.setTransform(DPR,0,0,DPR,0,0);
+  // Toys/furniture scale to the rabbit's breed size so they stay proportionate.
+  const bs = (typeof BREEDS!=='undefined' && BREEDS[rab.breed]) ? BREEDS[rab.breed].scale : 1;
   world.floorY = H*0.58;
   world.rug   = {x:W*0.5,  y:H*0.80, rx:W*0.44, ry:H*0.155};
-  world.litter= {x:W*0.13, y:H*0.70, w:Math.min(150,W*0.21), h:Math.min(78,H*0.13)};
+  world.litter= {x:W*0.13, y:H*0.70, w:Math.min(150,W*0.21)*bs, h:Math.min(78,H*0.13)*bs};
   world.food  = {x:W*0.30, y:H*0.915,r:Math.min(30,W*0.045)};
   world.water = {x:W*0.42, y:H*0.925,r:Math.min(28,W*0.042)};
-  world.tube  = {x:W*0.83, y:H*0.68, w:Math.min(150,W*0.22), h:Math.min(74,H*0.13)};
-  world.bed   = {x:W*0.63, y:H*0.90, r:Math.min(58,W*0.09)};
-  world.castle= {x:W*0.90, y:H*0.86, r:Math.min(60,W*0.10)};
-  world.ball  = {x:W*0.20, y:H*0.90, r:Math.min(16,W*0.026)};
+  world.tube  = {x:W*0.83, y:H*0.68, w:Math.min(150,W*0.22)*bs, h:Math.min(74,H*0.13)*bs};
+  world.bed   = {x:W*0.63, y:H*0.90, r:Math.min(58,W*0.09)*bs};
+  world.castle= {x:W*0.90, y:H*0.86, r:Math.min(60,W*0.10)*bs};
+  world.ball  = {x:W*0.20, y:H*0.90, r:Math.min(16,W*0.026)*bs};
   world.win   = {x:W*0.5-W*0.11, y:H*0.07, w:W*0.22, h:H*0.30};
   rab.baseY = world.rug.y - 6;
   rab.x = clamp(rab.x||world.rug.x, world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6);
@@ -187,7 +189,7 @@ const rab = {
   binkyT:0, binkyDur:0.85,
   trick:null,
   restUntil:0,
-  play:null, playAlpha:1, playYOff:0,
+  play:null, playAlpha:1, playYOff:0, hidden:false,
   // progression
   bondLevel:1, bondXP:0, carrots:12,
   weight:100, health:100, sick:false, sickAt:0,
@@ -218,6 +220,7 @@ let autosaveT = 0;
 let pixelMode = false, pxBuf = null, pxCtx = null;   // pixel-art post-process buffer
 let flatTheme = false;   // comic/pixel: flatten wall+floor so posterize doesn't band them
 let minigameActive = false;   // freezes the pet sim while a minigame overlay is open
+let dayEvent = null, hazardFlash = 0;   // daily event (hide-and-seek / charger hazard)
 
 /* ============================================================================ *
  *  SAVE / LOAD  (localStorage)
@@ -284,10 +287,10 @@ function onLevelUp(){
   if(newT.length) msg += `New trick${newT.length>1?'s':''}: ${newT.join(', ')}.`;
   else msg += `${cap(P().s)} trusts you a little more.`;
   toast(msg);
-  if(lv>=5) unlockAch('bond5');
-  if(lv>=10){ unlockAch('bond10');
+  if(lv>=5){ unlockAch('bond5');
     if(unlockBreed('lionhead')) toast('🦁 Lionhead breed UNLOCKED! Adopt one on your next pet.');
   }
+  if(lv>=10) unlockAch('bond10');
 }
 function addCarrots(n, x, y){
   rab.carrots += n;
@@ -541,6 +544,110 @@ function drawAmbient(){
 }
 
 /* ============================================================================ *
+ *  DAILY EVENTS — hide-and-seek mornings + the phone-charger hazard
+ * ============================================================================ */
+function rollDailyEvent(){
+  dayEvent=null; rab.hidden=false; hazardFlash=0;
+  const roll=Math.random();
+  if(roll<0.22){ startHideEvent(); return 'hide'; }
+  if(roll<0.40){ startHazardEvent(); return 'hazard'; }
+  return null;
+}
+/* --- Hide & seek --- */
+function startHideEvent(){
+  const spots=[
+    {x:world.tube.x,   y:world.tube.y-6,   name:'the play tunnel'},
+    {x:world.bed.x,    y:world.bed.y-6,    name:'the cozy bed'},
+    {x:world.litter.x, y:world.litter.y-6, name:'the litter box'},
+  ];
+  if(owns('castle')) spots.push({x:world.castle.x, y:world.castle.y-6, name:'the cardboard castle'});
+  dayEvent={type:'hide', spot:pick(spots), found:false};
+  rab.hidden=true; rab.x=dayEvent.spot.x; rab.hopping=false; rab.loaf=0;
+}
+function findRabbit(px,py){
+  if(!dayEvent || dayEvent.type!=='hide') return false;
+  const d=Math.hypot(px-dayEvent.spot.x, py-dayEvent.spot.y);
+  if(d<80){
+    rab.hidden=false; rab.x=dayEvent.spot.x;
+    addCarrots(8, rab.x, rab.baseY-60); addXP(10); stats.happy=clamp(stats.happy+10);
+    startBinky();
+    toast(`🎉 Found ${rab.name} behind ${dayEvent.spot.name}! Peekaboo! (+8🥕)`);
+    dayEvent=null; save();
+  } else {
+    toast(d<180 ? '🔥 Warmer… keep looking!' : '❄️ Colder — try somewhere else.');
+  }
+  return true;   // consume the tap while hiding
+}
+function drawHideHint(t){
+  if(!dayEvent || dayEvent.type!=='hide') return;
+  const sx=dayEvent.spot.x, sy=dayEvent.spot.y, wig=Math.sin(t*3)*2;
+  ctx.fillStyle=coat.body;
+  ctx.beginPath();ctx.ellipse(sx-7, sy-16+wig, 4,11,-0.1,0,7);ctx.fill();
+  ctx.beginPath();ctx.ellipse(sx+7, sy-16-wig, 4,11, 0.1,0,7);ctx.fill();
+  ctx.fillStyle=coat.pointMid;
+  ctx.beginPath();ctx.ellipse(sx-7, sy-16+wig, 2,7,-0.1,0,7);ctx.fill();
+  ctx.beginPath();ctx.ellipse(sx+7, sy-16-wig, 2,7, 0.1,0,7);ctx.fill();
+  if(Math.random()<0.02) spawnSparkle(sx+rand(-10,10), sy-6);
+}
+/* --- Phone-charger hazard --- */
+function startHazardEvent(){
+  const cx=Math.max(90, W*0.07);
+  dayEvent={type:'hazard', cord:{x:cx, y:world.floorY+16}, secured:false, chewed:false, nearT:0, nextTemptt:now()+rand(4,8)};
+}
+function tapCord(px,py){
+  if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return false;
+  if(Math.hypot(px-(dayEvent.cord.x+10), py-world.floorY) < 62){
+    dayEvent.secured=true;
+    addCarrots(6, rab.x, rab.baseY-60); addXP(8); stats.happy=clamp(stats.happy+4);
+    toast(`✅ Cord tucked away & rabbit-proofed! ${rab.name} is safe. (+6🥕)`);
+    save();
+    return true;
+  }
+  return false;
+}
+function hazardShock(){
+  dayEvent.chewed=true;
+  stats.happy=clamp(stats.happy-16); rab.health=clamp(rab.health-14); rab.thumps=clamp(rab.thumps+1,0,5);
+  triggerThump(); hazardFlash=0.5;
+  const p=parts(); spawnStars(p.head.x,p.head.y);
+  toast(`⚡ ZAP! ${rab.name} chewed the charger cord and got a scare! Rabbit-proof your cords.`);
+  save();
+}
+function tickEvent(dt,t){
+  if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return;
+  const c=dayEvent.cord;
+  if(Math.abs(rab.x-c.x) < 42 && !rab.hopping){
+    dayEvent.nearT += dt;
+    if(dayEvent.nearT > 1.6) hazardShock();
+  } else {
+    dayEvent.nearT = Math.max(0, dayEvent.nearT-dt);
+    if(t>dayEvent.nextTemptt && !rab.hopping && !rab.cold && rab.state!=='rest' && rab.state!=='tummy'){
+      dayEvent.nextTemptt = t + rand(5,10);
+      hopTo(c.x+22);   // curiosity: hops toward the tempting cord
+    }
+  }
+}
+function drawHazard(){
+  if(!dayEvent || dayEvent.type!=='hazard') return;
+  const c=dayEvent.cord, fy=world.floorY;
+  ctx.fillStyle='#efe9db'; roundRect(c.x-9, fy-28, 18, 20, 3); ctx.fill();          // wall outlet
+  ctx.fillStyle='#9a9384'; ctx.fillRect(c.x-3, fy-24, 2.5,7); ctx.fillRect(c.x+1, fy-24, 2.5,7);
+  ctx.strokeStyle = dayEvent.secured? '#6f7a5a' : (dayEvent.chewed? '#a8452f' : '#242424');
+  ctx.lineWidth=3; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(c.x, fy-8);
+  if(dayEvent.secured){ ctx.lineTo(c.x, fy+2); ctx.lineTo(c.x+8, fy+2); }             // tucked away
+  else ctx.bezierCurveTo(c.x-6, fy+16, c.x+34, fy+12, c.x+38, fy+22);
+  ctx.stroke(); ctx.lineCap='butt';
+  if(!dayEvent.secured){
+    ctx.fillStyle='#20242a'; roundRect(c.x+32, fy+16, 13, 22, 3); ctx.fill();          // the phone
+    ctx.fillStyle='#3a6ea5'; roundRect(c.x+34, fy+18, 9, 16, 1); ctx.fill();
+  }
+  if(dayEvent.secured){ ctx.font='15px system-ui'; ctx.fillText('✅', c.x-7, fy+4); }
+  else if(dayEvent.chewed){ ctx.font='15px system-ui'; ctx.fillText('⚡', c.x+2, fy); }
+  else { const a=0.3+0.35*Math.sin(now()*4); ctx.strokeStyle=`rgba(255,90,60,${a})`; ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(c.x+10, fy, 24, 0,7);ctx.stroke(); }
+}
+
+/* ============================================================================ *
  *  THE RABBIT
  * ============================================================================ */
 function sableGrad(x,y,r,inner,outer){
@@ -578,12 +685,11 @@ function drawRabbit(t){
   ctx.fillStyle='rgba(40,34,28,.4)';
   for(let i=0;i<7;i++){const a=i/7*Math.PI*2;
     ctx.beginPath();ctx.arc(p.tail.x+Math.cos(a)*p.tail.r*0.8,p.tail.y+Math.sin(a)*p.tail.r*0.8,p.tail.r*0.28,0,7);ctx.fill();}
-
-  if(rab.loaf<0.75){
-    const stomp=rab.legStomp;
-    drawFoot(p.cx - p.body.rx*0.55, p.cy-4*s, s, 0);
-    drawFoot(p.cx + p.body.rx*0.5,  p.cy-4*s + stomp*10*s, s, stomp);
-  }
+  // fluffy white cottontail puff (all breeds)
+  ctx.fillStyle='rgba(250,248,240,.95)';
+  ctx.beginPath();ctx.arc(p.tail.x - p.tail.r*0.12, p.tail.y - p.tail.r*0.08, p.tail.r*0.55, 0,7);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.55)';
+  ctx.beginPath();ctx.arc(p.tail.x - p.tail.r*0.32, p.tail.y - p.tail.r*0.3, p.tail.r*0.22, 0,7);ctx.fill();
 
   const bg=ctx.createRadialGradient(p.body.x-p.body.rx*0.3,p.body.y-p.body.ry*0.4,p.body.ry*0.2,
                                     p.body.x,p.body.y,p.body.rx*1.15);
@@ -593,10 +699,10 @@ function drawRabbit(t){
   ctx.fillStyle='rgba(255,255,255,.26)';
   ctx.beginPath();ctx.ellipse(p.body.x-p.body.rx*0.18,p.body.y-p.body.ry*0.25,p.body.rx*0.5,p.body.ry*0.4,0,0,7);ctx.fill();
 
-  // Black & tan: warm tan bib on the lower chest
+  // Black & tan: chest markings — a white belly if the coat defines one (Elvis), else tan
   if(coat.tan){
-    ctx.fillStyle=coat.tanCol;
-    ctx.beginPath();ctx.ellipse(p.body.x, p.body.y+p.body.ry*0.52, p.body.rx*0.52, p.body.ry*0.44, 0,0,7);ctx.fill();
+    ctx.fillStyle=coat.belly || coat.tanCol;
+    ctx.beginPath();ctx.ellipse(p.body.x, p.body.y+p.body.ry*0.52, p.body.rx*0.52, p.body.ry*0.46, 0,0,7);ctx.fill();
   }
 
   if(rab.sick){
@@ -606,6 +712,14 @@ function drawRabbit(t){
   if(rab.state==='tummy'){
     ctx.fillStyle='rgba(120,180,90,.30)';
     ctx.beginPath();ctx.ellipse(p.body.x,p.body.y+breath+8*s,p.body.rx*0.7,p.body.ry*0.55,0,0,7);ctx.fill();
+  }
+
+  // Hind feet (the big flat back feet) — drawn IN FRONT at the base so legs read clearly
+  if(rab.loaf<0.75){
+    const stomp=rab.legStomp;
+    const footY = p.body.y + p.body.ry - 8*s;
+    drawFoot(p.cx - p.body.rx*0.5, footY, s, 0);
+    drawFoot(p.cx + p.body.rx*0.5, footY + stomp*10*s, s, stomp);
   }
 
   if(rab.loaf<0.75){
@@ -912,8 +1026,16 @@ function endNight(){
   // fresh daily goals + a login bonus
   rollGoals();
   addCarrots(6);
-  startBinky();
-  toast(`☀️ Good morning! Day ${rab.day} — ${rab.name} is STARVING but binkying with joy. (+6🥕 daily bonus)`);
+  const ev = rollDailyEvent();
+  if(ev==='hide'){
+    toast(`🔍 Day ${rab.day}! ${rab.name} is hiding somewhere in the room — tap around to find ${P().o}! (+6🥕)`);
+  } else if(ev==='hazard'){
+    startBinky();
+    toast(`⚠️ Day ${rab.day}! A phone charger got left plugged in — ${rab.name} thinks the cord is "spicy hay". Tap it to rabbit-proof it! (+6🥕)`);
+  } else {
+    startBinky();
+    toast(`☀️ Good morning! Day ${rab.day} — ${rab.name} is STARVING but binkying with joy. (+6🥕 daily bonus)`);
+  }
   save();
 }
 function drawNight(dt){
@@ -1417,6 +1539,8 @@ function frame(){
 
   if(rab.play){
     updatePlay(dt);
+  } else if(rab.hidden){
+    /* hiding for a hide-and-seek morning — hold still until found */
   } else {
     if(rab.hopping){
       const k=(t-rab.hopT0)/rab.hopDur;
@@ -1426,6 +1550,7 @@ function frame(){
     idleBrain(dt,t);
     updateState(t);
   }
+  tickEvent(dt,t);
 
   /* loaf pose: content, fed, calm */
   const wantsLoaf = rab.state==='loaf' && !rab.hopping && stats.happy>60 && stats.hunger<55;
@@ -1440,10 +1565,14 @@ function frame(){
   if(thumpFx>0){const m=thumpFx*8;ctx.translate(rand(-m,m),rand(-m,m));}
   drawSky();
   drawRoom();
+  drawHazard();
   drawParticles(dt);
-  ctx.save(); ctx.globalAlpha = rab.playAlpha!==undefined?rab.playAlpha:1; drawRabbit(t); ctx.restore();
+  ctx.save(); ctx.globalAlpha = rab.playAlpha!==undefined?rab.playAlpha:1;
+  if(rab.hidden) drawHideHint(t); else drawRabbit(t);
+  ctx.restore();
   drawThumpFx(dt);
   drawAmbient();
+  if(hazardFlash>0){ ctx.fillStyle=`rgba(255,240,180,${hazardFlash})`; ctx.fillRect(0,0,W,H); hazardFlash=Math.max(0,hazardFlash-dt*1.5); }
   ctx.restore();
 
   pixelate();          // no-op unless the Pixel Art theme is active
@@ -1621,7 +1750,10 @@ function canvasPos(e){
   const cy=(e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY)-r.top;
   return {x:cx,y:cy};
 }
-function onDown(e){pointer.down=true;const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;handlePet(p.x,p.y);}
+function onDown(e){pointer.down=true;const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;
+  if(findRabbit(p.x,p.y)) return;
+  if(tapCord(p.x,p.y)) return;
+  handlePet(p.x,p.y);}
 function onMove(e){const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;if(pointer.down)handlePet(p.x,p.y);}
 function onUp(){pointer.down=false;}
 canvas.addEventListener('mousedown',onDown);
@@ -1678,7 +1810,7 @@ function buildStart(){
   const lion=$('breedLion');
   if(lion){
     if(unlocks.lionhead){ lion.disabled=false; lion.textContent='🦁 Lionhead'; lion.title=''; }
-    else { lion.disabled=true; lion.title='Reach Bond level 10 with a rabbit to unlock'; }
+    else { lion.disabled=true; lion.title='Reach Bond level 5 with a rabbit to unlock'; }
   }
   document.querySelectorAll('#breedSeg button').forEach(b=>{
     b.addEventListener('click',()=>{
@@ -1835,30 +1967,37 @@ function snDraw(){
   snCtx.fillStyle='#5f958c'; snCtx.fillRect(0,0,ww,hh);          // rug-green board
   snCtx.fillStyle='rgba(255,255,255,.05)';
   for(let y=0;y<SN.rows;y++) for(let x=0;x<SN.cols;x++) snCtx.fillRect(x*c+c/2-1,y*c+c/2-1,2,2);
-  // food (hay) — bright disc behind it so the target always reads clearly
+  // food = a little banana slice (cross-section)
   const fx=SN.food.x*c+c/2, fy=SN.food.y*c+c/2;
-  snCtx.fillStyle='#ecc85a';
+  snCtx.fillStyle='#e6bd45';
   snCtx.beginPath(); snCtx.arc(fx, fy, c*0.34, 0, 7); snCtx.fill();
-  snCtx.fillStyle='rgba(255,255,255,.35)';
-  snCtx.beginPath(); snCtx.arc(fx-c*0.1, fy-c*0.1, c*0.12, 0, 7); snCtx.fill();
-  snCtx.font=`${Math.floor(c*0.66)}px system-ui`; snCtx.textAlign='center'; snCtx.textBaseline='middle';
-  snCtx.fillText('🌾', fx, fy+1);
+  snCtx.fillStyle='#f6e08c';
+  snCtx.beginPath(); snCtx.arc(fx, fy, c*0.25, 0, 7); snCtx.fill();
+  snCtx.fillStyle='rgba(120,90,40,.55)';
+  snCtx.beginPath(); snCtx.arc(fx, fy-c*0.07, c*0.032, 0, 7); snCtx.fill();
+  snCtx.beginPath(); snCtx.arc(fx-c*0.07, fy+c*0.05, c*0.032, 0, 7); snCtx.fill();
+  snCtx.beginPath(); snCtx.arc(fx+c*0.07, fy+c*0.05, c*0.032, 0, 7); snCtx.fill();
   // body segments in the rabbit's coat colours
   for(let i=SN.snake.length-1;i>=1;i--){
     const seg=SN.snake[i];
     snCtx.fillStyle = (i%2)? coat.bodySh : coat.body;
     roundRectCtx(snCtx, seg.x*c+2, seg.y*c+2, c-4, c-4, c*0.32); snCtx.fill();
   }
-  // head = a little rabbit face with ears
+  // head = a clear little rabbit (upright ears, round face, eyes, pink nose)
   const h=SN.snake[0], cx=h.x*c+c/2, cy=h.y*c+c/2;
-  snCtx.fillStyle=coat.pointMid;
-  snCtx.beginPath();snCtx.ellipse(cx-c*0.15, cy-c*0.32, c*0.09, c*0.2, 0,0,7);snCtx.fill();
-  snCtx.beginPath();snCtx.ellipse(cx+c*0.15, cy-c*0.32, c*0.09, c*0.2, 0,0,7);snCtx.fill();
   snCtx.fillStyle=coat.body;
-  roundRectCtx(snCtx, h.x*c+1, h.y*c+1, c-2, c-2, c*0.36); snCtx.fill();
+  snCtx.beginPath();snCtx.ellipse(cx-c*0.2, cy-c*0.46, c*0.11, c*0.34, -0.15, 0,7);snCtx.fill();
+  snCtx.beginPath();snCtx.ellipse(cx+c*0.2, cy-c*0.46, c*0.11, c*0.34,  0.15, 0,7);snCtx.fill();
+  snCtx.fillStyle=coat.pointMid;
+  snCtx.beginPath();snCtx.ellipse(cx-c*0.2, cy-c*0.46, c*0.05, c*0.22, -0.15, 0,7);snCtx.fill();
+  snCtx.beginPath();snCtx.ellipse(cx+c*0.2, cy-c*0.46, c*0.05, c*0.22,  0.15, 0,7);snCtx.fill();
+  snCtx.fillStyle=coat.body;
+  snCtx.beginPath();snCtx.arc(cx, cy+c*0.02, c*0.44, 0,7);snCtx.fill();
   snCtx.fillStyle='#140f0b';
-  snCtx.beginPath();snCtx.arc(cx-c*0.16, cy, c*0.085,0,7);snCtx.fill();
-  snCtx.beginPath();snCtx.arc(cx+c*0.16, cy, c*0.085,0,7);snCtx.fill();
+  snCtx.beginPath();snCtx.arc(cx-c*0.17, cy-c*0.02, c*0.08,0,7);snCtx.fill();
+  snCtx.beginPath();snCtx.arc(cx+c*0.17, cy-c*0.02, c*0.08,0,7);snCtx.fill();
+  snCtx.fillStyle='#c86a72';
+  snCtx.beginPath();snCtx.ellipse(cx, cy+c*0.16, c*0.05, c*0.04, 0,0,7);snCtx.fill();
 }
 /* wiring (runs once at load; DOM is ready since the script is at end of <body>) */
 (function wireSnake(){
