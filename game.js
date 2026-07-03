@@ -65,9 +65,9 @@ let coatKey = 'sableGrey';
    Each breed has its own silhouette: lop vs. upright ears, an optional mane,
    and body/head proportions. Lionhead unlocks account-wide at Bond level 10. */
 const BREEDS = {
-  holland:    {name:'Holland Lop',      ears:'lop', mane:false, scale:1.0,  headScale:1.0,               emoji:'🐰', desc:'Floppy lop ears, cobby & chill.'},
-  netherland: {name:'Netherland Dwarf', ears:'up',  mane:false, scale:0.84, headScale:1.16, earLen:0.95, emoji:'🐇', desc:'Tiny body, big head, upright ears.'},
-  lionhead:   {name:'Lionhead',         ears:'up',  mane:true,  scale:0.94, headScale:1.06, earLen:1.2,  emoji:'🦁', desc:'A majestic fluffy mane.', unlock:'bond5'},
+  holland:    {name:'Holland Lop',      ears:'lop', mane:false, scale:1.0,  headScale:1.0,               idealLbs:3.5, emoji:'🐰', desc:'Floppy lop ears, cobby & chill.'},
+  netherland: {name:'Netherland Dwarf', ears:'up',  mane:false, scale:0.84, headScale:1.16, earLen:0.95, idealLbs:2.2, emoji:'🐇', desc:'Tiny body, big head, upright ears.'},
+  lionhead:   {name:'Lionhead',         ears:'up',  mane:true,  scale:0.94, headScale:1.06, earLen:1.2,  idealLbs:3.0, emoji:'🦁', desc:'A majestic fluffy mane.', unlock:'bond5'},
 };
 const BREED_COATS = {
   holland:    ['sableGrey','sableSepia','chestnut','black','blue','fawn'],
@@ -117,6 +117,7 @@ const SHOP = [   // type: feed(instant) · cure(stock) · toy/decor(permanent) �
   {id:'tower',   name:'Climbing Tower',   emoji:'🪜', cost:34, type:'toy',  unlock:3, desc:'A multi-level lookout — enrichment + happiness.'},
   {id:'hutch',   name:'Wooden Hutch',     emoji:'🛖', cost:50, type:'decor',unlock:4, desc:'A rustic hidey-hutch. Décor + a daily happiness boost.'},
   {id:'hammock', name:'Bunny Hammock',    emoji:'🛏️', cost:40, type:'toy',  unlock:6, desc:'Lounge in style — a big daily happiness boost.'},
+  {id:'bed_cloud',name:'Cloud Bed',       emoji:'☁️', cost:30, type:'decor',unlock:2, desc:'Upgrade the basic bed to a plush cloud bed (switch it in the Menu).'},
 ];
 const shopItem = id => SHOP.find(s=>s.id===id);
 
@@ -182,8 +183,8 @@ function resize(){
   world.bed   = {x:W*0.64, y:H*0.91, r:Math.min(92,W*0.135)*bs};
   world.castle= {x:W*0.88, y:H*0.85, r:Math.min(100,W*0.155)*bs};
   world.ball  = {x:W*0.22, y:H*0.905,r:Math.min(27,W*0.042)*bs};
-  world.tower = {x:W*0.73, y:H*0.50, r:Math.min(80,W*0.12)*bs};
-  world.hutch = {x:W*0.06, y:H*0.50, r:Math.min(78,W*0.12)*bs};
+  world.tower = {x:W*0.75, y:H*0.50, r:Math.min(80,W*0.12)*bs};
+  world.hutch = {x:W*0.30, y:H*0.47, r:Math.min(66,W*0.10)*bs};   // back-left, clear of the charger
   world.win   = {x:W*0.5-W*0.11, y:H*0.07, w:W*0.22, h:H*0.30};
   rab.baseY = world.rug.y - 6;
   rab.x = clamp(rab.x||world.rug.x, world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6);
@@ -208,7 +209,8 @@ const rab = {
   trick:null,
   restUntil:0,
   play:null, playAlpha:1, playYOff:0, hidden:false,
-  boxT:0, boxYOff:0, decor:{rug:null}, petReact:0, begUntil:0, maxAngerCount:0,
+  boxT:0, boxYOff:0, decor:{rug:null,bed:null}, petReact:0, begUntil:0,
+  maxAngerCount:0, weightStrikes:0, pelletsToday:0, _obeseT:0, _obeseWarned:false,
   // progression
   bondLevel:1, bondXP:0, carrots:12,
   weight:100, health:100, sick:false, sickAt:0,
@@ -258,6 +260,7 @@ function save(){
       items:rab.items, mastery:rab.mastery, achievements:rab.achievements,
       goals:rab.goals, goalDay:rab.goalDay, goalCounters:rab.goalCounters,
       lifetimePets:rab.lifetimePets, decor:rab.decor,
+      maxAngerCount:rab.maxAngerCount, weightStrikes:rab.weightStrikes, pelletsToday:rab.pelletsToday,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   }catch(e){/* storage unavailable — play unsaved */}
@@ -279,7 +282,8 @@ function applySave(d){
   rab.items=d.items||{}; rab.mastery=d.mastery||{}; rab.achievements=d.achievements||{};
   rab.goals=d.goals||[]; rab.goalDay=d.goalDay||0; rab.goalCounters=d.goalCounters||{};
   rab.lifetimePets=d.lifetimePets||0;
-  rab.decor=d.decor||{rug:null};
+  rab.decor=d.decor||{rug:null,bed:null};
+  rab.maxAngerCount=d.maxAngerCount||0; rab.weightStrikes=d.weightStrikes||0; rab.pelletsToday=d.pelletsToday||0;
   rab.curScale=stageFor(rab.ageDays).scale;
 }
 function wipeSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
@@ -359,7 +363,7 @@ function incGoal(track, n=1){
  * ============================================================================ */
 function parts(){
   const B = BREEDS[rab.breed] || BREEDS.holland;
-  const s = rab.curScale * (B.scale||1) * Math.min(W,H)/560;
+  const s = rab.curScale * (B.scale||1) * Math.min(W,H)/560 * 0.88;   // ~12% smaller so toys fit
   const cx = rab.x;
   const cy = rab.baseY + rab.hopOff + rab.binkyHop + (rab.playYOff||0) + (rab.boxYOff||0);
   const loaf = rab.loaf;
@@ -551,6 +555,15 @@ function drawWaterBowl(){
 }
 function drawBed(){
   const b=world.bed;
+  if(rab.decor && rab.decor.bed==='cloud'){
+    // plush cloud bed (upgraded)
+    ctx.fillStyle='#dfe6f2';
+    for(const o of [[-0.7,0.05,0.5],[0.7,0.05,0.5],[-0.35,-0.18,0.55],[0.35,-0.18,0.55],[0,0.06,0.7]])
+      { ctx.beginPath();ctx.ellipse(b.x+b.r*o[0], b.y+b.r*o[1], b.r*o[2], b.r*o[2]*0.62, 0,0,7); ctx.fill(); }
+    ctx.fillStyle='#b7c6e6'; ctx.beginPath();ctx.ellipse(b.x,b.y+b.r*0.06,b.r*0.66,b.r*0.34,0,0,7);ctx.fill();
+    ctx.fillStyle='#eef3fb'; ctx.beginPath();ctx.ellipse(b.x-b.r*0.18,b.y-b.r*0.02,b.r*0.3,b.r*0.14,0,0,7);ctx.fill();
+    return;
+  }
   ctx.fillStyle='#b5546a'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.fill();
   ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.28;
   ctx.beginPath();ctx.ellipse(b.x,b.y,b.r*0.86,b.r*0.46,0,0,7);ctx.stroke();
@@ -641,12 +654,11 @@ function drawHideHint(t){
 }
 /* --- Phone-charger hazard --- */
 function startHazardEvent(){
-  const cx=Math.max(90, W*0.07);
-  dayEvent={type:'hazard', cord:{x:cx, y:world.floorY+16}, secured:false, chewed:false, nearT:0, nextTemptt:now()+rand(4,8)};
+  dayEvent={type:'hazard', cord:{x:Math.max(80, W*0.13), y:H*0.90}, secured:false, chewed:false, nearT:0, nextTemptt:now()+rand(4,8)};
 }
 function tapCord(px,py){
   if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return false;
-  if(Math.hypot(px-(dayEvent.cord.x+10), py-world.floorY) < 62){
+  if(Math.hypot(px-dayEvent.cord.x, py-dayEvent.cord.y) < 64){
     dayEvent.secured=true;
     addCarrots(6, rab.x, rab.baseY-60); addXP(8); stats.happy=clamp(stats.happy+4);
     toast(`✅ Cord tucked away & rabbit-proofed! ${rab.name} is safe. (+6🥕)`);
@@ -689,22 +701,21 @@ function tickEvent(dt,t){
 }
 function drawHazard(){
   if(!dayEvent || dayEvent.type!=='hazard') return;
-  const c=dayEvent.cord, fy=world.floorY;
-  ctx.fillStyle='#efe9db'; roundRect(c.x-9, fy-28, 18, 20, 3); ctx.fill();          // wall outlet
-  ctx.fillStyle='#9a9384'; ctx.fillRect(c.x-3, fy-24, 2.5,7); ctx.fillRect(c.x+1, fy-24, 2.5,7);
+  const c=dayEvent.cord;
+  // a phone left charging on the floor, cord snaking in from the left edge
   ctx.strokeStyle = dayEvent.secured? '#6f7a5a' : (dayEvent.chewed? '#a8452f' : '#242424');
-  ctx.lineWidth=3; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(c.x, fy-8);
-  if(dayEvent.secured){ ctx.lineTo(c.x, fy+2); ctx.lineTo(c.x+8, fy+2); }             // tucked away
-  else ctx.bezierCurveTo(c.x-6, fy+16, c.x+34, fy+12, c.x+38, fy+22);
+  ctx.lineWidth=3; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(c.x-54, c.y-2);
+  if(dayEvent.secured){ ctx.lineTo(c.x-22, c.y-2); ctx.lineTo(c.x-9, c.y+2); }        // tidied up
+  else ctx.bezierCurveTo(c.x-34, c.y+10, c.x-16, c.y-10, c.x-2, c.y+2);
   ctx.stroke(); ctx.lineCap='butt';
-  if(!dayEvent.secured){
-    ctx.fillStyle='#20242a'; roundRect(c.x+32, fy+16, 13, 22, 3); ctx.fill();          // the phone
-    ctx.fillStyle='#3a6ea5'; roundRect(c.x+34, fy+18, 9, 16, 1); ctx.fill();
-  }
-  if(dayEvent.secured){ ctx.font='15px system-ui'; ctx.fillText('✅', c.x-7, fy+4); }
-  else if(dayEvent.chewed){ ctx.font='15px system-ui'; ctx.fillText('⚡', c.x+2, fy); }
+  ctx.fillStyle='#20242a'; roundRect(c.x-9, c.y-13, 18, 30, 3); ctx.fill();            // phone
+  ctx.fillStyle='#3a6ea5'; roundRect(c.x-7, c.y-11, 14, 24, 1); ctx.fill();
+  ctx.textAlign='center';
+  if(dayEvent.secured){ ctx.font='16px system-ui'; ctx.fillText('✅', c.x, c.y-20); }
+  else if(dayEvent.chewed){ ctx.font='16px system-ui'; ctx.fillText('⚡', c.x, c.y-20); }
   else { const a=0.3+0.35*Math.sin(now()*4); ctx.strokeStyle=`rgba(255,90,60,${a})`; ctx.lineWidth=2.5;
-    ctx.beginPath();ctx.arc(c.x+10, fy, 24, 0,7);ctx.stroke(); }
+    ctx.beginPath();ctx.arc(c.x, c.y, 26, 0,7);ctx.stroke(); }
+  ctx.textAlign='left';
 }
 
 /* ============================================================================ *
@@ -1077,7 +1088,7 @@ function startNight(){ cutscene={type:'night', t:0, dur:5.5}; }
 function endNight(){
   cutscene=null;
   timeOfDay=0.04;
-  rab.day++; rab.ageDays++; rab.bananasToday=0;
+  rab.day++; rab.ageDays++; rab.bananasToday=0; rab.pelletsToday=0;
   $('dayLbl').textContent='Day '+rab.day;
   // overnight: she's starving but rested and refreshed
   stats.hunger=clamp(stats.hunger+52, 55, 100);
@@ -1202,6 +1213,48 @@ function tickHealth(dt){
   addWeight(-0.05*dt);
 }
 
+/* ---- Weight & welfare (internal weight ~100 = ideal; shown in breed lbs) ---- */
+function weightStatus(){
+  const B=BREEDS[rab.breed]||BREEDS.holland, ideal=B.idealLbs;
+  const lbs=+(ideal*(rab.weight/100)).toFixed(1);
+  let band,txt;
+  if(rab.weight>160){ band='obese'; txt='dangerously overweight ⚠️'; }
+  else if(rab.weight>135){ band='over'; txt='a bit overweight'; }
+  else if(rab.weight<72){ band='under'; txt='underweight'; }
+  else { band='ok'; txt='a healthy weight 👌'; }
+  return {ideal, lbs, band, txt};
+}
+function checkWeight(dt){
+  if(rab.weight>160){
+    rab._obeseT += dt;
+    if(rab._obeseT>18 && !rab._obeseWarned){        // sustained obesity → a welfare warning
+      rab._obeseWarned=true; rab._obeseT=0; rab.weightStrikes++;
+      if(rab.weightStrikes>=3){ takenAway('weight'); return; }
+      toast(`🩺 Welfare check — ${rab.name} is obese! Warning ${rab.weightStrikes}/2. More hay, fewer pellets/treats, more Play.`);
+    }
+  } else {
+    rab._obeseT=Math.max(0, rab._obeseT-dt);
+    if(rab.weight<150) rab._obeseWarned=false;       // reset the episode once slimmed down
+  }
+}
+function onMaxAnger(){
+  rab.maxAngerCount++;
+  if(rab.maxAngerCount>=3){ takenAway('anger'); return; }
+  toast(`💢 ${rab.name} is FURIOUS! Rage strike ${rab.maxAngerCount}/2 — 3 and RPS takes ${P().o}! Offer a banana. 🍌`);
+}
+function takenAway(reason){
+  started=false; wipeSave();
+  const o=$('rps');
+  if(reason==='anger'){
+    $('rpsIcon').textContent='🚔'; $('rpsTitle').textContent='Rabbit Protective Services';
+    $('rpsMsg').textContent=`${rab.name} flew into a rage one too many times. A neighbour heard the thumping and called RPS — you've been hauled to bunny jail for repeated neglect. 🚔`;
+  } else {
+    $('rpsIcon').textContent='😔'; $('rpsTitle').textContent="You've been reported";
+    $('rpsMsg').textContent=`The vet has found ${rab.name} obese three times. For ${P().p} welfare, ${P().s} has been taken into care. Feed hay, not endless treats. Shame.`;
+  }
+  o.classList.add('show');
+}
+
 /* ============================================================================ *
  *  ACTIONS
  * ============================================================================ */
@@ -1231,7 +1284,7 @@ function giveHay(){
   stats.hunger=clamp(stats.hunger-40);
   stats.happy=clamp(stats.happy+4);
   rab.thumps=clamp(rab.thumps-0.4,0,5);
-  addWeight(-1.2);                          // hay is the healthy staple
+  addWeight(-1.6);                          // hay is the healthy staple — trims weight
   hayFresh=6; addXP(3); addCarrots(1, rab.x, rab.baseY-70);
   incGoal('hay');
   hopTo(world.litter.x);
@@ -1241,12 +1294,16 @@ function giveHay(){
 function givePellets(){
   if(rab.cold){ coldRefuse(); return; }
   wake();
-  stats.hunger=clamp(stats.hunger-28);
+  stats.hunger=clamp(stats.hunger-26);
   stats.happy=clamp(stats.happy+6);
-  addWeight(3); addXP(2);
+  rab.pelletsToday++;
+  // pellets are a 1–2×/day supplement; a 3rd+ scoop piles on the weight
+  if(rab.pelletsToday<=2){ addWeight(2.5); }
+  else { addWeight(7); toast(`⚠️ That's ${P().p} ${rab.pelletsToday}rd scoop of pellets today — too many! Pellets are 1–2×/day; hay should be the main food.`); }
+  addXP(2);
   hopTo(world.food.x);
   spawnHeart(parts().head.x, parts().head.y);
-  toast(`A scoop of dry pellets. ${cap(P().s)} does a happy nose-dive into the bowl. 🥣`);
+  if(rab.pelletsToday<=2) toast(`A scoop of dry pellets (${rab.pelletsToday}/2 today). ${cap(P().s)} nose-dives into the bowl. 🥣`);
 }
 function giveWater(){
   wake();
@@ -1257,7 +1314,7 @@ function giveWater(){
   toast('Fresh, clean water. 💧');
 }
 function offerBanana(){
-  wake();
+  wake(); rab.begUntil=0;
   const p=parts();
   bananas.push({x:rab.x+rand(-10,10), y:rab.baseY-10, life:3});
   if(rab.cold){
@@ -1308,24 +1365,26 @@ function restRabbit(){
 function playToy(){
   if(rab.cold){ coldRefuse(); return; }
   if(rab.play) return;                       // already playing
-  if(!owns('ball') && !owns('tunnel')){ toast('Buy a toy from the Shop 🛒 first, then Play!'); return; }
+  if(!(owns('ball')||owns('tunnel')||owns('tower'))){ toast('Buy a toy from the Shop 🛒 first, then Play!'); return; }
   if(stats.energy<12){ toast(`${rab.name} is too tired to play — try Rest 😴.`); return; }
   wake();
   startPlay();
-  const big = rab.play.type==='tunnel';
+  const type = rab.play.type, big = type!=='ball';
   stats.happy=clamp(stats.happy + (big?20:15));
-  stats.energy=clamp(stats.energy - (big?7:9));
-  addWeight(-1.6); rab.thumps=clamp(rab.thumps-0.5,0,5);
+  stats.energy=clamp(stats.energy - (big?8:9));
+  addWeight(-1.8); rab.thumps=clamp(rab.thumps-0.5,0,5);
   addXP(5); addCarrots(2, rab.x, rab.baseY-70); incGoal('play');
-  toast(big ? `Tunnel zoomies! ${cap(P().s)} bolts through the tube. 🕳️`
-            : `${cap(P().s)} bats the treat ball around the rug. 🧸`);
+  toast(type==='tunnel' ? `Tunnel zoomies! ${cap(P().s)} bolts through the tube. 🕳️`
+      : type==='tower'  ? `${cap(P().s)} scrambles up the climbing tower to survey ${P().p} kingdom! 🪜`
+      : `${cap(P().s)} bats the treat ball around the rug. 🧸`);
 }
 
 /* --- Toy-play animation: she actually chases the ball / runs the tunnel --- */
 function startPlay(){
-  const canBall=owns('ball'), canTun=owns('tunnel');
-  const type = (canBall&&canTun) ? (Math.random()<0.5?'ball':'tunnel') : (canTun?'tunnel':'ball');
-  rab.play = {type, t:0, dur:type==='ball'?4.2:3.8, binked:false};
+  const toys=['ball','tunnel','tower'].filter(owns);
+  const type = toys.length? pick(toys) : 'ball';
+  const dur = type==='ball'?4.2 : type==='tunnel'?3.8 : 4.0;
+  rab.play = {type, t:0, dur, binked:false};
   rab.trick=null; rab.binkyT=0; rab.hopping=false; rab.restUntil=0; rab.groomUntil=0;
   if(type==='ball') ballAnim={x:world.ball.x, y:world.ball.y};
 }
@@ -1350,7 +1409,7 @@ function updatePlay(dt){
     rab.lookX=Math.sign(bx-rab.x);
     if(Math.random()<dt*3) spawnSparkle(bx,by);
     if(k>=1) endPlay();
-  } else {
+  } else if(pl.type==='tunnel'){
     // she darts up to the tunnel, ducks in one end and pops out the other
     const tb=world.tube;
     const leftX=tb.x-tb.w*0.30, rightX=tb.x+tb.w*0.30;
@@ -1367,6 +1426,15 @@ function updatePlay(dt){
     if(k>=0.46&&k<0.64 && Math.random()<dt*4) spawnSparkle(k<0.55?leftX:rightX, tb.y);
     if(k>=0.66 && !pl.binked){ pl.binked=true; startBinky(); }   // triumphant pop-out
     if(k>=1) endPlay();
+  } else if(pl.type==='tower'){
+    // she scrambles up the climbing tower, surveys her kingdom, then hops back down
+    const tw=world.tower;
+    rab.x=lerp(rab.x, tw.x, Math.min(1,dt*5));
+    const topOff=(tw.y - tw.r*0.95) - rab.baseY;
+    rab.playYOff=lerp(rab.playYOff||0, (k<0.30?0 : k<0.82? topOff : 0), Math.min(1,dt*4));
+    rab.hopOff = (k<0.30||k>=0.82) ? -Math.abs(Math.sin(pl.t*8))*12*sc : -Math.abs(Math.sin(pl.t*5))*5*sc;
+    if(k>=0.5 && k<0.82 && !pl.binked){ pl.binked=true; startBinky(); }
+    if(k>=1) endPlay();
   }
 }
 function callVet(){
@@ -1381,8 +1449,8 @@ function callVet(){
   // wellness checkup
   if(spendCarrots(10)){
     rab.health=clamp(rab.health+20); stats.happy=clamp(stats.happy+4);
-    const w = rab.weight>140?'a touch overweight':rab.weight<75?'a little underweight':'a perfect weight';
-    toast(`🩺 Checkup done (−10🥕): health up, and ${P().s} is ${w}.`);
+    const ws=weightStatus();
+    toast(`🩺 Checkup (−10🥕): ideal for a ${BREEDS[rab.breed].name} is ~${ws.ideal} lb. ${cap(P().s)} is ${ws.lbs} lb — ${ws.txt}.`);
   } else {
     toast(`A checkup is 10🥕 — you have ${rab.carrots}. Earn more by caring for ${P().o}.`);
   }
@@ -1459,7 +1527,7 @@ let wasAbove3=false;
 function checkThreshold(){
   if(rab.thumps>=3 && !wasAbove3){ wasAbove3=true; triggerThump(); }
   if(rab.thumps<2.6) wasAbove3=false;
-  if(rab.thumps>=5){ rab.cold=true; }
+  if(rab.thumps>=5 && !rab.cold){ rab.cold=true; onMaxAnger(); }   // maxed anger → a rage strike
 }
 
 /* ---------------- Idle brain ---------------- */
@@ -1578,18 +1646,20 @@ function frame(){
   $('clockLbl').textContent =
     timeOfDay<0.15?'🌅': timeOfDay<0.45?'☀️': timeOfDay<0.75?'🌤️': timeOfDay<0.9?'🌇':'🌆';
 
-  /* stat decay (stage-scaled hunger + energy) */
-  const sickMul = rab.sick? 1.4 : 1;
+  /* stat decay (stage-scaled hunger + energy; sick & max-anger drain faster) */
+  const sickMul = (rab.sick? 1.4 : 1) * (rab.cold? 1.5 : 1);   // a furious bun neglects itself
   stats.hunger=clamp(stats.hunger + stage.hunger*sickMul*dt);
   stats.hygiene=clamp(stats.hygiene - 0.72*sickMul*dt);
   stats.water=clamp(stats.water - 0.62*sickMul*dt);
-  const happyDecay = 0.6 * (owns('castle')?0.82:1) * ((owns('ball')||owns('tunnel'))?0.88:1);
+  const happyDecay = 0.6 * (owns('castle')||owns('hutch')?0.82:1) * ((owns('ball')||owns('tunnel')||owns('tower'))?0.88:1);
   stats.happy=clamp(stats.happy - happyDecay*dt);
   if(rab.state==='rest'){ stats.energy=clamp(stats.energy + 11*dt); }
   else { stats.energy=clamp(stats.energy - stage.energy*0.5*dt); }
   if(hayFresh>0) hayFresh-=dt;
 
   tickHealth(dt);
+  checkWeight(dt);
+  if(!started) return;   // taken away → stop updating behind the game-over overlay
 
   let pressure=0;
   if(stats.hunger>70) pressure++;
@@ -1660,6 +1730,7 @@ function frame(){
   drawThumpFx(dt);
   drawBegBubble();
   drawAmbient();
+  if(rab.cold){ const a=0.13+0.08*Math.sin(now()*5); ctx.fillStyle=`rgba(205,35,25,${a})`; ctx.fillRect(0,0,W,H); }  // furious red aura
   if(hazardFlash>0){ ctx.fillStyle=`rgba(255,240,180,${hazardFlash})`; ctx.fillRect(-40,-40,W+80,H+80); hazardFlash=Math.max(0,hazardFlash-dt*1.5); }
   ctx.restore();
 
@@ -1770,9 +1841,11 @@ function buy(id){
   if(!spendCarrots(it.cost)){ toast(`Not enough carrots — need ${it.cost}🥕, have ${rab.carrots}.`); return; }
   if(it.type==='feed'){
     if(id==='greens'){ stats.hunger=clamp(stats.hunger-30); stats.water=clamp(stats.water+18);
-      rab.health=clamp(rab.health+8); addWeight(-2); }
-    else if(id==='oxbow'){ stats.hunger=clamp(stats.hunger-40); addWeight(1.5); rab.health=clamp(rab.health+3); }
-    else if(id==='chews'){ stats.hunger=clamp(stats.hunger-8); stats.happy=clamp(stats.happy+10); rab.thumps=clamp(rab.thumps-0.3,0,5); }
+      rab.health=clamp(rab.health+8); addWeight(-2.5); }                              // second-best to hay
+    else if(id==='oxbow'){ stats.hunger=clamp(stats.hunger-40); rab.health=clamp(rab.health+3);
+      rab.pelletsToday++; addWeight(rab.pelletsToday<=2?2:6); }                        // premium pellets count too
+    else if(id==='chews'){ stats.hunger=clamp(stats.hunger-8); stats.happy=clamp(stats.happy+10);
+      stats.energy=clamp(stats.energy+6); addWeight(1.5); rab.thumps=clamp(rab.thumps-0.3,0,5); }   // treat
     stats.happy=clamp(stats.happy+6); spawnHeart(parts().head.x,parts().head.y);
     toast(`Yum! ${it.name} served. 😋`);
   } else if(it.type==='cure'){
@@ -1780,7 +1853,8 @@ function buy(id){
     toast(`Bought ${it.name}. The Vet will use it free when needed. 💊`);
   } else {
     rab.items[id]=1;
-    if(id==='rug_rose') rab.decor.rug='rose';        // room customization
+    if(id==='rug_rose') rab.decor.rug='rose';         // room customization
+    if(id==='bed_cloud') rab.decor.bed='cloud';       // upgraded bed
     toast(`Bought ${it.name}! ${it.emoji}`);
     if(it.type==='toy'||it.type==='decor'){
       const toys=['ball','tunnel','castle','tower','hutch','hammock'].filter(owns).length;
@@ -1828,10 +1902,14 @@ function renderMenu(){
       <div>Weight: ${Math.round(rab.weight)} · ${weightTxt}</div>
       <div>Carrots: ${rab.carrots}🥕 · Achievements: ${achDone}/${achTotal} 🏆</div>
     </div>
-    <div class="mhdr">Room decor · Rug</div>
+    <div class="mhdr">Room decor</div>
     <div class="mbtns">
       <button id="rugTeal" class="mbtn${!(rab.decor&&rab.decor.rug==='rose')?' on':''}">Teal Rug</button>
       <button id="rugRose" class="mbtn${(rab.decor&&rab.decor.rug==='rose')?' on':''}" ${owns('rug_rose')?'':'disabled'}>Rose Rug${owns('rug_rose')?'':' 🔒'}</button>
+    </div>
+    <div class="mbtns">
+      <button id="bedBasic" class="mbtn${!(rab.decor&&rab.decor.bed==='cloud')?' on':''}">Basic Bed</button>
+      <button id="bedCloud" class="mbtn${(rab.decor&&rab.decor.bed==='cloud')?' on':''}" ${owns('bed_cloud')?'':'disabled'}>Cloud Bed${owns('bed_cloud')?'':' 🔒'}</button>
     </div>
     <div class="mhdr">Trick mastery</div>${masteryList}
     <div class="mbtns">
@@ -1841,6 +1919,8 @@ function renderMenu(){
     <div class="mtip">Tip: hay keeps weight healthy; bananas are treats (max 2/day). Neglect risks GI&nbsp;stasis — keep the Vet 🩺 and Gut Medicine 💊 in mind.</div>`;
   $('rugTeal').onclick=()=>{ rab.decor.rug=null; save(); renderMenu(); };
   $('rugRose').onclick=()=>{ if(owns('rug_rose')){ rab.decor.rug='rose'; save(); renderMenu(); } };
+  $('bedBasic').onclick=()=>{ rab.decor.bed=null; save(); renderMenu(); };
+  $('bedCloud').onclick=()=>{ if(owns('bed_cloud')){ rab.decor.bed='cloud'; save(); renderMenu(); } };
   $('mSave').onclick=()=>{ save(); toast('Game saved. 💾'); };
   $('mReset').onclick=()=>{
     if(confirm('Rehome your rabbit and start over? This erases your save.')){
@@ -2142,7 +2222,7 @@ function snDraw(){
 const GS = { on:false, secret:0, max:10, guesses:0, done:false };
 function openGuess(){
   if(rab.cold){ coldRefuse(); return; }
-  GS.max = Math.min(25, 10 + Math.round(rab.thumps*3));    // angrier → wider range
+  GS.max = Math.min(100, 10 + 20*Math.round(rab.thumps));  // calm 1–10 … furious 1–100
   GS.secret = 1 + Math.floor(Math.random()*GS.max);
   GS.guesses = 0; GS.done = false; GS.on = true;
   minigameActive = true;
@@ -2158,14 +2238,16 @@ function renderGuessLives(){
   for(let i=0;i<5;i++) el.appendChild(Object.assign(document.createElement('span'),{textContent:i<(5-GS.guesses)?'🐾':'✖'}));
 }
 function renderGuessPad(){
-  const pad=$('gPad'); pad.innerHTML='';
-  for(let n=1;n<=GS.max;n++){
-    const b=document.createElement('button'); b.textContent=n; b.onclick=()=>guessNum(n,b); pad.appendChild(b);
-  }
+  const pad=$('gPad'); pad.innerHTML=''; pad.className='ginput';
+  const inp=document.createElement('input'); inp.type='number'; inp.min=1; inp.max=GS.max;
+  inp.id='gInput'; inp.placeholder=`1–${GS.max}`; inp.inputMode='numeric';
+  const btn=document.createElement('button'); btn.textContent='Guess'; btn.className='gbtn';
+  const go=()=>{ const v=parseInt(inp.value); if(v>=1 && v<=GS.max){ inp.value=''; inp.focus(); guessNum(v); } };
+  btn.onclick=go; inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+  pad.appendChild(inp); pad.appendChild(btn); setTimeout(()=>inp.focus(),50);
 }
-function guessNum(n,btn){
+function guessNum(n){
   if(GS.done) return;
-  if(btn) btn.disabled=true;
   GS.guesses++;
   if(n===GS.secret){ guessWin(); return; }
   $('gHint').textContent = n<GS.secret ? `⬆️  Higher than ${n}…` : `⬇️  Lower than ${n}…`;
@@ -2189,6 +2271,7 @@ function guessLose(){
 }
 bind('bGuess', openGuess);
 bind('guessClose', closeGuess);
+bind('rpsBtn', ()=>location.reload());
 
 /* ---------------- Boot ---------------- */
 try{ applyTheme(localStorage.getItem(THEME_KEY) || 'cozy'); }catch(e){ applyTheme('cozy'); }

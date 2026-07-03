@@ -360,3 +360,23 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 .gmsg{display:none;text-align:center;}
 .gmsg.show{display:block;}
 .gmsg h3{margin:6px 0 8px;font-size:18px;color:#ffd98a;}
+
+/* guess input (replaces the number pad for large ranges) */
+.ginput{display:flex !important;grid-template-columns:none !important;gap:8px;width:100%;max-width:300px;}
+.ginput input{flex:1;min-width:0;padding:11px 12px;border-radius:10px;border:2px solid #5a4636;
+  background:#161022;color:#fff;font-size:18px;font-weight:800;text-align:center;outline:none;font-family:inherit;}
+.ginput input:focus{border-color:var(--accent);}
+.ginput .gbtn{appearance:none;border:none;cursor:pointer;font-weight:800;font-size:15px;color:#231810;
+  padding:0 18px;border-radius:10px;background:linear-gradient(180deg,#fbe9c4,#e6c078);box-shadow:0 2px 0 #a9803e;}
+
+/* full-screen "taken away" game-over overlay */
+#rps{position:absolute;inset:0;z-index:22;display:none;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:26px;background:radial-gradient(120% 120% at 50% 20%,#3a1420,#140a10 70%);}
+#rps.show{display:flex;}
+#rps .rpsicon{font-size:64px;line-height:1;margin-bottom:6px;}
+#rps h2{margin:6px 0;font-size:24px;color:#ff9a8a;letter-spacing:1px;}
+#rps p{margin:6px 0 4px;font-size:15px;max-width:420px;line-height:1.5;opacity:.9;}
+#rps button{margin-top:20px;padding:13px 22px;border:none;border-radius:13px;cursor:pointer;font-size:16px;
+  font-weight:800;color:#231810;background:linear-gradient(180deg,#ffd9a0,#f0a94e);box-shadow:0 4px 0 #a9803e;}
+.mbtn.on{outline:2px solid var(--accent);outline-offset:-2px;}
+.mbtn:disabled{opacity:.5;cursor:not-allowed;}
