@@ -1,5 +1,7 @@
 # Thumpagotchi 🐰
 
+[![Play the live demo](https://img.shields.io/badge/▶%20Play-Live%20Demo-6fbf73?style=for-the-badge&logo=github)](https://jordanclermont.github.io/thumpagotchi/)
+
 Owning a house rabbit, simulated — because rabbits don't get *sad*, they get
 **angry**, and they say it with their feet. Two versions:
 
