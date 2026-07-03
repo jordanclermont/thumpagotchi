@@ -44,9 +44,41 @@ const COATS = {
   black:      {name:'Black',               body:'#413a34', bodySh:'#2b2622', hi:'#5f564d', point:'#171412', pointMid:'#342e29', sable:false},
   blue:       {name:'Blue (Grey)',         body:'#909196', bodySh:'#727379', hi:'#bcbdc3', point:'#4d4e53', pointMid:'#6b6c71', sable:false},
   fawn:       {name:'Fawn / Orange',       body:'#e2ab61', bodySh:'#c98f47', hi:'#f4cb88', point:'#c07f3d', pointMid:'#dba25a', sable:false},
+  // ---- Netherland Dwarf coats ----
+  ndBlackTan: {name:'Black & Tan (Elvis)', body:'#2c2825', bodySh:'#1a1613', hi:'#463d36', point:'#100d0b', pointMid:'#2b2622', sable:false, tan:true, tanCol:'#c68a3e'},
+  ndBlueOtter:{name:'Blue Otter',          body:'#8f9096', bodySh:'#6f7076', hi:'#b6b7bd', point:'#4a4b50', pointMid:'#67686d', sable:false, tan:true, tanCol:'#ddd2be'},
+  ndChestnut: {name:'Chestnut Agouti',     body:'#9a6b3c', bodySh:'#79512b', hi:'#c08c52', point:'#4a2f18', pointMid:'#6b4526', sable:false},
+  ndTort:     {name:'Tortoise',            body:'#cd925a', bodySh:'#a06f3d', hi:'#e6ad72', point:'#3c2416', pointMid:'#6e4526', sable:false},
+  // ---- Lionhead coats ----
+  lhTort:     {name:'Tortoise',            body:'#d79a5e', bodySh:'#b57a40', hi:'#eeb87b', point:'#3a2417', pointMid:'#6b4327', sable:false},
+  lhREW:      {name:'Ruby-Eyed White',     body:'#f4f0e4', bodySh:'#ddd6c4', hi:'#ffffff', point:'#cfc6b2', pointMid:'#e4dccb', sable:false, eye:'#c0303a'},
+  lhBlack:    {name:'Black',               body:'#413a34', bodySh:'#2b2622', hi:'#5f564d', point:'#171412', pointMid:'#342e29', sable:false},
+  lhChestnut: {name:'Chestnut',            body:'#b47c44', bodySh:'#8f5f30', hi:'#d6a066', point:'#5a3a20', pointMid:'#7a4f2c', sable:false},
 };
 let coat = COATS.sableGrey;
 let coatKey = 'sableGrey';
+
+/* ---------------- Breeds ----------------
+   Each breed has its own silhouette: lop vs. upright ears, an optional mane,
+   and body/head proportions. Lionhead unlocks account-wide at Bond level 10. */
+const BREEDS = {
+  holland:    {name:'Holland Lop',      ears:'lop', mane:false, scale:1.0,  headScale:1.0,               emoji:'🐰', desc:'Floppy lop ears, cobby & chill.'},
+  netherland: {name:'Netherland Dwarf', ears:'up',  mane:false, scale:0.84, headScale:1.16, earLen:0.95, emoji:'🐇', desc:'Tiny body, big head, upright ears.'},
+  lionhead:   {name:'Lionhead',         ears:'up',  mane:true,  scale:0.94, headScale:1.06, earLen:1.2,  emoji:'🦁', desc:'A majestic fluffy mane.', unlock:'bond10'},
+};
+const BREED_COATS = {
+  holland:    ['sableGrey','sableSepia','chestnut','black','blue','fawn'],
+  netherland: ['ndBlackTan','ndBlueOtter','ndChestnut','ndTort'],
+  lionhead:   ['lhTort','lhREW','lhBlack','lhChestnut'],
+};
+const BREED_DEFAULT_COAT = { holland:'sableGrey', netherland:'ndBlackTan', lionhead:'lhTort' };
+
+/* Account-wide unlocks (persist across pets, e.g. the Lionhead breed) */
+const UNLOCK_KEY = 'thumpagotchi.unlocks';
+let unlocks = {};
+function loadUnlocks(){ try{ unlocks = JSON.parse(localStorage.getItem(UNLOCK_KEY)) || {}; }catch(e){ unlocks = {}; } }
+function saveUnlocks(){ try{ localStorage.setItem(UNLOCK_KEY, JSON.stringify(unlocks)); }catch(e){} }
+function unlockBreed(id){ if(!unlocks[id]){ unlocks[id]=true; saveUnlocks(); return true; } return false; }
 
 /* ============================================================================ *
  *  CONTENT DATA  (progression / economy definitions)
@@ -143,7 +175,7 @@ window.addEventListener('resize', resize);
  * ============================================================================ */
 const stats = { happy:80, hunger:30, water:85, hygiene:90, energy:75 };
 const rab = {
-  name:'Mowgli', sex:'doe',
+  name:'Mowgli', sex:'doe', breed:'holland',
   x:0, baseY:0, hopOff:0, binkyHop:0, curScale:0.74,
   thumps:0, cold:false,
   bananasToday:0, day:1, ageDays:0,
@@ -194,7 +226,7 @@ function save(){
   if(!started) return;
   try{
     const data = {
-      v:2, name:rab.name, sex:rab.sex, coatKey,
+      v:2, name:rab.name, sex:rab.sex, breed:rab.breed, coatKey,
       stats:{...stats},
       thumps:rab.thumps, cold:rab.cold, bananasToday:rab.bananasToday,
       day:rab.day, ageDays:rab.ageDays, timeOfDay,
@@ -212,7 +244,9 @@ function loadRaw(){
 }
 function applySave(d){
   rab.name=d.name||'Mowgli'; rab.sex=d.sex||'doe';
-  coatKey=d.coatKey&&COATS[d.coatKey]?d.coatKey:'sableGrey'; coat=COATS[coatKey];
+  rab.breed = d.breed && BREEDS[d.breed] ? d.breed : 'holland';
+  coatKey = d.coatKey && COATS[d.coatKey] ? d.coatKey : (BREED_DEFAULT_COAT[rab.breed]||'sableGrey');
+  coat = COATS[coatKey];
   Object.assign(stats, d.stats||{});
   if(stats.energy===undefined) stats.energy=70;
   rab.thumps=d.thumps||0; rab.cold=!!d.cold; rab.bananasToday=d.bananasToday||0;
@@ -250,7 +284,9 @@ function onLevelUp(){
   else msg += `${cap(P().s)} trusts you a little more.`;
   toast(msg);
   if(lv>=5) unlockAch('bond5');
-  if(lv>=10) unlockAch('bond10');
+  if(lv>=10){ unlockAch('bond10');
+    if(unlockBreed('lionhead')) toast('🦁 Lionhead breed UNLOCKED! Adopt one on your next pet.');
+  }
 }
 function addCarrots(n, x, y){
   rab.carrots += n;
@@ -298,13 +334,14 @@ function incGoal(track, n=1){
  *  Rabbit geometry
  * ============================================================================ */
 function parts(){
-  const s = rab.curScale * Math.min(W,H)/560;
+  const B = BREEDS[rab.breed] || BREEDS.holland;
+  const s = rab.curScale * (B.scale||1) * Math.min(W,H)/560;
   const cx = rab.x;
   const cy = rab.baseY + rab.hopOff + rab.binkyHop + (rab.playYOff||0);
   const loaf = rab.loaf;
   const bodyRx = 96*s*(1+0.06*loaf), bodyRy = 74*s*(1-0.10*loaf);
   const bodyCy = cy - bodyRy*0.82;
-  const headR  = 52*s;
+  const headR  = 52*s*(B.headScale||1);
   const beg = rab.trick && rab.trick.name==='beg';
   const alert = rab.state==='alert';
   const headCx = cx + (alert? 6*s:0);
@@ -555,6 +592,12 @@ function drawRabbit(t){
   ctx.fillStyle='rgba(255,255,255,.26)';
   ctx.beginPath();ctx.ellipse(p.body.x-p.body.rx*0.18,p.body.y-p.body.ry*0.25,p.body.rx*0.5,p.body.ry*0.4,0,0,7);ctx.fill();
 
+  // Black & tan: warm tan bib on the lower chest
+  if(coat.tan){
+    ctx.fillStyle=coat.tanCol;
+    ctx.beginPath();ctx.ellipse(p.body.x, p.body.y+p.body.ry*0.52, p.body.rx*0.52, p.body.ry*0.44, 0,0,7);ctx.fill();
+  }
+
   if(rab.sick){
     ctx.fillStyle='rgba(120,180,90,.18)';
     ctx.beginPath();ctx.ellipse(p.body.x,p.body.y,p.body.rx,p.body.ry,0,0,7);ctx.fill();
@@ -596,13 +639,18 @@ function roundedPaw(x,y,r){
 }
 
 function drawHead(p,t,tummy,closedEyes){
+  const B = BREEDS[rab.breed] || BREEDS.holland;
   const hx=p.head.x, hy=p.head.y, r=p.head.r, s=p.s;
   const look = rab.state==='alert' ? {x:rab.lookX*8*s, y:rab.lookY*5*s} : {x:0,y:0};
   const droop = rab.sick? 8*s : 0;   // sick/tired → ears hang lower
+  const eyeCol = coat.eye || '#140f0b';
 
-  drawLopEar(hx, hy+droop, r, s, -1, t);
-  drawLopEar(hx, hy+droop, r, s,  1, t);
+  // Mane (Lionhead) — fluffy ring drawn BEHIND the head
+  if(B.mane) drawMane(hx,hy,r,'back');
+  // Upright ears (Netherland / Lionhead) — drawn BEHIND the head, rising above it
+  if(B.ears==='up'){ drawUprightEar(hx,hy,r,s,-1,t,B); drawUprightEar(hx,hy,r,s,1,t,B); }
 
+  // Head base + cheeks
   const hg=ctx.createRadialGradient(hx-r*0.3+look.x,hy-r*0.35,r*0.2,hx+look.x,hy,r*1.1);
   hg.addColorStop(0,coat.hi);hg.addColorStop(0.6,coat.body);hg.addColorStop(1,coat.bodySh);
   ctx.fillStyle=hg;
@@ -619,9 +667,24 @@ function drawHead(p,t,tummy,closedEyes){
     ctx.fillStyle=mg;
     ctx.beginPath();ctx.ellipse(nmx,nmy,r*0.6,r*0.64,0,0,7);ctx.fill();
   }
+  // Black & tan markings (muzzle, jaw, eye-rings)
+  if(coat.tan){
+    ctx.fillStyle=coat.tanCol;
+    ctx.beginPath();ctx.ellipse(nmx, hy+r*0.52, r*0.32, r*0.26, 0,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(hx-r*0.62, hy+r*0.32, r*0.2,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(hx+r*0.62, hy+r*0.32, r*0.2,0,7);ctx.fill();
+    ctx.strokeStyle=coat.tanCol; ctx.lineWidth=3.2*s;
+    ctx.beginPath();ctx.arc(hx-r*0.46+look.x*0.6, hy-r*0.02, r*0.19, 0,7);ctx.stroke();
+    ctx.beginPath();ctx.arc(hx+r*0.46+look.x*0.6, hy-r*0.02, r*0.19, 0,7);ctx.stroke();
+  }
+
+  // Lop ears IN FRONT (Holland) — layered over the cheeks so they read clearly
+  if(B.ears==='lop'){ drawLopEar(hx, hy+droop, r, s, -1, t); drawLopEar(hx, hy+droop, r, s, 1, t); }
+  // Mane front tufts (Lionhead) — chin/neck fluff over the lower face
+  if(B.mane) drawMane(hx,hy,r,'front');
 
   const eyeY=hy-r*0.02, eyeDX=r*0.46;
-  ctx.strokeStyle=coat.point; ctx.fillStyle='#140f0b'; ctx.lineWidth=3*s;
+  ctx.lineWidth=3*s;
   for(const dir of [-1,1]){
     const ex=hx+dir*eyeDX+look.x*0.6, ey=eyeY+look.y*0.6;
     if(tummy){
@@ -632,10 +695,10 @@ function drawHead(p,t,tummy,closedEyes){
       ctx.strokeStyle='#140f0b';
       ctx.beginPath();ctx.arc(ex,ey,6*s,0.15*Math.PI,0.85*Math.PI);ctx.stroke();
     } else {
+      ctx.fillStyle=eyeCol;
       ctx.beginPath();ctx.ellipse(ex,ey,6.5*s,7.5*s,0,0,7);ctx.fill();
       ctx.fillStyle='rgba(255,255,255,.85)';
       ctx.beginPath();ctx.arc(ex-2*s,ey-3*s,2.2*s,0,7);ctx.fill();
-      ctx.fillStyle='#140f0b';
     }
   }
 
@@ -691,6 +754,41 @@ function drawLopEar(hx,hy,r,s,dir,t){
   ctx.quadraticCurveTo(hx+dir*r*1.05,baseY+r*0.25,tipX-dir*r*0.02,tipY-r*0.2);
   ctx.quadraticCurveTo(hx+dir*r*0.6,baseY+r*0.6,hx+dir*r*0.55,baseY+r*0.2);
   ctx.closePath();ctx.fill();
+}
+
+/* Upright ear (Netherland Dwarf / Lionhead) — a tall rounded ear that splays
+   slightly outward, with a soft inner ear (tan on black-&-tan coats). */
+function drawUprightEar(hx,hy,r,s,dir,t,B){
+  const alert = rab.state==='alert';
+  const sway = Math.sin(t*1.5 + dir)*0.05 + (alert? -0.06 : 0);
+  const baseX = hx + dir*r*0.42, baseY = hy - r*0.42;
+  const len = r*(B.earLen||1.15);
+  ctx.save();
+  ctx.translate(baseX, baseY);
+  ctx.rotate(dir*(0.18 + sway));
+  const g=ctx.createLinearGradient(0,0,0,-len);
+  g.addColorStop(0,coat.body); g.addColorStop(1,coat.pointMid);
+  ctx.fillStyle=g;
+  ctx.beginPath(); ctx.ellipse(0,-len*0.5, r*0.21, len*0.5, 0,0,7); ctx.fill();
+  ctx.fillStyle = coat.tan ? coat.tanCol : 'rgba(228,158,158,.85)';   // inner ear
+  ctx.beginPath(); ctx.ellipse(0,-len*0.48, r*0.1, len*0.38, 0,0,7); ctx.fill();
+  ctx.restore();
+}
+
+/* Lion's mane — a fluffy ring of fur tufts. 'back' draws the full halo behind
+   the head; 'front' adds chin/neck fluff over the lower face. */
+function drawMane(hx,hy,r,layer){
+  const rr=r*1.16, n=22;
+  for(let i=0;i<n;i++){
+    const a=i/n*Math.PI*2;
+    if(layer==='front' && Math.sin(a) < 0.35) continue;   // front → lower arc only
+    const wob = 0.8 + 0.36*Math.sin(i*1.9 + a*3);
+    const mx=hx+Math.cos(a)*rr, my=hy+Math.sin(a)*rr*0.96;
+    ctx.fillStyle = coat.body;
+    ctx.beginPath(); ctx.arc(mx,my, r*0.27*wob, 0,7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    ctx.beginPath(); ctx.arc(mx-r*0.05,my-r*0.05, r*0.13*wob, 0,7); ctx.fill();
+  }
 }
 
 function drawRabbitBack(p,t){
@@ -1551,13 +1649,15 @@ window.addEventListener('beforeunload',save);
 /* ============================================================================ *
  *  START / ADOPTION SCREEN
  * ============================================================================ */
-let chosenCoat='sableGrey', chosenSex='doe';
-function buildStart(){
-  const sw=$('swatches');
-  Object.keys(COATS).forEach(key=>{
+let chosenCoat='sableGrey', chosenSex='doe', chosenBreed='holland';
+function renderSwatches(breed){
+  const sw=$('swatches'); sw.innerHTML='';
+  const keys = BREED_COATS[breed] || BREED_COATS.holland;
+  chosenCoat = BREED_DEFAULT_COAT[breed] || keys[0];
+  keys.forEach(key=>{
     const co=COATS[key];
     const d=document.createElement('div');
-    d.className='swatch'+(key==='sableGrey'?' on':'');
+    d.className='swatch'+(key===chosenCoat?' on':'');
     d.style.background=`radial-gradient(circle at 35% 30%, ${co.hi}, ${co.body} 55%, ${co.point})`;
     d.title=co.name; d.dataset.key=key;
     d.addEventListener('click',()=>{
@@ -1568,6 +1668,26 @@ function buildStart(){
     });
     sw.appendChild(d);
   });
+  $('coatName').textContent = COATS[chosenCoat].name;
+}
+function buildStart(){
+  // ---- Breed selector (Lionhead gated behind the account-wide unlock) ----
+  const lion=$('breedLion');
+  if(lion){
+    if(unlocks.lionhead){ lion.disabled=false; lion.textContent='🦁 Lionhead'; lion.title=''; }
+    else { lion.disabled=true; lion.title='Reach Bond level 10 with a rabbit to unlock'; }
+  }
+  document.querySelectorAll('#breedSeg button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      if(b.disabled) return;
+      chosenBreed=b.dataset.breed;
+      document.querySelectorAll('#breedSeg button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      renderSwatches(chosenBreed);
+    });
+  });
+  renderSwatches(chosenBreed);
+
   document.querySelectorAll('#sexSeg button').forEach(b=>{
     b.addEventListener('click',()=>{
       chosenSex=b.dataset.sex;
@@ -1605,7 +1725,8 @@ function startGame(fromSave, saved){
     toast(`Welcome back! ${rab.name} missed you. 🐰`);
     return;
   }
-  coat = COATS[chosenCoat] || COATS.sableGrey; coatKey=chosenCoat;
+  rab.breed = BREEDS[chosenBreed] ? chosenBreed : 'holland';
+  coat = COATS[chosenCoat] || COATS[BREED_DEFAULT_COAT[rab.breed]] || COATS.sableGrey; coatKey=chosenCoat;
   rab.sex = chosenSex;
   const nm=($('nameInput').value||'').trim();
   rab.name = nm || pick(['Mowgli','Nutmeg','Clover','Waffles','Mochi','Pip','Biscuit','Bramble','Poppy']);
@@ -1622,6 +1743,7 @@ function startGame(fromSave, saved){
 
 /* ---------------- Boot ---------------- */
 try{ applyTheme(localStorage.getItem(THEME_KEY) || 'cozy'); }catch(e){ applyTheme('cozy'); }
+loadUnlocks();
 buildStart();
 resize();
 

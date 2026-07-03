@@ -173,6 +173,9 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 .seg button{flex:1;padding:10px;border-radius:11px;border:1px solid rgba(255,255,255,.15);
   background:rgba(255,255,255,.05);color:#f4ecd8;font-size:15px;cursor:pointer;transition:.15s;}
 .seg button.on{background:linear-gradient(180deg,#fbe9c4,#e6c078);color:#231810;font-weight:700;border-color:transparent;}
+.seg button:disabled{opacity:.5;cursor:not-allowed;}
+.breedseg{flex-wrap:wrap;}
+.breedseg button{flex:1 1 30%;font-size:12px;padding:9px 6px;}
 .swatches{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;}
 .swatch{width:46px;height:46px;border-radius:50%;cursor:pointer;border:3px solid transparent;
   transition:transform .12s, border-color .12s;position:relative;box-shadow:0 3px 8px rgba(0,0,0,.4);}
