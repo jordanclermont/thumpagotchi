@@ -1778,6 +1778,11 @@ function updateHUD(){
   set('fWater',Math.round(stats.water),false);
   set('fHygiene',Math.round(stats.hygiene),false);
   set('fEnergy',Math.round(stats.energy),false);
+  $('vHappy').textContent=Math.round(stats.happy);
+  $('vHunger').textContent=Math.round(stats.hunger);
+  $('vWater').textContent=Math.round(stats.water);
+  $('vHygiene').textContent=Math.round(stats.hygiene);
+  $('vEnergy').textContent=Math.round(stats.energy);
   const paws=document.querySelectorAll('.paw'); const n=Math.round(rab.thumps);
   paws.forEach((pw,i)=>pw.classList.toggle('on',i<n));
   // progression chips
@@ -1987,7 +1992,7 @@ function renderSwatches(breed){
     const co=COATS[key];
     const d=document.createElement('div');
     d.className='swatch'+(key===chosenCoat?' on':'');
-    d.style.background=`radial-gradient(circle at 35% 30%, ${co.hi}, ${co.body} 55%, ${co.point})`;
+    d.style.background=co.body;   // solid coat colour
     d.title=co.name; d.dataset.key=key;
     d.addEventListener('click',()=>{
       chosenCoat=key;
