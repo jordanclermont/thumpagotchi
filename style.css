@@ -17,7 +17,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:#1a1310;overscroll-beh
   font-family:var(--ui-font);color:#f4ecd8;}
 /* 100dvh wins so the layout tracks the *visible* viewport (mobile browser chrome) */
 #game{position:relative;width:100vw;height:100vh;height:100dvh;user-select:none;touch-action:none;}
-canvas{display:block;width:100%;height:100%;filter:var(--art-filter,none);transition:filter .3s ease;}
+/* Two stacked canvases: #c = room/background, #rc = rabbit (art-style filter here only) */
+#c,#rc{position:absolute;inset:0;display:block;width:100%;height:100%;}
+#rc{filter:var(--art-filter,none);transition:filter .3s ease;pointer-events:none;}
 
 /* ---- Top HUD ---- */
 #hud{position:absolute;top:0;left:0;right:0;padding:9px 12px;
@@ -258,7 +260,7 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
   --btn-bg:#e6c078; --btn-fg:#231810; --btn-shadow:3px 3px 0 #7a531f; --btn-radius:0px;
   --chip-bg:#241a13; --panel-bg:#241a2e;
 }
-:root[data-theme="pixel"] canvas{image-rendering:pixelated;image-rendering:crisp-edges;}
+:root[data-theme="pixel"] #rc{image-rendering:pixelated;image-rendering:crisp-edges;}
 :root[data-theme="pixel"] .brand h1{background:none;-webkit-text-fill-color:#ffd98a;color:#ffd98a;text-shadow:2px 2px 0 #6e3d16;}
 :root[data-theme="pixel"] button.act,:root[data-theme="pixel"] .atab,:root[data-theme="pixel"] .tbtn{border-radius:0;backdrop-filter:none;}
 :root[data-theme="pixel"] button.act,:root[data-theme="pixel"] .atab{border:2px solid #2a1810;}

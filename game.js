@@ -9,8 +9,11 @@
  *  The rendering is the original hand-drawn canvas art; systems are layered on.
  * ============================================================================ */
 
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
+const canvas  = document.getElementById('c');     // background layer (room, props, FX)
+const rcanvas = document.getElementById('rc');    // rabbit layer — art-style filter applies here only
+const bgCtx = canvas.getContext('2d');
+const rctx  = rcanvas.getContext('2d');
+let ctx = bgCtx;   // the "active" context; briefly swapped to rctx while drawing the rabbit
 let W = 0, H = 0, DPR = 1;
 
 /* ---------------- Utility ---------------- */
@@ -108,6 +111,12 @@ const SHOP = [   // type: feed(instant) · cure(stock) · toy/decor(permanent) �
   {id:'ball',    name:'Treat Ball',      emoji:'🧸', cost:18, type:'toy',  unlock:1, desc:'Enrichment: unlocks Play, slows happiness decay.'},
   {id:'tunnel',  name:'Play Tunnel',     emoji:'🕳️', cost:26, type:'toy',  unlock:2, desc:'More Play value and energy from zoomies.'},
   {id:'castle',  name:'Cardboard Castle',emoji:'🏰', cost:44, type:'decor',unlock:3, desc:'Cosy hideout — a little happiness every day.'},
+  {id:'chews',   name:'Apple Chew Sticks',emoji:'🥢',cost:10, type:'feed', unlock:1, desc:'A good chew: happiness + a little hunger, healthy teeth.'},
+  {id:'bottle',  name:'Deluxe Water Bottle',emoji:'🚰',cost:16,type:'tool',unlock:2, desc:'Fresh water lasts longer — the Water need drains slower.'},
+  {id:'rug_rose',name:'Rose Shag Rug',   emoji:'🟥', cost:24, type:'decor',unlock:2, desc:'Re-carpets the room in plush rose.'},
+  {id:'tower',   name:'Climbing Tower',   emoji:'🪜', cost:34, type:'toy',  unlock:3, desc:'A multi-level lookout — enrichment + happiness.'},
+  {id:'hutch',   name:'Wooden Hutch',     emoji:'🛖', cost:50, type:'decor',unlock:4, desc:'A rustic hidey-hutch. Décor + a daily happiness boost.'},
+  {id:'hammock', name:'Bunny Hammock',    emoji:'🛏️', cost:40, type:'toy',  unlock:6, desc:'Lounge in style — a big daily happiness boost.'},
 ];
 const shopItem = id => SHOP.find(s=>s.id===id);
 
@@ -154,18 +163,22 @@ function resize(){
   DPR = Math.min(window.devicePixelRatio||1, 2);
   W = canvas.clientWidth; H = canvas.clientHeight;
   canvas.width = Math.floor(W*DPR); canvas.height = Math.floor(H*DPR);
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-  // Toys/furniture scale to the rabbit's breed size so they stay proportionate.
+  rcanvas.width = canvas.width; rcanvas.height = canvas.height;
+  bgCtx.setTransform(DPR,0,0,DPR,0,0);
+  rctx.setTransform(DPR,0,0,DPR,0,0);
+  // Toys/furniture are sized to the rabbit (bigger overall) and scale with breed.
   const bs = (typeof BREEDS!=='undefined' && BREEDS[rab.breed]) ? BREEDS[rab.breed].scale : 1;
   world.floorY = H*0.58;
-  world.rug   = {x:W*0.5,  y:H*0.80, rx:W*0.44, ry:H*0.155};
-  world.litter= {x:W*0.13, y:H*0.70, w:Math.min(150,W*0.21)*bs, h:Math.min(78,H*0.13)*bs};
-  world.food  = {x:W*0.30, y:H*0.915,r:Math.min(30,W*0.045)};
-  world.water = {x:W*0.42, y:H*0.925,r:Math.min(28,W*0.042)};
-  world.tube  = {x:W*0.83, y:H*0.68, w:Math.min(150,W*0.22)*bs, h:Math.min(74,H*0.13)*bs};
-  world.bed   = {x:W*0.63, y:H*0.90, r:Math.min(58,W*0.09)*bs};
-  world.castle= {x:W*0.90, y:H*0.86, r:Math.min(60,W*0.10)*bs};
-  world.ball  = {x:W*0.20, y:H*0.90, r:Math.min(16,W*0.026)*bs};
+  world.rug   = {x:W*0.5,  y:H*0.80, rx:W*0.45, ry:H*0.16};
+  world.litter= {x:W*0.16, y:H*0.70, w:Math.min(230,W*0.32)*bs, h:Math.min(120,H*0.20)*bs};
+  world.food  = {x:W*0.31, y:H*0.925,r:Math.min(32,W*0.05)};
+  world.water = {x:W*0.42, y:H*0.935,r:Math.min(30,W*0.045)};
+  world.tube  = {x:W*0.82, y:H*0.66, w:Math.min(250,W*0.36)*bs, h:Math.min(126,H*0.21)*bs};
+  world.bed   = {x:W*0.64, y:H*0.91, r:Math.min(92,W*0.135)*bs};
+  world.castle= {x:W*0.88, y:H*0.85, r:Math.min(100,W*0.155)*bs};
+  world.ball  = {x:W*0.22, y:H*0.905,r:Math.min(27,W*0.042)*bs};
+  world.tower = {x:W*0.73, y:H*0.50, r:Math.min(80,W*0.12)*bs};
+  world.hutch = {x:W*0.06, y:H*0.50, r:Math.min(78,W*0.12)*bs};
   world.win   = {x:W*0.5-W*0.11, y:H*0.07, w:W*0.22, h:H*0.30};
   rab.baseY = world.rug.y - 6;
   rab.x = clamp(rab.x||world.rug.x, world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6);
@@ -190,6 +203,7 @@ const rab = {
   trick:null,
   restUntil:0,
   play:null, playAlpha:1, playYOff:0, hidden:false,
+  boxT:0, boxYOff:0, decor:{rug:null},
   // progression
   bondLevel:1, bondXP:0, carrots:12,
   weight:100, health:100, sick:false, sickAt:0,
@@ -238,7 +252,7 @@ function save(){
       weight:rab.weight, health:rab.health, sick:rab.sick,
       items:rab.items, mastery:rab.mastery, achievements:rab.achievements,
       goals:rab.goals, goalDay:rab.goalDay, goalCounters:rab.goalCounters,
-      lifetimePets:rab.lifetimePets,
+      lifetimePets:rab.lifetimePets, decor:rab.decor,
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   }catch(e){/* storage unavailable — play unsaved */}
@@ -260,6 +274,7 @@ function applySave(d){
   rab.items=d.items||{}; rab.mastery=d.mastery||{}; rab.achievements=d.achievements||{};
   rab.goals=d.goals||[]; rab.goalDay=d.goalDay||0; rab.goalCounters=d.goalCounters||{};
   rab.lifetimePets=d.lifetimePets||0;
+  rab.decor=d.decor||{rug:null};
   rab.curScale=stageFor(rab.ageDays).scale;
 }
 function wipeSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
@@ -341,7 +356,7 @@ function parts(){
   const B = BREEDS[rab.breed] || BREEDS.holland;
   const s = rab.curScale * (B.scale||1) * Math.min(W,H)/560;
   const cx = rab.x;
-  const cy = rab.baseY + rab.hopOff + rab.binkyHop + (rab.playYOff||0);
+  const cy = rab.baseY + rab.hopOff + rab.binkyHop + (rab.playYOff||0) + (rab.boxYOff||0);
   const loaf = rab.loaf;
   const bodyRx = 96*s*(1+0.06*loaf), bodyRy = 74*s*(1-0.10*loaf);
   const bodyCy = cy - bodyRy*0.82;
@@ -442,8 +457,9 @@ function drawRoom(){
     ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
 
   const r=world.rug;
+  const rc = (rab.decor && rab.decor.rug==='rose') ? ['#e6afbf','#cd8599','#ad5f77'] : ['#7bb0a4','#5f958c','#4d7d75'];
   const rg=ctx.createRadialGradient(r.x,r.y,4,r.x,r.y,r.rx);
-  rg.addColorStop(0,'#7bb0a4');rg.addColorStop(.7,'#5f958c');rg.addColorStop(1,'#4d7d75');
+  rg.addColorStop(0,rc[0]);rg.addColorStop(.7,rc[1]);rg.addColorStop(1,rc[2]);
   ctx.fillStyle=rg;
   ctx.beginPath();ctx.ellipse(r.x,r.y,r.rx,r.ry,0,0,7);ctx.fill();
   ctx.strokeStyle='rgba(255,255,255,.32)';ctx.lineWidth=4;
@@ -451,9 +467,38 @@ function drawRoom(){
   ctx.strokeStyle='rgba(255,255,255,.16)';ctx.lineWidth=3;
   ctx.beginPath();ctx.ellipse(r.x,r.y,r.rx*0.55,r.ry*0.55,0,0,7);ctx.stroke();
 
+  if(owns('hutch')) drawHutch();
+  if(owns('tower')) drawTower();
   drawTube(); drawBed(); drawLitter(); drawFoodBowl(); drawWaterBowl();
   if(owns('castle')) drawCastle();
   if(owns('ball'))   drawBall();
+}
+function drawLitterFront(){
+  const L=world.litter;
+  ctx.fillStyle='#3f6fae'; roundRect(L.x-L.w/2, L.y+L.h*0.02, L.w, L.h*0.5, 8); ctx.fill();
+  ctx.fillStyle='#5a86c2'; roundRect(L.x-L.w/2+6, L.y+L.h*0.08, L.w-12, L.h*0.36, 6); ctx.fill();
+  ctx.strokeStyle='#cbb24e'; ctx.lineWidth=2;
+  for(let i=0;i<9;i++){const bx=L.x-L.w*0.32+i*L.w*0.08; ctx.beginPath();ctx.moveTo(bx,L.y+L.h*0.05);ctx.lineTo(bx+3,L.y+L.h*0.05-9);ctx.stroke();}
+}
+function drawTower(){
+  const c=world.tower, r=c.r;
+  ctx.fillStyle='#6f5436';
+  ctx.fillRect(c.x-r*0.62, c.y-r*1.5, r*0.13, r*1.7); ctx.fillRect(c.x+r*0.5, c.y-r*1.5, r*0.13, r*1.7);
+  for(let i=0;i<3;i++){
+    const py=c.y - i*r*0.72;
+    ctx.fillStyle= i%2? '#9a7a52':'#87693f';
+    roundRect(c.x-r*0.75, py-r*0.14, r*1.5, r*0.28, 4); ctx.fill();
+    ctx.fillStyle='#6f9e93'; roundRect(c.x-r*0.7, py-r*0.2, r*1.4, r*0.1, 3); ctx.fill();
+  }
+}
+function drawHutch(){
+  const c=world.hutch, r=c.r;
+  ctx.fillStyle='#b58a5a'; roundRect(c.x-r*0.9, c.y-r*0.6, r*1.8, r*1.3, 6); ctx.fill();
+  ctx.fillStyle='#8a5f38';
+  ctx.beginPath();ctx.moveTo(c.x-r*1.02, c.y-r*0.5);ctx.lineTo(c.x, c.y-r*1.35);ctx.lineTo(c.x+r*1.02, c.y-r*0.5);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#2a1f16'; roundRect(c.x-r*0.36, c.y-r*0.1, r*0.72, r*0.8, 5); ctx.fill();
+  ctx.strokeStyle='rgba(90,60,30,.3)';ctx.lineWidth=1.5;
+  for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(c.x-r*0.9,c.y-r*0.6+i*r*0.43);ctx.lineTo(c.x+r*0.9,c.y-r*0.6+i*r*0.43);ctx.stroke();}
 }
 
 function drawLitter(){
@@ -662,8 +707,10 @@ function drawRabbit(t){
 
   const air = (rab.hopOff+rab.binkyHop);
   const shSc = clamp(1 + air/220, 0.55, 1);
-  ctx.fillStyle=`rgba(0,0,0,${0.22*shSc})`;
-  ctx.beginPath();ctx.ellipse(p.cx, rab.baseY+(rab.playYOff||0)+6, p.body.rx*0.95*shSc, 15*s*shSc, 0,0,7);ctx.fill();
+  if(!(t < rab.boxT)){   // no ground shadow while sitting up in the litter box
+    ctx.fillStyle=`rgba(0,0,0,${0.22*shSc})`;
+    ctx.beginPath();ctx.ellipse(p.cx, rab.baseY+(rab.playYOff||0)+6, p.body.rx*0.95*shSc, 15*s*shSc, 0,0,7);ctx.fill();
+  }
 
   let rot=0;
   if(rab.trick && rab.trick.name==='spin') rot = (rab.trick.t/rab.trick.dur)*Math.PI*2;
@@ -1164,8 +1211,9 @@ function giveHay(){
   addWeight(-1.2);                          // hay is the healthy staple
   hayFresh=6; addXP(3); addCarrots(1, rab.x, rab.baseY-70);
   incGoal('hay');
-  hopTo(world.litter.x + world.litter.w*0.2);
-  toast(`Fresh Timothy hay in the box! ${rab.name} settles in to munch.`);
+  hopTo(world.litter.x);
+  rab.boxT = now() + 8;                     // hops over and climbs into the box to munch
+  toast(`Fresh Timothy hay in the box! ${rab.name} climbs in to munch. 🌾`);
 }
 function givePellets(){
   if(rab.cold){ coldRefuse(); return; }
@@ -1437,18 +1485,18 @@ function updateState(t){
 function pixelate(){
   if(!pixelMode) return;
   const scale = 5;                                            // device px per art px
-  const pw = Math.max(80, Math.round(canvas.width/scale));
-  const ph = Math.max(60, Math.round(canvas.height/scale));
+  const pw = Math.max(80, Math.round(rcanvas.width/scale));
+  const ph = Math.max(60, Math.round(rcanvas.height/scale));
   if(!pxBuf){ pxBuf=document.createElement('canvas'); pxCtx=pxBuf.getContext('2d'); }
   if(pxBuf.width!==pw || pxBuf.height!==ph){ pxBuf.width=pw; pxBuf.height=ph; }
   pxCtx.imageSmoothingEnabled=false; pxCtx.clearRect(0,0,pw,ph);
-  pxCtx.drawImage(canvas, 0,0,canvas.width,canvas.height, 0,0,pw,ph);   // downscale
-  ctx.save();
-  ctx.setTransform(1,0,0,1,0,0);                              // work in device pixels
-  ctx.imageSmoothingEnabled=false;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(pxBuf, 0,0,pw,ph, 0,0,canvas.width,canvas.height);      // upscale (crunchy)
-  ctx.restore();                                             // restores DPR transform + smoothing
+  pxCtx.drawImage(rcanvas, 0,0,rcanvas.width,rcanvas.height, 0,0,pw,ph);   // downscale rabbit layer
+  rctx.save();
+  rctx.setTransform(1,0,0,1,0,0);                            // work in device pixels
+  rctx.imageSmoothingEnabled=false;
+  rctx.clearRect(0,0,rcanvas.width,rcanvas.height);
+  rctx.drawImage(pxBuf, 0,0,pw,ph, 0,0,rcanvas.width,rcanvas.height);      // upscale (crunchy)
+  rctx.restore();                                           // restores DPR transform + smoothing
 }
 
 /* ============================================================================ *
@@ -1459,7 +1507,7 @@ function applyTheme(id){
   currentTheme=id;
   document.documentElement.setAttribute('data-theme', id);
   pixelMode = (id==='pixel');
-  flatTheme = (id==='comic' || id==='pixel');   // these use the posterize filter
+  flatTheme = false;   // background is no longer filtered, so it always uses the cozy gradients
   try{ localStorage.setItem(THEME_KEY, id); }catch(e){}
   if(panelOpen==='themes') renderThemes();
 }
@@ -1541,7 +1589,13 @@ function frame(){
     updatePlay(dt);
   } else if(rab.hidden){
     /* hiding for a hide-and-seek morning — hold still until found */
+  } else if(t < rab.boxT && !rab.hopping){
+    /* climbed into the litter box to munch — sit inside it */
+    rab.state='loaf';
+    rab.x = damp(rab.x, world.litter.x, 8, dt);
+    rab.boxYOff = damp(rab.boxYOff||0, (world.litter.y + world.litter.h*0.15) - rab.baseY, 5, dt);
   } else {
+    rab.boxYOff = damp(rab.boxYOff||0, 0, 6, dt);
     if(rab.hopping){
       const k=(t-rab.hopT0)/rab.hopDur;
       if(k>=1){rab.hopping=false;rab.hopOff=0;rab.x=rab.hopToX;}
@@ -1560,22 +1614,33 @@ function frame(){
     const p=parts(); spawnZ(p.head.x+p.head.r*0.6,p.head.y-p.head.r);
   }
 
-  /* render */
-  ctx.save();
-  if(thumpFx>0){const m=thumpFx*8;ctx.translate(rand(-m,m),rand(-m,m));}
+  /* render — screen-shake offset shared by both layers */
+  let shx=0, shy=0;
+  if(thumpFx>0){ const m=thumpFx*8; shx=rand(-m,m); shy=rand(-m,m); }
+
+  /* ---- background layer (#c): room, props, particles, FX ---- */
+  ctx = bgCtx;
+  ctx.save(); ctx.translate(shx, shy);
   drawSky();
   drawRoom();
   drawHazard();
   drawParticles(dt);
-  ctx.save(); ctx.globalAlpha = rab.playAlpha!==undefined?rab.playAlpha:1;
-  if(rab.hidden) drawHideHint(t); else drawRabbit(t);
-  ctx.restore();
   drawThumpFx(dt);
   drawAmbient();
-  if(hazardFlash>0){ ctx.fillStyle=`rgba(255,240,180,${hazardFlash})`; ctx.fillRect(0,0,W,H); hazardFlash=Math.max(0,hazardFlash-dt*1.5); }
+  if(hazardFlash>0){ ctx.fillStyle=`rgba(255,240,180,${hazardFlash})`; ctx.fillRect(-40,-40,W+80,H+80); hazardFlash=Math.max(0,hazardFlash-dt*1.5); }
   ctx.restore();
 
-  pixelate();          // no-op unless the Pixel Art theme is active
+  /* ---- rabbit layer (#rc): only this canvas gets the art-style filter ---- */
+  ctx = rctx;
+  ctx.clearRect(0,0,W,H);
+  ctx.save(); ctx.translate(shx, shy);
+  ctx.globalAlpha = rab.playAlpha!==undefined?rab.playAlpha:1;
+  if(rab.hidden) drawHideHint(t); else drawRabbit(t);
+  if(t < rab.boxT) drawLitterFront();       // box wall in front of the rabbit while it's inside
+  ctx.restore();
+  ctx = bgCtx;
+
+  pixelate();          // pixel-art post-process on the rabbit layer (no-op otherwise)
   updateHUD();
 
   autosaveT+=dt; if(autosaveT>4){ autosaveT=0; save(); }
@@ -1673,6 +1738,7 @@ function buy(id){
     if(id==='greens'){ stats.hunger=clamp(stats.hunger-30); stats.water=clamp(stats.water+18);
       rab.health=clamp(rab.health+8); addWeight(-2); }
     else if(id==='oxbow'){ stats.hunger=clamp(stats.hunger-40); addWeight(1.5); rab.health=clamp(rab.health+3); }
+    else if(id==='chews'){ stats.hunger=clamp(stats.hunger-8); stats.happy=clamp(stats.happy+10); rab.thumps=clamp(rab.thumps-0.3,0,5); }
     stats.happy=clamp(stats.happy+6); spawnHeart(parts().head.x,parts().head.y);
     toast(`Yum! ${it.name} served. 😋`);
   } else if(it.type==='cure'){
@@ -1680,9 +1746,10 @@ function buy(id){
     toast(`Bought ${it.name}. The Vet will use it free when needed. 💊`);
   } else {
     rab.items[id]=1;
+    if(id==='rug_rose') rab.decor.rug='rose';        // room customization
     toast(`Bought ${it.name}! ${it.emoji}`);
     if(it.type==='toy'||it.type==='decor'){
-      const toys=['ball','tunnel','castle'].filter(owns).length;
+      const toys=['ball','tunnel','castle','tower','hutch','hammock'].filter(owns).length;
       if(toys>=3) unlockAch('toybox');
     }
     refreshActions();
@@ -1810,7 +1877,7 @@ function buildStart(){
   const lion=$('breedLion');
   if(lion){
     if(unlocks.lionhead){ lion.disabled=false; lion.textContent='🦁 Lionhead'; lion.title=''; }
-    else { lion.disabled=true; lion.title='Reach Bond level 5 with a rabbit to unlock'; }
+    else { lion.disabled=true; lion.innerHTML='🦁 Lionhead<br><small>🔒 Bond Lv 5</small>'; lion.title='Reach Bond level 5 with a rabbit to unlock'; }
   }
   document.querySelectorAll('#breedSeg button').forEach(b=>{
     b.addEventListener('click',()=>{
