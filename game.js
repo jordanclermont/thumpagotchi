@@ -184,6 +184,7 @@ let pointer = {x:-999,y:-999,down:false,moved:0};
 let lastPetGain = 0, lastFeetPet = 0;
 let autosaveT = 0;
 let pixelMode = false, pxBuf = null, pxCtx = null;   // pixel-art post-process buffer
+let flatTheme = false;   // comic/pixel: flatten wall+floor so posterize doesn't band them
 
 /* ============================================================================ *
  *  SAVE / LOAD  (localStorage)
@@ -329,14 +330,20 @@ function drawSky(){
   const win = world.win;
 
   // --- interior wall ---
-  const wall=ctx.createLinearGradient(0,0,0,world.floorY);
-  wall.addColorStop(0,'#dcc6d8'); wall.addColorStop(1,'#c9b0cf');
-  ctx.fillStyle=wall; ctx.fillRect(0,0,W,world.floorY);
-  // warm daylight bloom washing in from the window (fades at dusk)
-  const bloom=ctx.createRadialGradient(win.x+win.w/2,win.y+win.h*0.6,8,win.x+win.w/2,win.y+win.h*0.6,win.w*1.6);
-  bloom.addColorStop(0,`rgba(255,244,214,${0.30*light})`);
-  bloom.addColorStop(1,'rgba(255,244,214,0)');
-  ctx.fillStyle=bloom; ctx.fillRect(0,0,W,world.floorY);
+  if(flatTheme){
+    // flat wall for cel/pixel themes: the posterize filter would otherwise band
+    // both the wall gradient and the soft window bloom into fake "light" blotches.
+    ctx.fillStyle='#d2bed4'; ctx.fillRect(0,0,W,world.floorY);
+  } else {
+    const wall=ctx.createLinearGradient(0,0,0,world.floorY);
+    wall.addColorStop(0,'#dcc6d8'); wall.addColorStop(1,'#c9b0cf');
+    ctx.fillStyle=wall; ctx.fillRect(0,0,W,world.floorY);
+    // warm daylight bloom washing in from the window (fades at dusk)
+    const bloom=ctx.createRadialGradient(win.x+win.w/2,win.y+win.h*0.6,8,win.x+win.w/2,win.y+win.h*0.6,win.w*1.6);
+    bloom.addColorStop(0,`rgba(255,244,214,${0.30*light})`);
+    bloom.addColorStop(1,'rgba(255,244,214,0)');
+    ctx.fillStyle=bloom; ctx.fillRect(0,0,W,world.floorY);
+  }
 
   // --- sky gradient + sun, CLIPPED to the window opening ---
   ctx.save();
@@ -382,9 +389,13 @@ function drawRoom(){
   // wainscot highlight + soft shadow where the wall meets the floor
   ctx.fillStyle='rgba(255,255,255,.16)'; ctx.fillRect(0,world.floorY-14,W,5);
   ctx.fillStyle='rgba(0,0,0,.08)'; ctx.fillRect(0,world.floorY-8,W,8);
-  const floor=ctx.createLinearGradient(0,world.floorY,0,H);
-  floor.addColorStop(0,'#c99b6a'); floor.addColorStop(1,'#a97a4c');
-  ctx.fillStyle=floor; ctx.fillRect(0,world.floorY,W,H-world.floorY);
+  if(flatTheme){
+    ctx.fillStyle='#bd925f'; ctx.fillRect(0,world.floorY,W,H-world.floorY);   // flat floor for cel/pixel
+  } else {
+    const floor=ctx.createLinearGradient(0,world.floorY,0,H);
+    floor.addColorStop(0,'#c99b6a'); floor.addColorStop(1,'#a97a4c');
+    ctx.fillStyle=floor; ctx.fillRect(0,world.floorY,W,H-world.floorY);
+  }
   ctx.strokeStyle='rgba(90,55,25,.22)'; ctx.lineWidth=2;
   for(let i=1;i<7;i++){const y=world.floorY+(H-world.floorY)*i/7;
     ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
@@ -1227,6 +1238,7 @@ function applyTheme(id){
   currentTheme=id;
   document.documentElement.setAttribute('data-theme', id);
   pixelMode = (id==='pixel');
+  flatTheme = (id==='comic' || id==='pixel');   // these use the posterize filter
   try{ localStorage.setItem(THEME_KEY, id); }catch(e){}
   if(panelOpen==='themes') renderThemes();
 }
