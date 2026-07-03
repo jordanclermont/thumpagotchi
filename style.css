@@ -4,9 +4,10 @@
   --ink:#2a1d15; --carrot:#e8863a;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-html,body{margin:0;height:100%;overflow:hidden;background:#1a1310;
+html,body{margin:0;height:100%;overflow:hidden;background:#1a1310;overscroll-behavior:none;
   font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;color:#f4ecd8;}
-#game{position:relative;width:100vw;height:100dvh;height:100vh;user-select:none;touch-action:none;}
+/* 100dvh wins so the layout tracks the *visible* viewport (mobile browser chrome) */
+#game{position:relative;width:100vw;height:100vh;height:100dvh;user-select:none;touch-action:none;}
 canvas{display:block;width:100%;height:100%;}
 
 /* ---- Top HUD ---- */
@@ -56,7 +57,7 @@ canvas{display:block;width:100%;height:100%;}
 
 /* ---- Bottom controls (tabbed) ---- */
 #controls{position:absolute;left:0;right:0;bottom:0;padding:8px 8px 14px;
-  display:flex;flex-direction:column;align-items:center;gap:8px;
+  display:flex;flex-direction:column;align-items:stretch;gap:8px;
   background:linear-gradient(0deg,rgba(20,14,10,.85),rgba(20,14,10,0));}
 #actTabs{display:flex;gap:6px;justify-content:center;}
 .atab{appearance:none;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;
@@ -66,7 +67,7 @@ canvas{display:block;width:100%;height:100%;}
 .atab.on{background:linear-gradient(180deg,#fbe9c4,#e6c078);color:#231810;border-color:transparent;
   box-shadow:0 2px 6px rgba(0,0,0,.35);}
 .atab:active{transform:translateY(1px);}
-.actrow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.actrow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;width:100%;}
 .actrow[hidden]{display:none;}
 button.act{appearance:none;border:none;cursor:pointer;color:#231810;
   font-size:13px;font-weight:600;padding:9px 13px;border-radius:12px;
@@ -174,3 +175,60 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
   background:linear-gradient(180deg,#ffd9a0,#f0a94e);box-shadow:0 4px 0 #a9803e,0 6px 14px rgba(0,0,0,.4);
   transition:transform .08s, box-shadow .08s;}
 #startBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #a9803e;}
+
+/* ============================================================ *
+ *  MOBILE  —  compact everything so it fits a phone screen
+ * ============================================================ */
+@media (max-width: 560px){
+  /* Top HUD: tighter, smaller, shrinkable stat bars (2 per row) */
+  #hud{padding:6px 8px 10px;gap:4px 8px;}
+  .brand{padding-right:104px;gap:6px;}          /* leave room for the toolbar */
+  .brand h1{font-size:15px;letter-spacing:.5px;}
+  .brand .day{font-size:10px;}
+  .chip{font-size:10px;padding:2px 7px;gap:4px;border-radius:9px;}
+  .bondtrack{width:26px;}
+  .stat{min-width:0;flex:1 1 44%;gap:5px;}
+  .stat .lbl{width:42px;font-size:9px;letter-spacing:0;}
+  .track{height:9px;}
+  #thumpMeter{min-width:0;flex:1 1 44%;gap:4px;}
+  #thumpMeter .lbl{font-size:9px;}
+  .paw{width:15px;height:15px;}
+
+  /* Toolbar: smaller buttons tucked into the corner */
+  #toolbar{top:6px;right:6px;gap:5px;}
+  .tbtn{width:33px;height:33px;font-size:16px;border-radius:10px;}
+  .badge{font-size:8px;padding:0 3px;}
+
+  /* Bottom dock: smaller buttons that wrap neatly to fit any width */
+  #controls{padding:6px 6px 10px;gap:7px;}
+  #actTabs{gap:5px;}
+  .atab{font-size:11px;padding:5px 12px;}
+  .actrow{gap:6px;}
+  /* compact icon-over-label buttons so a full row fits a phone width */
+  button.act{flex-direction:column;gap:2px;font-size:10px;font-weight:700;
+    padding:7px 4px;min-width:0;flex:1 1 0;max-width:76px;border-radius:12px;
+    box-shadow:0 3px 0 #a9803e,0 4px 8px rgba(0,0,0,.4);}
+  button.act .emo{font-size:20px;}
+
+  /* Hide the tip line on small screens to save vertical space */
+  #hint{display:none;}
+  #toast{top:52px;font-size:12px;padding:7px 13px;}
+
+  /* Bottom-sheet panels use the full width */
+  #panel{border-radius:16px 16px 0 0;max-height:86vh;}
+  #panelBody{padding:0 12px 16px;}
+  .semoji{font-size:22px;width:28px;}
+  .sname{font-size:13px;}
+  .sdesc{font-size:10px;}
+
+  /* Roomier start card on small screens */
+  #start .card{padding:18px 16px 16px;}
+}
+
+/* Very small / short screens: trim a touch more */
+@media (max-width: 380px){
+  .brand h1{font-size:14px;}
+  button.act{font-size:9px;padding:6px 3px;}
+  button.act .emo{font-size:18px;}
+  .atab{padding:5px 10px;font-size:10px;}
+}
