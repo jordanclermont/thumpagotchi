@@ -79,6 +79,18 @@ const SHOP = [   // type: feed(instant) · cure(stock) · toy/decor(permanent) �
 ];
 const shopItem = id => SHOP.find(s=>s.id===id);
 
+/* Art-style themes — each swaps the canvas CSS filter + a UI skin (see style.css).
+   "pixel" additionally turns on a JS low-res pixelation pass (see pixelate()). */
+const THEMES = [
+  {id:'cozy',      name:'Cozy (default)', emoji:'🛋️', desc:'The original hand-drawn look.'},
+  {id:'pixel',     name:'Pixel Art',      emoji:'👾', desc:'Crunchy low-res pixels + blocky retro UI.'},
+  {id:'comic',     name:'Comic / Cel',    emoji:'💥', desc:'Flat posterized colours, bold ink UI.'},
+  {id:'noir',      name:'Noir',           emoji:'🎬', desc:'High-contrast black & white.'},
+  {id:'synthwave', name:'Synthwave',      emoji:'🌆', desc:'Neon dusk, hue-shifted everything.'},
+];
+const THEME_KEY = 'thumpagotchi.theme';
+let currentTheme = 'cozy';
+
 /* Daily goal generators — 3 are rolled each new day */
 const GOAL_POOL = [
   () => ({track:'hay',    target:2,  reward:7,  text:'Serve fresh hay ×2'}),
@@ -171,6 +183,7 @@ let pettingMode = false;
 let pointer = {x:-999,y:-999,down:false,moved:0};
 let lastPetGain = 0, lastFeetPet = 0;
 let autosaveT = 0;
+let pixelMode = false, pxBuf = null, pxCtx = null;   // pixel-art post-process buffer
 
 /* ============================================================================ *
  *  SAVE / LOAD  (localStorage)
@@ -1184,6 +1197,55 @@ function updateState(t){
 }
 
 /* ============================================================================ *
+ *  PIXEL-ART POST-PROCESS
+ *  For the "pixel" theme: downscale the finished frame to a small buffer, then
+ *  scale it back up with smoothing OFF → genuine chunky pixels (can't be done in
+ *  CSS on a full-resolution canvas). No-op for every other theme.
+ * ============================================================================ */
+function pixelate(){
+  if(!pixelMode) return;
+  const scale = 5;                                            // device px per art px
+  const pw = Math.max(80, Math.round(canvas.width/scale));
+  const ph = Math.max(60, Math.round(canvas.height/scale));
+  if(!pxBuf){ pxBuf=document.createElement('canvas'); pxCtx=pxBuf.getContext('2d'); }
+  if(pxBuf.width!==pw || pxBuf.height!==ph){ pxBuf.width=pw; pxBuf.height=ph; }
+  pxCtx.imageSmoothingEnabled=false; pxCtx.clearRect(0,0,pw,ph);
+  pxCtx.drawImage(canvas, 0,0,canvas.width,canvas.height, 0,0,pw,ph);   // downscale
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);                              // work in device pixels
+  ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(pxBuf, 0,0,pw,ph, 0,0,canvas.width,canvas.height);      // upscale (crunchy)
+  ctx.restore();                                             // restores DPR transform + smoothing
+}
+
+/* ============================================================================ *
+ *  THEME SWITCHER
+ * ============================================================================ */
+function applyTheme(id){
+  if(!THEMES.some(t=>t.id===id)) id='cozy';
+  currentTheme=id;
+  document.documentElement.setAttribute('data-theme', id);
+  pixelMode = (id==='pixel');
+  try{ localStorage.setItem(THEME_KEY, id); }catch(e){}
+  if(panelOpen==='themes') renderThemes();
+}
+function renderThemes(){
+  const body=$('panelBody'); body.innerHTML='';
+  const head=document.createElement('div'); head.className='balance';
+  head.innerHTML='Re-skin the whole game — UI <b>and</b> art style. Your choice is saved.';
+  body.appendChild(head);
+  THEMES.forEach(t=>{
+    const row=document.createElement('div'); row.className='srow';
+    row.innerHTML=`<div class="semoji">${t.emoji}</div><div class="sinfo"><div class="sname">${t.name}</div><div class="sdesc">${t.desc}</div></div>`;
+    const btn=document.createElement('button'); btn.className='sbuy';
+    if(currentTheme===t.id){ btn.textContent='Active'; btn.disabled=true; }
+    else { btn.textContent='Use'; btn.onclick=()=>applyTheme(t.id); }
+    row.appendChild(btn); body.appendChild(row);
+  });
+}
+
+/* ============================================================================ *
  *  MAIN LOOP
  * ============================================================================ */
 let last=now();
@@ -1192,7 +1254,7 @@ function frame(){
 
   ctx.clearRect(0,0,W,H);
 
-  if(cutscene){ drawNight(dt); requestAnimationFrame(frame); return; }
+  if(cutscene){ drawNight(dt); pixelate(); requestAnimationFrame(frame); return; }
 
   const stage = stageFor(rab.ageDays);
   rab.curScale = damp(rab.curScale, stage.scale, 1.5, dt);
@@ -1271,6 +1333,7 @@ function frame(){
   drawAmbient();
   ctx.restore();
 
+  pixelate();          // no-op unless the Pixel Art theme is active
   updateHUD();
 
   autosaveT+=dt; if(autosaveT>4){ autosaveT=0; save(); }
@@ -1331,9 +1394,11 @@ let panelOpen=null;
 function openPanel(kind){
   panelOpen=kind;
   $('panelWrap').classList.add('show');
-  $('panelTitle').textContent = kind==='shop'?'🛒 Carrot Shop' : kind==='goals'?'🎯 Daily Goals' : '⚙️ Menu';
+  $('panelTitle').textContent = kind==='shop'?'🛒 Carrot Shop' : kind==='goals'?'🎯 Daily Goals'
+    : kind==='themes'?'🎨 Art Style' : '⚙️ Menu';
   if(kind==='shop') renderShop();
   else if(kind==='goals') renderGoals(true);
+  else if(kind==='themes') renderThemes();
   else renderMenu();
 }
 function closePanel(){ panelOpen=null; $('panelWrap').classList.remove('show'); }
@@ -1457,6 +1522,7 @@ function bind(id,fn){ const el=$(id); if(el) el.addEventListener('click',fn); }
 bind('bHay',giveHay); bind('bPellets',givePellets); bind('bWater',giveWater);
 bind('bBanana',offerBanana); bind('bPet',togglePetting); bind('bTrick',doTrick);
 bind('bClean',cleanLitter); bind('bRest',restRabbit); bind('bPlay',playToy); bind('bVet',callVet);
+bind('tbTheme',()=>openPanel('themes'));
 bind('tbShop',()=>openPanel('shop')); bind('tbGoals',()=>openPanel('goals')); bind('tbMenu',()=>openPanel('menu'));
 
 // bottom-dock sub-tabs (Care / Play / Health)
@@ -1543,6 +1609,7 @@ function startGame(fromSave, saved){
 }
 
 /* ---------------- Boot ---------------- */
+try{ applyTheme(localStorage.getItem(THEME_KEY) || 'cozy'); }catch(e){ applyTheme('cozy'); }
 buildStart();
 resize();
 

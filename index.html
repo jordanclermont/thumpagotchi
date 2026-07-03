@@ -7,6 +7,16 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- Inline SVG filters used by the art-style themes (applied to the canvas via CSS) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="posterize">
+    <feComponentTransfer>
+      <feFuncR type="discrete" tableValues="0 0.22 0.45 0.68 0.9 1"/>
+      <feFuncG type="discrete" tableValues="0 0.22 0.45 0.68 0.9 1"/>
+      <feFuncB type="discrete" tableValues="0 0.22 0.45 0.68 0.9 1"/>
+    </feComponentTransfer>
+  </filter>
+</svg>
 <div id="game">
   <canvas id="c"></canvas>
 
@@ -31,6 +41,7 @@
 
   <!-- ---------- Top-right toolbar ---------- -->
   <div id="toolbar">
+    <button class="tbtn" id="tbTheme" title="Art style">🎨</button>
     <button class="tbtn" id="tbShop" title="Shop">🛒</button>
     <button class="tbtn" id="tbGoals" title="Daily goals">🎯<span id="goalBadge" class="badge">0/3</span></button>
     <button class="tbtn" id="tbMenu" title="Menu">⚙️</button>
