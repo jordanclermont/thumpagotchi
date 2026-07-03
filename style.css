@@ -338,3 +338,25 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 .mgpad button:active{transform:translateY(2px);box-shadow:0 1px 0 #a9803e;}
 .mghint{font-size:11px;opacity:.6;text-align:center;max-width:340px;line-height:1.4;}
 @media (min-width:640px){ .mgpad{display:none;} }  /* desktop uses the keyboard */
+
+/* ---- Banana daily counter on the button ---- */
+.cnt{font-size:10px;font-weight:800;opacity:.7;margin-left:2px;}
+.cnt.warn{color:#c0392b;opacity:1;}
+
+/* ---- Number-guessing minigame ---- */
+.gbunny{display:flex;align-items:center;gap:10px;justify-content:center;width:100%;margin:2px 0 4px;}
+.gface{font-size:46px;line-height:1;}
+.gbubble{position:relative;background:#fff;color:#231810;font-size:13px;font-weight:600;
+  padding:9px 13px;border-radius:14px;max-width:230px;box-shadow:0 3px 10px rgba(0,0,0,.35);}
+.gbubble::before{content:"";position:absolute;left:-8px;top:50%;transform:translateY(-50%);
+  border:7px solid transparent;border-right-color:#fff;}
+.glives{font-size:16px;letter-spacing:3px;height:20px;}
+.ghint{font-size:14px;font-weight:700;color:#ffd98a;height:20px;}
+.gpad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:100%;max-width:320px;}
+.gpad button{appearance:none;border:none;cursor:pointer;font-weight:800;font-size:15px;color:#231810;
+  padding:10px 0;border-radius:10px;background:linear-gradient(180deg,#fbe9c4,#e6c078);box-shadow:0 2px 0 #a9803e;}
+.gpad button:active{transform:translateY(2px);box-shadow:0 0 0 #a9803e;}
+.gpad button:disabled{background:rgba(255,255,255,.12);color:rgba(255,255,255,.4);box-shadow:none;cursor:default;}
+.gmsg{display:none;text-align:center;}
+.gmsg.show{display:block;}
+.gmsg h3{margin:6px 0 8px;font-size:18px;color:#ffd98a;}

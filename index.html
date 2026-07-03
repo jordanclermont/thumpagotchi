@@ -62,7 +62,7 @@
       <button class="act" id="bHay"><span class="emo">🌾</span>Hay</button>
       <button class="act" id="bPellets"><span class="emo">🥣</span>Pellets</button>
       <button class="act" id="bWater"><span class="emo">💧</span>Water</button>
-      <button class="act" id="bBanana"><span class="emo">🍌</span>Banana</button>
+      <button class="act" id="bBanana"><span class="emo">🍌</span>Banana<span class="cnt" id="banCount">0/2</span></button>
       <button class="act" id="bClean"><span class="emo">🧹</span>Clean</button>
     </div>
     <div class="actrow" data-group="play" hidden>
@@ -70,6 +70,7 @@
       <button class="act" id="bTrick"><span class="emo">🌟</span>Trick</button>
       <button class="act" id="bPlay" style="display:none"><span class="emo">🧸</span>Play</button>
       <button class="act" id="bSnake"><span class="emo">🐍</span>Snake</button>
+      <button class="act" id="bGuess"><span class="emo">🎲</span>Guess</button>
     </div>
     <div class="actrow" data-group="health" hidden>
       <button class="act" id="bRest"><span class="emo">😴</span>Rest</button>
@@ -91,6 +92,20 @@
         <div class="mgrow"><button data-d="left">◀</button><button data-d="down">▼</button><button data-d="right">▶</button></div>
       </div>
       <div class="mghint">Steer with arrow keys, swipe, or the buttons. Eat the banana slices 🍌 — don't hit the walls or yourself.</div>
+    </div>
+  </div>
+
+  <!-- ---------- Number-guessing minigame ---------- -->
+  <div id="guess" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>🎲 Guess My Number</span><button id="guessClose">✕</button></div>
+      <div class="gbunny"><div class="gface" id="gFace">🐰</div>
+        <div class="gbubble" id="gBubble">I'm thinking of a number…</div></div>
+      <div class="glives" id="gLives"></div>
+      <div class="ghint" id="gHint"></div>
+      <div class="gpad" id="gPad"></div>
+      <div class="gmsg" id="gMsg"></div>
+      <div class="mghint">Guess the number your bunny picked. <b>5 tries.</b> Right = <b>+50🥕</b>. Wrong (all 5) = a furious max <b>THUMP</b>! Angrier bunny = bigger range.</div>
     </div>
   </div>
 

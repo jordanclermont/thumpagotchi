@@ -138,7 +138,7 @@ const GOAL_POOL = [
   () => ({track:'trick',  target:3,  reward:9,  text:'Perform ×3 tricks'}),
   () => ({track:'clean',  target:1,  reward:6,  text:'Scoop the litter box'}),
   () => ({track:'water',  target:1,  reward:5,  text:'Refill the water bowl'}),
-  () => ({track:'pet',    target:15, reward:7,  text:'Give ×15 head pets'}),
+  () => ({track:'pet',    target:10, reward:7,  text:'Give ×10 head pets'}),
   () => ({track:'binky',  target:2,  reward:9,  text:'Spark ×2 binkies'}),
   () => ({track:'happy90',target:1,  reward:9,  text:'Reach 90% Happiness'}),
   () => ({track:'play',   target:2,  reward:8,  text:'Play together ×2'}),
@@ -163,9 +163,14 @@ function resize(){
   DPR = Math.min(window.devicePixelRatio||1, 2);
   W = canvas.clientWidth; H = canvas.clientHeight;
   canvas.width = Math.floor(W*DPR); canvas.height = Math.floor(H*DPR);
-  rcanvas.width = canvas.width; rcanvas.height = canvas.height;
   bgCtx.setTransform(DPR,0,0,DPR,0,0);
-  rctx.setTransform(DPR,0,0,DPR,0,0);
+  // The rabbit layer renders at a LOWER resolution for the filter-heavy themes so
+  // the per-frame CSS filter stays cheap (fixes the pixel/comic slowdown). Pixel
+  // renders very low-res and lets CSS upscale it crisply (no JS pixelation needed).
+  const rscale = (currentTheme==='pixel') ? 0.30 : (currentTheme==='comic') ? 1 : DPR;
+  rcanvas.width = Math.max(2, Math.round(W*rscale));
+  rcanvas.height = Math.max(2, Math.round(H*rscale));
+  rctx.setTransform(rscale,0,0,rscale,0,0);
   // Toys/furniture are sized to the rabbit (bigger overall) and scale with breed.
   const bs = (typeof BREEDS!=='undefined' && BREEDS[rab.breed]) ? BREEDS[rab.breed].scale : 1;
   world.floorY = H*0.58;
@@ -203,7 +208,7 @@ const rab = {
   trick:null,
   restUntil:0,
   play:null, playAlpha:1, playYOff:0, hidden:false,
-  boxT:0, boxYOff:0, decor:{rug:null},
+  boxT:0, boxYOff:0, decor:{rug:null}, petReact:0, begUntil:0, maxAngerCount:0,
   // progression
   bondLevel:1, bondXP:0, carrots:12,
   weight:100, health:100, sick:false, sickAt:0,
@@ -658,6 +663,16 @@ function hazardShock(){
   toast(`⚡ ZAP! ${rab.name} chewed the charger cord and got a scare! Rabbit-proof your cords.`);
   save();
 }
+function drawBegBubble(){
+  if(now() >= rab.begUntil || rab.hidden || rab.play || rab.cold) return;
+  const p=parts(); const bx=p.head.x, by=p.head.y - p.head.r*2.0;
+  ctx.fillStyle='rgba(255,255,255,.95)'; ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1.5;
+  roundRect(bx-24, by-20, 48, 34, 11); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.95)';
+  ctx.beginPath();ctx.moveTo(bx-7,by+12);ctx.lineTo(bx+7,by+12);ctx.lineTo(bx, by+24);ctx.closePath();ctx.fill();
+  ctx.font='22px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('🍌', bx, by-2); ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+}
 function tickEvent(dt,t){
   if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return;
   const c=dayEvent.cord;
@@ -829,15 +844,20 @@ function drawHead(p,t,tummy,closedEyes){
     ctx.fillStyle=mg;
     ctx.beginPath();ctx.ellipse(nmx,nmy,r*0.6,r*0.64,0,0,7);ctx.fill();
   }
-  // Black & tan markings (muzzle, jaw, eye-rings)
+  // Black & tan markings: WHITE eye patches with a soft tan ring, plus tan highlights.
   if(coat.tan){
-    ctx.fillStyle=coat.tanCol;
-    ctx.beginPath();ctx.ellipse(nmx, hy+r*0.52, r*0.32, r*0.26, 0,0,7);ctx.fill();
-    ctx.beginPath();ctx.arc(hx-r*0.62, hy+r*0.32, r*0.2,0,7);ctx.fill();
-    ctx.beginPath();ctx.arc(hx+r*0.62, hy+r*0.32, r*0.2,0,7);ctx.fill();
-    ctx.strokeStyle=coat.tanCol; ctx.lineWidth=3.2*s;
-    ctx.beginPath();ctx.arc(hx-r*0.46+look.x*0.6, hy-r*0.02, r*0.19, 0,7);ctx.stroke();
-    ctx.beginPath();ctx.arc(hx+r*0.46+look.x*0.6, hy-r*0.02, r*0.19, 0,7);ctx.stroke();
+    const eyeWhite = coat.belly || '#f2ece0';
+    for(const dir of [-1,1]){
+      const ex=hx+dir*r*0.46+look.x*0.6, ey=hy-r*0.02+look.y*0.6;
+      ctx.fillStyle=eyeWhite;
+      ctx.beginPath();ctx.ellipse(ex,ey, r*0.26, r*0.28, 0,0,7);ctx.fill();
+      ctx.strokeStyle=coat.tanCol; ctx.lineWidth=2.4*s;
+      ctx.beginPath();ctx.arc(ex,ey, r*0.25, 0,7);ctx.stroke();
+    }
+    ctx.fillStyle=coat.tanCol;                            // tan highlights (muzzle + cheeks)
+    ctx.beginPath();ctx.ellipse(nmx, hy+r*0.5, r*0.26, r*0.2, 0,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(hx-r*0.64, hy+r*0.3, r*0.15,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(hx+r*0.64, hy+r*0.3, r*0.15,0,7);ctx.fill();
   }
 
   // Lop ears IN FRONT (Holland) — layered over the cheeks so they read clearly
@@ -853,6 +873,9 @@ function drawHead(p,t,tummy,closedEyes){
       ctx.strokeStyle='#140f0b';
       ctx.beginPath();ctx.moveTo(ex-5*s,ey-5*s);ctx.lineTo(ex+5*s,ey+5*s);
       ctx.moveTo(ex+5*s,ey-5*s);ctx.lineTo(ex-5*s,ey+5*s);ctx.stroke();
+    } else if(rab.petReact>0){          // happy squint ^^ while being petted
+      ctx.strokeStyle='#140f0b';
+      ctx.beginPath();ctx.arc(ex,ey+3*s,6*s, 1.12*Math.PI, 1.88*Math.PI);ctx.stroke();
     } else if(closedEyes || rab.blink>0){
       ctx.strokeStyle='#140f0b';
       ctx.beginPath();ctx.arc(ex,ey,6*s,0.15*Math.PI,0.85*Math.PI);ctx.stroke();
@@ -1272,6 +1295,7 @@ function cleanLitter(){
 function togglePetting(){
   pettingMode=!pettingMode;
   $('bPet').classList.toggle('armed',pettingMode);
+  canvas.style.cursor = pettingMode ? 'grab' : 'default';   // hand cursor while petting
   toast(pettingMode? 'Petting ON — drag over the HEAD (never the feet!).' : 'Petting off.');
 }
 function restRabbit(){
@@ -1350,8 +1374,8 @@ function callVet(){
     if(owns('medicine')){ rab.items.medicine=Math.max(0,(rab.items.medicine|0)-1);
       if(rab.items.medicine<=0) delete rab.items.medicine;
       cureSick(true); refreshActions(); return; }
-    if(spendCarrots(25)){ cureSick(false); return; }
-    toast(`The vet costs 25🥕 (you have ${rab.carrots}). Or keep Gut Medicine 💊 on hand.`);
+    if(spendCarrots(45)){ cureSick(false); return; }
+    toast(`An emergency vet visit is 45🥕 (you have ${rab.carrots})! Cheaper to keep Gut Medicine 💊 stocked.`);
     return;
   }
   // wellness checkup
@@ -1416,14 +1440,15 @@ function handlePet(px,py){
     }
     return;
   }
-  if(dHead<p.head.r*1.15){
-    if(tnow-lastPetGain>0.12){
+  if(dHead<p.head.r*1.3){
+    if(tnow-lastPetGain>0.14){
       lastPetGain=tnow; wake();
-      stats.happy=clamp(stats.happy+2.2); rab.thumps=clamp(rab.thumps-0.15,0,5);
-      rab.lifetimePets++; if(rab.lifetimePets%40===0) addXP(4);
-      if(rab.lifetimePets===100) unlockAch('pets100');
-      if(rab.lifetimePets%6===0){ incGoal('pet',1); addXP(1); }
-      if(Math.random()<0.5) spawnHeart(px+rand(-8,8),py-6);
+      stats.happy=clamp(stats.happy+3); rab.thumps=clamp(rab.thumps-0.2,0,5);
+      rab.petReact=0.6;                                   // obvious happy reaction
+      rab.lifetimePets++; if(rab.lifetimePets%30===0) addXP(4);
+      if(rab.lifetimePets>=100) unlockAch('pets100');
+      incGoal('pet',1);                                   // counts every pet now
+      spawnHeart(p.head.x+rand(-12,12), p.head.y - p.head.r*1.35);   // above the mane, always visible
       if(!rab.trick) rab.state='loaf';
     }
   }
@@ -1445,6 +1470,8 @@ function idleBrain(dt,t){
   if(stats.energy<18 && Math.random()<0.01){ rab.restUntil=now()+rand(2,4); rab.state='rest';
     spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r); return; }
   if(stats.happy>88 && stats.energy>25 && Math.random()<0.004){ startBinky(); return; }
+  // occasionally begs for a banana with a 🍌 speech bubble — the classic overfeeding trap
+  if(now()>=rab.begUntil && stats.happy>35 && Math.random()<0.0035){ rab.begUntil=now()+rand(4,7); }
   nextIdle-=dt;
   if(nextIdle<=0){
     nextIdle=rand(3.5,7);
@@ -1465,12 +1492,15 @@ function updateState(t){
   if(rab.trick){ rab.state='trick'; return; }
   if(rab.legStomp>0.05){ rab.state='thump'; return; }
   const p=parts();
-  const near = Math.hypot(pointer.x-p.head.x,pointer.y-p.head.y) < p.head.r*3 && pointer.moved>0;
+  // She only turns to follow the cursor while you're actually pressing (no hover-twitch).
+  const near = pointer.down && Math.hypot(pointer.x-p.head.x,pointer.y-p.head.y) < p.head.r*3;
   const needy = stats.hunger>62 || stats.hygiene<32 || stats.water<28 || stats.energy<20 || rab.thumps>=2;
   if(rab.hopping || rab.binkyT>0 || near || needy){
     rab.state='alert';
-    rab.lookX=clamp((pointer.x-p.head.x)/120,-1,1);
-    rab.lookY=clamp((pointer.y-p.head.y)/120,-1,1);
+    if(pointer.down){
+      rab.lookX=clamp((pointer.x-p.head.x)/120,-1,1);
+      rab.lookY=clamp((pointer.y-p.head.y)/120,-1,1);
+    } else { rab.lookX=0; rab.lookY=0; }
     return;
   }
   rab.state='loaf';
@@ -1506,9 +1536,10 @@ function applyTheme(id){
   if(!THEMES.some(t=>t.id===id)) id='cozy';
   currentTheme=id;
   document.documentElement.setAttribute('data-theme', id);
-  pixelMode = (id==='pixel');
+  pixelMode = false;   // pixel look now comes from the low-res rabbit canvas (cheaper), not a JS pass
   flatTheme = false;   // background is no longer filtered, so it always uses the cozy gradients
   try{ localStorage.setItem(THEME_KEY, id); }catch(e){}
+  if(W) resize();      // re-size the rabbit layer for the new theme's resolution
   if(panelOpen==='themes') renderThemes();
 }
 function renderThemes(){
@@ -1584,6 +1615,7 @@ function frame(){
   if(rab.trick){ rab.trick.t+=dt; if(rab.trick.t>=rab.trick.dur) rab.trick=null; }
   rab.nextBlink-=dt; if(rab.nextBlink<=0){ rab.blink=0.12; rab.nextBlink=rand(2.5,6); }
   if(rab.blink>0) rab.blink-=dt;
+  if(rab.petReact>0) rab.petReact=Math.max(0,rab.petReact-dt);
 
   if(rab.play){
     updatePlay(dt);
@@ -1626,6 +1658,7 @@ function frame(){
   drawHazard();
   drawParticles(dt);
   drawThumpFx(dt);
+  drawBegBubble();
   drawAmbient();
   if(hazardFlash>0){ ctx.fillStyle=`rgba(255,240,180,${hazardFlash})`; ctx.fillRect(-40,-40,W+80,H+80); hazardFlash=Math.max(0,hazardFlash-dt*1.5); }
   ctx.restore();
@@ -1686,6 +1719,7 @@ function updateHUD(){
   else { hc.style.display='none'; }
   // contextual action enabling
   $('bVet').classList.toggle('urgent', rab.sick);
+  const bc=$('banCount'); if(bc){ bc.textContent=rab.bananasToday+'/2'; bc.classList.toggle('warn', rab.bananasToday>=2); }
 }
 
 /* Buttons that appear/disable based on ownership & state */
@@ -1794,12 +1828,19 @@ function renderMenu(){
       <div>Weight: ${Math.round(rab.weight)} · ${weightTxt}</div>
       <div>Carrots: ${rab.carrots}🥕 · Achievements: ${achDone}/${achTotal} 🏆</div>
     </div>
+    <div class="mhdr">Room decor · Rug</div>
+    <div class="mbtns">
+      <button id="rugTeal" class="mbtn${!(rab.decor&&rab.decor.rug==='rose')?' on':''}">Teal Rug</button>
+      <button id="rugRose" class="mbtn${(rab.decor&&rab.decor.rug==='rose')?' on':''}" ${owns('rug_rose')?'':'disabled'}>Rose Rug${owns('rug_rose')?'':' 🔒'}</button>
+    </div>
     <div class="mhdr">Trick mastery</div>${masteryList}
     <div class="mbtns">
       <button id="mSave" class="mbtn">💾 Save now</button>
       <button id="mReset" class="mbtn danger">🗑️ Rehome (reset)</button>
     </div>
     <div class="mtip">Tip: hay keeps weight healthy; bananas are treats (max 2/day). Neglect risks GI&nbsp;stasis — keep the Vet 🩺 and Gut Medicine 💊 in mind.</div>`;
+  $('rugTeal').onclick=()=>{ rab.decor.rug=null; save(); renderMenu(); };
+  $('rugRose').onclick=()=>{ if(owns('rug_rose')){ rab.decor.rug='rose'; save(); renderMenu(); } };
   $('mSave').onclick=()=>{ save(); toast('Game saved. 💾'); };
   $('mReset').onclick=()=>{
     if(confirm('Rehome your rabbit and start over? This erases your save.')){
@@ -1818,11 +1859,12 @@ function canvasPos(e){
   return {x:cx,y:cy};
 }
 function onDown(e){pointer.down=true;const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;
+  if(pettingMode) canvas.style.cursor='grabbing';
   if(findRabbit(p.x,p.y)) return;
   if(tapCord(p.x,p.y)) return;
   handlePet(p.x,p.y);}
 function onMove(e){const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;if(pointer.down)handlePet(p.x,p.y);}
-function onUp(){pointer.down=false;}
+function onUp(){pointer.down=false; if(pettingMode) canvas.style.cursor='grab';}
 canvas.addEventListener('mousedown',onDown);
 canvas.addEventListener('mousemove',onMove);
 window.addEventListener('mouseup',onUp);
@@ -2091,6 +2133,62 @@ function snDraw(){
   bind('bSnake', openSnake);
   bind('snakeClose', closeSnake);
 })();
+
+/* ============================================================================ *
+ *  GUESS MY NUMBER — a risk/reward minigame (you guess the bunny's number)
+ *  Difficulty scales with anger: the madder she is, the bigger the range (→25).
+ *  Win = +50🥕. Lose all 5 guesses = instant MAX thump (cold shoulder).
+ * ============================================================================ */
+const GS = { on:false, secret:0, max:10, guesses:0, done:false };
+function openGuess(){
+  if(rab.cold){ coldRefuse(); return; }
+  GS.max = Math.min(25, 10 + Math.round(rab.thumps*3));    // angrier → wider range
+  GS.secret = 1 + Math.floor(Math.random()*GS.max);
+  GS.guesses = 0; GS.done = false; GS.on = true;
+  minigameActive = true;
+  $('gFace').textContent = rab.thumps>=3 ? '😾' : '🐰';
+  $('gBubble').textContent = `I'm thinking of a number from 1 to ${GS.max}… bet you can't guess it!`;
+  $('gHint').textContent = ''; $('gMsg').className='gmsg'; $('gMsg').innerHTML='';
+  renderGuessLives(); renderGuessPad();
+  $('guess').classList.add('show');
+}
+function closeGuess(){ GS.on=false; minigameActive=false; $('guess').classList.remove('show'); last=now(); }
+function renderGuessLives(){
+  const el=$('gLives'); el.innerHTML='';
+  for(let i=0;i<5;i++) el.appendChild(Object.assign(document.createElement('span'),{textContent:i<(5-GS.guesses)?'🐾':'✖'}));
+}
+function renderGuessPad(){
+  const pad=$('gPad'); pad.innerHTML='';
+  for(let n=1;n<=GS.max;n++){
+    const b=document.createElement('button'); b.textContent=n; b.onclick=()=>guessNum(n,b); pad.appendChild(b);
+  }
+}
+function guessNum(n,btn){
+  if(GS.done) return;
+  if(btn) btn.disabled=true;
+  GS.guesses++;
+  if(n===GS.secret){ guessWin(); return; }
+  $('gHint').textContent = n<GS.secret ? `⬆️  Higher than ${n}…` : `⬇️  Lower than ${n}…`;
+  renderGuessLives();
+  if(GS.guesses>=5) guessLose();
+}
+function guessEndCard(html){ const m=$('gMsg'); m.innerHTML=html+`<div class="mgbtns"><button id="gAgain">Play again</button><button id="gDone2">Done</button></div>`;
+  m.className='gmsg show'; $('gAgain').onclick=openGuess; $('gDone2').onclick=closeGuess; }
+function guessWin(){
+  GS.done=true; GS.on=false;
+  addCarrots(50, rab.x, rab.baseY-60); addXP(15); stats.happy=clamp(stats.happy+14); rab.thumps=clamp(rab.thumps-1,0,5);
+  startBinky();
+  $('gFace').textContent='😻'; $('gBubble').textContent=`It WAS ${GS.secret}! You read my mind! 🥕`;
+  guessEndCard(`<h3>Correct! +50🥕</h3>`); save();
+}
+function guessLose(){
+  GS.done=true; GS.on=false;
+  rab.thumps=5; checkThreshold(); triggerThump();     // maxed anger → cold shoulder
+  $('gFace').textContent='😡'; $('gBubble').textContent=`It was ${GS.secret}! You'll NEVER guess me! 💢`;
+  guessEndCard(`<h3>Wrong — ${rab.name} is FURIOUS 💢</h3>`); save();
+}
+bind('bGuess', openGuess);
+bind('guessClose', closeGuess);
 
 /* ---------------- Boot ---------------- */
 try{ applyTheme(localStorage.getItem(THEME_KEY) || 'cozy'); }catch(e){ applyTheme('cozy'); }
