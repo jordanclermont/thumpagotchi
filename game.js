@@ -174,18 +174,19 @@ function resize(){
   rctx.setTransform(rscale,0,0,rscale,0,0);
   // Toys/furniture are sized to the rabbit (bigger overall) and scale with breed.
   const bs = (typeof BREEDS!=='undefined' && BREEDS[rab.breed]) ? BREEDS[rab.breed].scale : 1;
-  world.floorY = H*0.58;
-  world.rug   = {x:W*0.5,  y:H*0.80, rx:W*0.45, ry:H*0.16};
-  world.litter= {x:W*0.16, y:H*0.70, w:Math.min(230,W*0.32)*bs, h:Math.min(120,H*0.20)*bs};
-  world.food  = {x:W*0.31, y:H*0.925,r:Math.min(32,W*0.05)};
-  world.water = {x:W*0.42, y:H*0.935,r:Math.min(30,W*0.045)};
-  world.tube  = {x:W*0.82, y:H*0.66, w:Math.min(250,W*0.36)*bs, h:Math.min(126,H*0.21)*bs};
-  world.bed   = {x:W*0.64, y:H*0.91, r:Math.min(92,W*0.135)*bs};
-  world.castle= {x:W*0.88, y:H*0.85, r:Math.min(100,W*0.155)*bs};
-  world.ball  = {x:W*0.22, y:H*0.905,r:Math.min(27,W*0.042)*bs};
-  world.tower = {x:W*0.75, y:H*0.50, r:Math.min(80,W*0.12)*bs};
-  world.hutch = {x:W*0.30, y:H*0.47, r:Math.min(66,W*0.10)*bs};   // back-left, clear of the charger
-  world.win   = {x:W*0.5-W*0.11, y:H*0.07, w:W*0.22, h:H*0.30};
+  // Layout is shifted up so the bed/bowls stay clear of the bottom control dock.
+  world.floorY = H*0.56;
+  world.rug   = {x:W*0.5,  y:H*0.76, rx:W*0.45, ry:H*0.15};
+  world.litter= {x:W*0.15, y:H*0.65, w:Math.min(230,W*0.32)*bs, h:Math.min(120,H*0.20)*bs};
+  world.food  = {x:W*0.26, y:H*0.79, r:Math.min(32,W*0.05)};
+  world.water = {x:W*0.36, y:H*0.80, r:Math.min(30,W*0.045)};
+  world.tube  = {x:W*0.83, y:H*0.62, w:Math.min(250,W*0.36)*bs, h:Math.min(126,H*0.21)*bs};
+  world.bed   = {x:W*0.70, y:H*0.78, r:Math.min(92,W*0.135)*bs};
+  world.castle= {x:W*0.87, y:H*0.72, r:Math.min(100,W*0.155)*bs};
+  world.ball  = {x:W*0.19, y:H*0.80, r:Math.min(27,W*0.042)*bs};
+  world.tower = {x:W*0.76, y:H*0.47, r:Math.min(80,W*0.12)*bs};
+  world.hutch = {x:W*0.31, y:H*0.45, r:Math.min(66,W*0.10)*bs};   // back-left, clear of the charger
+  world.win   = {x:W*0.5-W*0.11, y:H*0.06, w:W*0.22, h:H*0.28};
   rab.baseY = world.rug.y - 6;
   rab.x = clamp(rab.x||world.rug.x, world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6);
 }
@@ -478,7 +479,8 @@ function drawRoom(){
 
   if(owns('hutch')) drawHutch();
   if(owns('tower')) drawTower();
-  drawTube(); drawBed(); drawLitter(); drawFoodBowl(); drawWaterBowl();
+  if(owns('tunnel')) drawTube();          // tunnel only appears once bought
+  drawBed(); drawLitter(); drawFoodBowl(); drawWaterBowl();
   if(owns('castle')) drawCastle();
   if(owns('ball'))   drawBall();
 }
@@ -654,7 +656,7 @@ function drawHideHint(t){
 }
 /* --- Phone-charger hazard --- */
 function startHazardEvent(){
-  dayEvent={type:'hazard', cord:{x:Math.max(80, W*0.13), y:H*0.90}, secured:false, chewed:false, nearT:0, nextTemptt:now()+rand(4,8)};
+  dayEvent={type:'hazard', cord:{x:Math.max(80, W*0.12), y:H*0.80}, secured:false, chewed:false, nearT:0, nextTemptt:now()+rand(4,8)};
 }
 function tapCord(px,py){
   if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return false;
@@ -1352,7 +1354,7 @@ function cleanLitter(){
 function togglePetting(){
   pettingMode=!pettingMode;
   $('bPet').classList.toggle('armed',pettingMode);
-  canvas.style.cursor = pettingMode ? 'grab' : 'default';   // hand cursor while petting
+  $('game').style.cursor = pettingMode ? 'grab' : 'default';   // hand cursor while petting
   toast(pettingMode? 'Petting ON — drag over the HEAD (never the feet!).' : 'Petting off.');
 }
 function restRabbit(){
@@ -1372,7 +1374,8 @@ function playToy(){
   const type = rab.play.type, big = type!=='ball';
   stats.happy=clamp(stats.happy + (big?20:15));
   stats.energy=clamp(stats.energy - (big?8:9));
-  addWeight(-1.8); rab.thumps=clamp(rab.thumps-0.5,0,5);
+  addWeight(-3);                          // exercise burns weight — play to keep her trim
+  rab.thumps=clamp(rab.thumps-0.5,0,5);
   addXP(5); addCarrots(2, rab.x, rab.baseY-70); incGoal('play');
   toast(type==='tunnel' ? `Tunnel zoomies! ${cap(P().s)} bolts through the tube. 🕳️`
       : type==='tower'  ? `${cap(P().s)} scrambles up the climbing tower to survey ${P().p} kingdom! 🪜`
@@ -1636,7 +1639,7 @@ function frame(){
 
   ctx.clearRect(0,0,W,H);
 
-  if(cutscene){ drawNight(dt); pixelate(); requestAnimationFrame(frame); return; }
+  if(cutscene){ rctx.clearRect(0,0,W,H); drawNight(dt); requestAnimationFrame(frame); return; }   // clear the rabbit layer so it doesn't linger over the zoomies
 
   const stage = stageFor(rab.ageDays);
   rab.curScale = damp(rab.curScale, stage.scale, 1.5, dt);
@@ -1783,6 +1786,8 @@ function updateHUD(){
   $('bondBar').style.width=(rab.bondXP/xpNeeded(rab.bondLevel)*100)+'%';
   const st=stageFor(rab.ageDays);
   $('stageChip').textContent=`${st.label} ${st.name}`;
+  const ws=weightStatus(); const wc=$('weightChip');
+  wc.textContent='⚖️ '+ws.lbs+'lb'; wc.className='chip'+(ws.band!=='ok'?' warn':'');
   // health warning pip
   const hc=$('healthChip');
   if(rab.sick){ hc.style.display='inline-flex'; hc.textContent='🤒 Sick'; hc.className='chip warn blink'; }
@@ -1939,12 +1944,12 @@ function canvasPos(e){
   return {x:cx,y:cy};
 }
 function onDown(e){pointer.down=true;const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;
-  if(pettingMode) canvas.style.cursor='grabbing';
+  if(pettingMode) $('game').style.cursor='grabbing';
   if(findRabbit(p.x,p.y)) return;
   if(tapCord(p.x,p.y)) return;
   handlePet(p.x,p.y);}
 function onMove(e){const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;if(pointer.down)handlePet(p.x,p.y);}
-function onUp(){pointer.down=false; if(pettingMode) canvas.style.cursor='grab';}
+function onUp(){pointer.down=false; if(pettingMode) $('game').style.cursor='grab';}
 canvas.addEventListener('mousedown',onDown);
 canvas.addEventListener('mousemove',onMove);
 window.addEventListener('mouseup',onUp);
@@ -2222,7 +2227,7 @@ function snDraw(){
 const GS = { on:false, secret:0, max:10, guesses:0, done:false };
 function openGuess(){
   if(rab.cold){ coldRefuse(); return; }
-  GS.max = Math.min(100, 10 + 20*Math.round(rab.thumps));  // calm 1–10 … furious 1–100
+  GS.max = Math.min(25, 10 + Math.round(rab.thumps*3));    // calm 1–10 … furious 1–25
   GS.secret = 1 + Math.floor(Math.random()*GS.max);
   GS.guesses = 0; GS.done = false; GS.on = true;
   minigameActive = true;
@@ -2235,24 +2240,22 @@ function openGuess(){
 function closeGuess(){ GS.on=false; minigameActive=false; $('guess').classList.remove('show'); last=now(); }
 function renderGuessLives(){
   const el=$('gLives'); el.innerHTML='';
-  for(let i=0;i<5;i++) el.appendChild(Object.assign(document.createElement('span'),{textContent:i<(5-GS.guesses)?'🐾':'✖'}));
+  for(let i=0;i<3;i++) el.appendChild(Object.assign(document.createElement('span'),{textContent:i<(3-GS.guesses)?'🐾':'✖'}));
 }
 function renderGuessPad(){
-  const pad=$('gPad'); pad.innerHTML=''; pad.className='ginput';
-  const inp=document.createElement('input'); inp.type='number'; inp.min=1; inp.max=GS.max;
-  inp.id='gInput'; inp.placeholder=`1–${GS.max}`; inp.inputMode='numeric';
-  const btn=document.createElement('button'); btn.textContent='Guess'; btn.className='gbtn';
-  const go=()=>{ const v=parseInt(inp.value); if(v>=1 && v<=GS.max){ inp.value=''; inp.focus(); guessNum(v); } };
-  btn.onclick=go; inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
-  pad.appendChild(inp); pad.appendChild(btn); setTimeout(()=>inp.focus(),50);
+  const pad=$('gPad'); pad.innerHTML=''; pad.className='gpad';
+  for(let n=1;n<=GS.max;n++){
+    const b=document.createElement('button'); b.textContent=n; b.onclick=()=>guessNum(n,b); pad.appendChild(b);
+  }
 }
-function guessNum(n){
+function guessNum(n,btn){
   if(GS.done) return;
+  if(btn) btn.disabled=true;
   GS.guesses++;
   if(n===GS.secret){ guessWin(); return; }
   $('gHint').textContent = n<GS.secret ? `⬆️  Higher than ${n}…` : `⬇️  Lower than ${n}…`;
   renderGuessLives();
-  if(GS.guesses>=5) guessLose();
+  if(GS.guesses>=3) guessLose();
 }
 function guessEndCard(html){ const m=$('gMsg'); m.innerHTML=html+`<div class="mgbtns"><button id="gAgain">Play again</button><button id="gDone2">Done</button></div>`;
   m.className='gmsg show'; $('gAgain').onclick=openGuess; $('gDone2').onclick=closeGuess; }
@@ -2272,6 +2275,106 @@ function guessLose(){
 bind('bGuess', openGuess);
 bind('guessClose', closeGuess);
 bind('rpsBtn', ()=>location.reload());
+
+/* ============================================================================ *
+ *  BUNNY PONG — the ball is a little rabbit head; first to 5 wins carrots
+ * ============================================================================ */
+const PN = { on:false, over:false, you:0, cpu:0, W:320, H:400, pad:76, px:160, ax:160,
+             ball:{x:0,y:0,vx:0,vy:0}, raf:null, lastT:0 };
+let pnCanvas=null, pnCtx=null;
+function openPong(){
+  if(rab.cold){ coldRefuse(); return; }
+  pnCanvas=$('pongCanvas'); pnCtx=pnCanvas.getContext('2d');
+  minigameActive=true; $('pong').classList.add('show'); $('pongOverlayMsg').className='mgmsg';
+  PN.you=0; PN.cpu=0; $('pnYou').textContent=0; $('pnCpu').textContent=0;
+  pnResize(); pnServe(true); PN.on=true; PN.over=false;
+  PN.lastT=now(); PN.raf=requestAnimationFrame(pnFrame);
+}
+function closePong(){ PN.on=false; minigameActive=false; if(PN.raf) cancelAnimationFrame(PN.raf); $('pong').classList.remove('show'); last=now(); }
+function pnResize(){
+  const wCss=Math.min((window.innerWidth||360)*0.84, 330);
+  PN.W=Math.round(wCss); PN.H=Math.round(wCss*1.28);
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  pnCanvas.style.width=PN.W+'px'; pnCanvas.style.height=PN.H+'px';
+  pnCanvas.width=Math.round(PN.W*dpr); pnCanvas.height=Math.round(PN.H*dpr);
+  pnCtx.setTransform(dpr,0,0,dpr,0,0);
+  PN.pad=Math.round(PN.W*0.26); PN.px=PN.W/2; PN.ax=PN.W/2;
+}
+function pnServe(down){
+  const b=PN.ball, sp=PN.H*0.62, ang=rand(-0.5,0.5);
+  b.x=PN.W/2; b.y=PN.H/2; b.vx=Math.sin(ang)*sp; b.vy=(down?1:-1)*Math.cos(ang)*sp;
+}
+function pnScore(who){
+  if(who==='you'){ PN.you++; } else { PN.cpu++; }
+  $('pnYou').textContent=PN.you; $('pnCpu').textContent=PN.cpu;
+  if(PN.you>=5 || PN.cpu>=5){ pnEnd(); return; }
+  pnServe(who==='you');   // serve toward whoever just conceded
+}
+function pnEnd(){
+  PN.over=true; PN.on=false;
+  const won=PN.you>PN.cpu;
+  if(won){ addCarrots(30, rab.x, rab.baseY-60); addXP(12); stats.happy=clamp(stats.happy+10); startBinky(); }
+  else { rab.thumps=clamp(rab.thumps+0.8,0,5); }
+  save();
+  const m=$('pongOverlayMsg');
+  m.innerHTML=`<div class="mgover"><h3>${won?'You win! +30🥕':`${rab.name} wins! 🐰`}</h3>
+    <div class="mgbtns"><button id="pnAgain">Play again</button><button id="pnDone">Done</button></div></div>`;
+  m.className='mgmsg show';
+  $('pnAgain').onclick=()=>{ PN.you=0;PN.cpu=0;$('pnYou').textContent=0;$('pnCpu').textContent=0;
+    $('pongOverlayMsg').className='mgmsg'; pnServe(true); PN.on=true; PN.over=false; PN.lastT=now(); PN.raf=requestAnimationFrame(pnFrame); };
+  $('pnDone').onclick=closePong;
+}
+function pnFrame(){
+  if(!PN.on) return;
+  const t=now(); let dt=t-PN.lastT; PN.lastT=t; dt=Math.min(dt,0.033);
+  const b=PN.ball, r=PN.W*0.05;
+  // CPU paddle chases the ball (capped speed)
+  const aiStep=PN.W*1.25*dt;
+  PN.ax += clamp(b.x-PN.ax, -aiStep, aiStep);
+  PN.ax = clamp(PN.ax, PN.pad/2, PN.W-PN.pad/2);
+  // ball
+  b.x+=b.vx*dt; b.y+=b.vy*dt;
+  if(b.x<r){ b.x=r; b.vx=Math.abs(b.vx); }
+  if(b.x>PN.W-r){ b.x=PN.W-r; b.vx=-Math.abs(b.vx); }
+  const yYou=PN.H-24, yCpu=24;
+  if(b.vy>0 && b.y>yYou-r && b.y<yYou+10 && Math.abs(b.x-PN.px)<PN.pad/2+r){
+    b.y=yYou-r; b.vy=-Math.abs(b.vy)*1.03; b.vx += (b.x-PN.px)/(PN.pad/2)*PN.W*0.6; }
+  if(b.vy<0 && b.y<yCpu+r && b.y>yCpu-10 && Math.abs(b.x-PN.ax)<PN.pad/2+r){
+    b.y=yCpu+r; b.vy=Math.abs(b.vy)*1.03; b.vx += (b.x-PN.ax)/(PN.pad/2)*PN.W*0.6; }
+  b.vx=clamp(b.vx,-PN.H*0.75,PN.H*0.75); b.vy=clamp(b.vy,-PN.H*0.9,PN.H*0.9);
+  if(b.y>PN.H+r){ pnScore('cpu'); }
+  else if(b.y<-r){ pnScore('you'); }
+  pnDraw();
+  if(PN.on) PN.raf=requestAnimationFrame(pnFrame);
+}
+function pnDraw(){
+  const c=pnCtx, r=PN.W*0.05, b=PN.ball;
+  c.fillStyle='#3a4a6a'; c.fillRect(0,0,PN.W,PN.H);
+  c.strokeStyle='rgba(255,255,255,.2)'; c.setLineDash([6,8]); c.lineWidth=2;
+  c.beginPath();c.moveTo(0,PN.H/2);c.lineTo(PN.W,PN.H/2);c.stroke(); c.setLineDash([]);
+  c.fillStyle='#e6c078'; roundRectCtx(c, PN.px-PN.pad/2, PN.H-28, PN.pad, 11, 5); c.fill();
+  c.fillStyle='#c98fb0'; roundRectCtx(c, PN.ax-PN.pad/2, 17, PN.pad, 11, 5); c.fill();
+  // ball = rabbit head (ears, face, eyes, nose)
+  c.fillStyle=coat.body;
+  c.beginPath();c.ellipse(b.x-r*0.5, b.y-r*1.0, r*0.3, r*0.66, -0.2,0,7);c.fill();
+  c.beginPath();c.ellipse(b.x+r*0.5, b.y-r*1.0, r*0.3, r*0.66,  0.2,0,7);c.fill();
+  c.beginPath();c.arc(b.x, b.y, r, 0,7);c.fill();
+  c.fillStyle='#140f0b';
+  c.beginPath();c.arc(b.x-r*0.35, b.y-r*0.1, r*0.15,0,7);c.fill();
+  c.beginPath();c.arc(b.x+r*0.35, b.y-r*0.1, r*0.15,0,7);c.fill();
+  c.fillStyle='#c86a72'; c.beginPath();c.ellipse(b.x, b.y+r*0.28, r*0.13, r*0.1, 0,0,7);c.fill();
+}
+(function wirePong(){
+  const cv=$('pongCanvas');
+  const move=(clientX)=>{ if(!PN.on) return; const rct=cv.getBoundingClientRect();
+    PN.px=clamp((clientX-rct.left)*(PN.W/rct.width), PN.pad/2, PN.W-PN.pad/2); };
+  cv.addEventListener('mousemove',e=>move(e.clientX));
+  cv.addEventListener('touchmove',e=>{ e.preventDefault(); move(e.touches[0].clientX); },{passive:false});
+  window.addEventListener('keydown',e=>{ if(!PN.on) return;
+    if(e.key==='ArrowLeft'){ PN.px=clamp(PN.px-PN.W*0.09,PN.pad/2,PN.W-PN.pad/2); e.preventDefault(); }
+    else if(e.key==='ArrowRight'){ PN.px=clamp(PN.px+PN.W*0.09,PN.pad/2,PN.W-PN.pad/2); e.preventDefault(); } });
+  bind('bPong', openPong); bind('pongClose', closePong);
+})();
 
 /* ---------------- Boot ---------------- */
 try{ applyTheme(localStorage.getItem(THEME_KEY) || 'cozy'); }catch(e){ applyTheme('cozy'); }

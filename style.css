@@ -380,3 +380,34 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
   font-weight:800;color:#231810;background:linear-gradient(180deg,#ffd9a0,#f0a94e);box-shadow:0 4px 0 #a9803e;}
 .mbtn.on{outline:2px solid var(--accent);outline-offset:-2px;}
 .mbtn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ---- Bunny Pong ---- */
+#pongCanvas{border-radius:12px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.12),0 6px 16px rgba(0,0,0,.4);touch-action:none;}
+
+/* ============================================================ *
+ *  PASTEL MENUS — start screen + slide-up panels
+ * ============================================================ */
+:root{ --panel-bg:linear-gradient(180deg,#fbf1e0,#f5e5cf); }   /* pastel cream panels */
+#panel{color:#3a2f26;border-color:rgba(120,90,60,.25);}
+#panelTitle{background:linear-gradient(90deg,#8a5a20,#c88a3a);-webkit-background-clip:text;background-clip:text;color:transparent;}
+#panelClose{background:rgba(120,90,60,.14);color:#5a4636;}
+#panelWrap{background:rgba(60,40,26,.4);}
+.balance{color:#5a4636;} .balance b{color:#b06a1e;}
+.srow{background:rgba(255,255,255,.5);border-color:rgba(120,90,60,.14);}
+.sname{color:#3a2f26;} .sdesc{color:#7a6653;opacity:1;}
+.grow{background:rgba(255,255,255,.5);border-color:rgba(120,90,60,.12);}
+.grow.done{background:rgba(111,191,115,.22);border-color:rgba(111,191,115,.5);}
+.gtext{color:#3a2f26;} .greward{color:#b06a1e;}
+.gtrack{background:rgba(120,90,60,.18);}
+.vitals{background:rgba(255,255,255,.5);color:#3a2f26;} .vitals b{color:#8a5a20;}
+.mhdr{color:#7a6653;opacity:1;} .mrow{color:#3a2f26;border-color:rgba(120,90,60,.14);} .mrow i{color:#9a8672;}
+.mtip{color:#7a6653;opacity:1;}
+
+/* start / adoption screen → warm pastel */
+#start{background:radial-gradient(120% 120% at 50% 15%,#f7e9d2,#efd9bd 72%);}
+#start .card{background:rgba(255,251,243,.92);border-color:rgba(120,90,60,.2);box-shadow:0 20px 60px rgba(120,80,40,.25);color:#3a2f26;}
+#start .tag{color:#7a6653;opacity:1;}
+#start label{color:#7a6653;opacity:1;}
+#nameInput{background:#fff;border-color:rgba(120,90,60,.25);color:#3a2f26;}
+.seg button{background:#fff;border-color:rgba(120,90,60,.2);color:#5a4636;}
+.coatName{color:#7a6653;opacity:1;}

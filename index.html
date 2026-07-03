@@ -28,6 +28,7 @@
       <span class="chip" id="stageChip">🐰 Adult</span>
       <span class="chip bond" id="bondChip">Bond <b id="bondN">1</b><span class="bondtrack"><span class="bondfill" id="bondBar"></span></span></span>
       <span class="chip carrot"><span id="carrotN">12</span>🥕</span>
+      <span class="chip" id="weightChip">⚖️</span>
       <span class="chip warn" id="healthChip" style="display:none">❤</span>
       <span class="day" id="dayLbl">Day 1</span>
       <span class="clock" id="clockLbl">🌅</span>
@@ -56,6 +57,7 @@
     <div id="actTabs">
       <button class="atab on" data-tab="care" id="tabCare">🧺 Care</button>
       <button class="atab" data-tab="play" id="tabPlay">🎾 Play</button>
+      <button class="atab" data-tab="games" id="tabGames">🎮 Games</button>
       <button class="atab" data-tab="health" id="tabHealth">❤️ Health</button>
     </div>
     <div class="actrow" data-group="care">
@@ -69,8 +71,11 @@
       <button class="act" id="bPet"><span class="emo">✋</span>Pet</button>
       <button class="act" id="bTrick"><span class="emo">🌟</span>Trick</button>
       <button class="act" id="bPlay" style="display:none"><span class="emo">🧸</span>Play</button>
+    </div>
+    <div class="actrow" data-group="games" hidden>
       <button class="act" id="bSnake"><span class="emo">🐍</span>Snake</button>
       <button class="act" id="bGuess"><span class="emo">🎲</span>Guess</button>
+      <button class="act" id="bPong"><span class="emo">🏓</span>Pong</button>
     </div>
     <div class="actrow" data-group="health" hidden>
       <button class="act" id="bRest"><span class="emo">😴</span>Rest</button>
@@ -95,6 +100,16 @@
     </div>
   </div>
 
+  <!-- ---------- Bunny Pong minigame ---------- -->
+  <div id="pong" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>🏓 Bunny Pong</span><button id="pongClose">✕</button></div>
+      <div class="mgscore">You <b id="pnYou">0</b> &nbsp;—&nbsp; <b id="pnCpu">0</b> Bunny &nbsp;·&nbsp; first to 5</div>
+      <div class="mgstage"><canvas id="pongCanvas"></canvas><div id="pongOverlayMsg" class="mgmsg"></div></div>
+      <div class="mghint">Move your paddle with the mouse, touch, or ← → keys. The ball is a bunny head 🐰 — win 5 rallies for 🥕!</div>
+    </div>
+  </div>
+
   <!-- ---------- "Taken away" game-over ---------- -->
   <div id="rps">
     <div class="rpsicon" id="rpsIcon">🚔</div>
@@ -113,7 +128,7 @@
       <div class="ghint" id="gHint"></div>
       <div class="gpad" id="gPad"></div>
       <div class="gmsg" id="gMsg"></div>
-      <div class="mghint">Guess the number your bunny picked. <b>5 tries.</b> Right = <b>+50🥕</b>. Wrong (all 5) = a furious max <b>THUMP</b>! Angrier bunny = bigger range.</div>
+      <div class="mghint">Guess the number your bunny picked. <b>3 tries.</b> Right = <b>+50🥕</b>. Wrong (all 3) = a furious max <b>THUMP</b>! Angrier bunny = bigger range.</div>
     </div>
   </div>
 
