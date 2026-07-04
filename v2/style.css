@@ -98,7 +98,7 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 #toast{position:absolute;bottom:calc(150px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(8px);
   background:var(--panel);padding:8px 16px;border-radius:20px;font-size:13px;
   backdrop-filter:blur(4px);opacity:0;transition:opacity .3s, transform .3s;
-  pointer-events:none;max-width:86vw;text-align:center;border:1px solid rgba(255,255,255,.08);z-index:5;
+  pointer-events:none;max-width:86vw;text-align:center;border:1px solid rgba(255,255,255,.08);z-index:24;
   box-shadow:0 6px 18px rgba(0,0,0,.4);}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 #hint{position:absolute;bottom:calc(122px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
