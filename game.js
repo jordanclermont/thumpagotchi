@@ -24,6 +24,7 @@ const rand=(a,b)=>a+Math.random()*(b-a);
 const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
 const now=()=>performance.now()/1000;
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const ord=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%100!==13?'rd':'th');
 const mix=(a,b,t)=>[Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1],b[1],t)),Math.round(lerp(a[2],b[2],t))];
 const rgb=a=>`rgb(${a[0]},${a[1]},${a[2]})`;
 const $=id=>document.getElementById(id);
@@ -336,10 +337,13 @@ function unlockAch(id){
  *  DAILY GOALS
  * ============================================================================ */
 function rollGoals(){
-  const pool=[...GOAL_POOL]; const chosen=[];
+  // the Play goal is only rollable once a toy is owned (otherwise it can't be completed)
+  const hasToy = owns('ball')||owns('tunnel')||owns('tower');
+  const pool = GOAL_POOL.map(f=>f()).filter(g=>g.track!=='play' || hasToy);
+  const chosen=[];
   for(let i=0;i<3 && pool.length;i++){
     const idx=Math.floor(Math.random()*pool.length);
-    const g=pool.splice(idx,1)[0]();
+    const g=pool.splice(idx,1)[0];
     g.prog=0; g.done=false; g.text=g.text.replace('{name}',rab.name);
     chosen.push(g);
   }
@@ -621,11 +625,14 @@ function rollDailyEvent(){
 /* --- Hide & seek --- */
 function startHideEvent(){
   const spots=[
-    {x:world.tube.x,   y:world.tube.y-6,   name:'the play tunnel'},
     {x:world.bed.x,    y:world.bed.y-6,    name:'the cozy bed'},
     {x:world.litter.x, y:world.litter.y-6, name:'the litter box'},
   ];
+  // she only hides behind furniture that actually exists in the room
+  if(owns('tunnel')) spots.push({x:world.tube.x,   y:world.tube.y-6,   name:'the play tunnel'});
   if(owns('castle')) spots.push({x:world.castle.x, y:world.castle.y-6, name:'the cardboard castle'});
+  if(owns('tower'))  spots.push({x:world.tower.x,  y:world.tower.y-6,  name:'the climbing tower'});
+  if(owns('hutch'))  spots.push({x:world.hutch.x,  y:world.hutch.y+world.hutch.r*0.4, name:'the wooden hutch'});
   dayEvent={type:'hide', spot:pick(spots), found:false};
   rab.hidden=true; rab.x=dayEvent.spot.x; rab.hopping=false; rab.loaf=0;
 }
@@ -1095,7 +1102,12 @@ function endNight(){
   // overnight: she's starving but rested and refreshed
   stats.hunger=clamp(stats.hunger+52, 55, 100);
   stats.water=clamp(stats.water-16);
-  stats.happy=clamp(stats.happy+18);
+  // waking-up joy, plus the promised daily boosts from cosy furniture
+  let morningJoy = 18;
+  if(owns('castle'))  morningJoy += 4;   // cardboard castle hideout
+  if(owns('hutch'))   morningJoy += 5;   // rustic hidey-hutch
+  if(owns('hammock')) morningJoy += 8;   // lounged in style all night
+  stats.happy=clamp(stats.happy+morningJoy);
   stats.energy=clamp(stats.energy+55, 40, 100);
   rab.cold=false; rab.thumps=clamp(rab.thumps-1,0,5);
   rab.x=world.rug.x;
@@ -1246,6 +1258,11 @@ function onMaxAnger(){
 }
 function takenAway(reason){
   started=false; wipeSave();
+  // tidy up any open minigame (losing Guess can trigger this mid-overlay)
+  if(SN.timer){ clearInterval(SN.timer); SN.timer=null; } SN.on=false;
+  if(PN.raf){ cancelAnimationFrame(PN.raf); PN.raf=null; } PN.on=false; GS.on=false;
+  minigameActive=false;
+  ['snake','pong','guess'].forEach(id=>{ const el=$(id); if(el) el.classList.remove('show'); });
   const o=$('rps');
   if(reason==='anger'){
     $('rpsIcon').textContent='🚔'; $('rpsTitle').textContent='Rabbit Protective Services';
@@ -1301,7 +1318,7 @@ function givePellets(){
   rab.pelletsToday++;
   // pellets are a 1–2×/day supplement; a 3rd+ scoop piles on the weight
   if(rab.pelletsToday<=2){ addWeight(2.5); }
-  else { addWeight(7); toast(`⚠️ That's ${P().p} ${rab.pelletsToday}rd scoop of pellets today — too many! Pellets are 1–2×/day; hay should be the main food.`); }
+  else { addWeight(7); toast(`⚠️ That's ${P().p} ${ord(rab.pelletsToday)} scoop of pellets today — too many! Pellets are 1–2×/day; hay should be the main food.`); }
   addXP(2);
   hopTo(world.food.x);
   spawnHeart(parts().head.x, parts().head.y);
@@ -1362,7 +1379,8 @@ function restRabbit(){
   if(stats.energy>85){ toast(`${rab.name} isn't sleepy — plenty of energy right now.`); return; }
   rab.restUntil=now()+4.5; rab.state='rest'; rab.trick=null;
   spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r);
-  toast(`${rab.name} curls into a cozy nap. 😴`);
+  toast(owns('hammock') ? `${rab.name} flops into the hammock for a deluxe nap. 😴🛏️`
+                        : `${rab.name} curls into a cozy nap. 😴`);
 }
 function playToy(){
   if(rab.cold){ coldRefuse(); return; }
@@ -1653,10 +1671,10 @@ function frame(){
   const sickMul = (rab.sick? 1.4 : 1) * (rab.cold? 1.5 : 1);   // a furious bun neglects itself
   stats.hunger=clamp(stats.hunger + stage.hunger*sickMul*dt);
   stats.hygiene=clamp(stats.hygiene - 0.72*sickMul*dt);
-  stats.water=clamp(stats.water - 0.62*sickMul*dt);
+  stats.water=clamp(stats.water - 0.62*(owns('bottle')?0.6:1)*sickMul*dt);   // Deluxe Water Bottle: water lasts longer
   const happyDecay = 0.6 * (owns('castle')||owns('hutch')?0.82:1) * ((owns('ball')||owns('tunnel')||owns('tower'))?0.88:1);
   stats.happy=clamp(stats.happy - happyDecay*dt);
-  if(rab.state==='rest'){ stats.energy=clamp(stats.energy + 11*dt); }
+  if(rab.state==='rest'){ stats.energy=clamp(stats.energy + (owns('hammock')?15:11)*dt); }   // hammock = cushier naps
   else { stats.energy=clamp(stats.energy - stage.energy*0.5*dt); }
   if(hayFresh>0) hayFresh-=dt;
 
@@ -1806,7 +1824,7 @@ function updateHUD(){
 /* Buttons that appear/disable based on ownership & state */
 function refreshActions(){
   const play=$('bPlay');
-  if(play) play.style.display = (owns('ball')||owns('tunnel')) ? 'flex' : 'none';
+  if(play) play.style.display = (owns('ball')||owns('tunnel')||owns('tower')) ? 'flex' : 'none';
 }
 
 /* ============================================================================ *
@@ -1857,7 +1875,9 @@ function buy(id){
     else if(id==='chews'){ stats.hunger=clamp(stats.hunger-8); stats.happy=clamp(stats.happy+10);
       stats.energy=clamp(stats.energy+6); addWeight(1.5); rab.thumps=clamp(rab.thumps-0.3,0,5); }   // treat
     stats.happy=clamp(stats.happy+6); spawnHeart(parts().head.x,parts().head.y);
-    toast(`Yum! ${it.name} served. 😋`);
+    if(id==='oxbow' && rab.pelletsToday>2)
+      toast(`⚠️ That's ${P().p} ${ord(rab.pelletsToday)} scoop of pellets today — too many! Hay should be the main food.`);
+    else toast(`Yum! ${it.name} served. 😋`);
   } else if(it.type==='cure'){
     rab.items[id]=(rab.items[id]||0)+1;
     toast(`Bought ${it.name}. The Vet will use it free when needed. 💊`);
@@ -2148,7 +2168,7 @@ function snGameOver(){
   SN.state='over'; SN.on=false;
   if(SN.timer){ clearInterval(SN.timer); SN.timer=null; }
   const reward = SN.score;
-  if(reward>0){ rab.carrots += reward; addXP(Math.min(15, SN.score)); }
+  if(reward>0){ addCarrots(reward); addXP(Math.min(15, SN.score)); }   // via addCarrots so 🏆 Tycoon can trigger
   const isBest = SN.score>SN.best && SN.score>0;
   if(isBest){ SN.best=SN.score; try{ localStorage.setItem(SNAKE_BEST_KEY, SN.best); }catch(e){} }
   $('snBest').textContent=SN.best;
@@ -2219,7 +2239,7 @@ function snDraw(){
   cv.addEventListener('touchend',e=>{ const t=e.changedTouches[0]; const dx=t.clientX-tsx, dy=t.clientY-tsy;
     if(Math.abs(dx)<16 && Math.abs(dy)<16) return;
     if(Math.abs(dx)>Math.abs(dy)) snSetDir(dx>0?1:-1,0); else snSetDir(0,dy>0?1:-1); },{passive:true});
-  window.addEventListener('resize',()=>{ if(minigameActive){ snResize(); snDraw(); } });
+  window.addEventListener('resize',()=>{ if(snCanvas && $('snake').classList.contains('show')){ snResize(); snDraw(); } });
   bind('bSnake', openSnake);
   bind('snakeClose', closeSnake);
 })();
@@ -2227,7 +2247,7 @@ function snDraw(){
 /* ============================================================================ *
  *  GUESS MY NUMBER — a risk/reward minigame (you guess the bunny's number)
  *  Difficulty scales with anger: the madder she is, the bigger the range (→25).
- *  Win = +50🥕. Lose all 5 guesses = instant MAX thump (cold shoulder).
+ *  Win = +50🥕. Lose all 3 guesses = instant MAX thump (cold shoulder).
  * ============================================================================ */
 const GS = { on:false, secret:0, max:10, guesses:0, done:false };
 function openGuess(){
@@ -2378,6 +2398,8 @@ function pnDraw(){
   window.addEventListener('keydown',e=>{ if(!PN.on) return;
     if(e.key==='ArrowLeft'){ PN.px=clamp(PN.px-PN.W*0.09,PN.pad/2,PN.W-PN.pad/2); e.preventDefault(); }
     else if(e.key==='ArrowRight'){ PN.px=clamp(PN.px+PN.W*0.09,PN.pad/2,PN.W-PN.pad/2); e.preventDefault(); } });
+  window.addEventListener('resize',()=>{ if(pnCanvas && $('pong').classList.contains('show')){
+    pnResize(); if(PN.on) pnServe(true); pnDraw(); } });   // re-fit the board; re-serve mid-rally
   bind('bPong', openPong); bind('pongClose', closePong);
 })();
 
