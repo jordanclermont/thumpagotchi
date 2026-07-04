@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Thumpagotchi</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Inline SVG filters used by the art-style themes (applied to the canvas via CSS) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="posterize">
+    <feComponentTransfer>
+      <feFuncR type="discrete" tableValues="0 0.22 0.45 0.68 0.9 1"/>
+      <feFuncG type="discrete" tableValues="0 0.22 0.45 0.68 0.9 1"/>
+      <feFuncB type="discrete" tableValues="0 0.22 0.45 0.68 0.9 1"/>
+    </feComponentTransfer>
+  </filter>
+</svg>
+<div id="game">
+  <canvas id="c"></canvas>
+  <canvas id="rc"></canvas>
+
+  <!-- ---------- Top HUD ---------- -->
+  <div id="hud">
+    <div class="brand">
+      <h1>🐰 <span id="petName">Thumpagotchi</span></h1>
+      <span class="chip" id="stageChip">🐰 Adult</span>
+      <span class="chip bond" id="bondChip">Bond <b id="bondN">1</b><span class="bondtrack"><span class="bondfill" id="bondBar"></span></span></span>
+      <span class="chip carrot"><span id="carrotN">12</span>🥕</span>
+      <span class="chip" id="weightChip">⚖️</span>
+      <span class="chip warn" id="healthChip" style="display:none">❤</span>
+      <span class="day" id="dayLbl">Day 1</span>
+      <span class="clock" id="clockLbl">🌅</span>
+    </div>
+    <div class="stat"><span class="lbl">Happy</span><div class="track"><div class="fill" id="fHappy"></div></div><span class="val" id="vHappy">0</span></div>
+    <div class="stat"><span class="lbl">Hunger</span><div class="track"><div class="fill" id="fHunger"></div></div><span class="val" id="vHunger">0</span></div>
+    <div class="stat"><span class="lbl">Water</span><div class="track"><div class="fill" id="fWater"></div></div><span class="val" id="vWater">0</span></div>
+    <div class="stat"><span class="lbl">Hygiene</span><div class="track"><div class="fill" id="fHygiene"></div></div><span class="val" id="vHygiene">0</span></div>
+    <div class="stat"><span class="lbl">Energy</span><div class="track"><div class="fill" id="fEnergy"></div></div><span class="val" id="vEnergy">0</span></div>
+    <div id="thumpMeter"><span class="lbl">Thumps</span><span id="paws"></span></div>
+  </div>
+
+  <!-- ---------- Top-right toolbar ---------- -->
+  <div id="toolbar">
+    <button class="tbtn" id="tbTheme" title="Art style">🎨</button>
+    <button class="tbtn" id="tbShop" title="Shop">🛒</button>
+    <button class="tbtn" id="tbGoals" title="Daily goals">🎯<span id="goalBadge" class="badge">0/3</span></button>
+    <button class="tbtn" id="tbMenu" title="Menu">⚙️</button>
+  </div>
+
+  <div id="toast"></div>
+  <div id="hint">Feed, water &amp; love your bun — earn 🥕, grow your Bond, and keep the feet sacred.</div>
+
+  <!-- ---------- Bottom controls (Care / Play / Health tabs) ---------- -->
+  <div id="controls">
+    <div id="actTabs">
+      <button class="atab on" data-tab="care" id="tabCare">🧺 Care</button>
+      <button class="atab" data-tab="play" id="tabPlay">🎾 Play</button>
+      <button class="atab" data-tab="games" id="tabGames">🎮 Games</button>
+      <button class="atab" data-tab="health" id="tabHealth">❤️ Health</button>
+    </div>
+    <div class="actrow" data-group="care">
+      <button class="act" id="bHay"><span class="emo">🌾</span>Hay</button>
+      <button class="act" id="bPellets"><span class="emo">🥣</span>Pellets</button>
+      <button class="act" id="bWater"><span class="emo">💧</span>Water</button>
+      <button class="act" id="bBanana"><span class="emo">🍌</span>Banana<span class="cnt" id="banCount">0/2</span></button>
+      <button class="act" id="bClean"><span class="emo">🧹</span>Clean</button>
+    </div>
+    <div class="actrow" data-group="play" hidden>
+      <button class="act" id="bPet"><span class="emo">✋</span>Pet</button>
+      <button class="act" id="bTrick"><span class="emo">🌟</span>Trick</button>
+      <button class="act" id="bPlay" style="display:none"><span class="emo">🧸</span>Play</button>
+    </div>
+    <div class="actrow" data-group="games" hidden>
+      <button class="act" id="bSnake"><span class="emo">🐍</span>Snake</button>
+      <button class="act" id="bGuess"><span class="emo">🎲</span>Guess</button>
+      <button class="act" id="bPong"><span class="emo">🏓</span>Pong</button>
+    </div>
+    <div class="actrow" data-group="health" hidden>
+      <button class="act" id="bRest"><span class="emo">😴</span>Rest</button>
+      <button class="act" id="bVet"><span class="emo">🩺</span>Vet</button>
+    </div>
+  </div>
+
+  <!-- ---------- Bunny Snake minigame ---------- -->
+  <div id="snake" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>🐍 Bunny Snake</span><button id="snakeClose">✕</button></div>
+      <div class="mgscore">Score <b id="snScore">0</b> &nbsp;·&nbsp; Best <b id="snBest">0</b></div>
+      <div class="mgstage">
+        <canvas id="snakeCanvas"></canvas>
+        <div id="snakeOverlayMsg" class="mgmsg"></div>
+      </div>
+      <div class="mgpad">
+        <button data-d="up">▲</button>
+        <div class="mgrow"><button data-d="left">◀</button><button data-d="down">▼</button><button data-d="right">▶</button></div>
+      </div>
+      <div class="mghint">Steer with arrow keys, swipe, or the buttons. Eat the banana slices 🍌 — don't hit the walls or yourself.</div>
+    </div>
+  </div>
+
+  <!-- ---------- Bunny Pong minigame ---------- -->
+  <div id="pong" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>🏓 Bunny Pong</span><button id="pongClose">✕</button></div>
+      <div class="mgscore">You <b id="pnYou">0</b> &nbsp;—&nbsp; <b id="pnCpu">0</b> Bunny &nbsp;·&nbsp; first to 5</div>
+      <div class="mgstage"><canvas id="pongCanvas"></canvas><div id="pongOverlayMsg" class="mgmsg"></div></div>
+      <div class="mghint">Move your paddle with the mouse, touch, or ← → keys. The ball is a bunny head 🐰 — win 5 rallies for 🥕!</div>
+    </div>
+  </div>
+
+  <!-- ---------- "Taken away" game-over ---------- -->
+  <div id="rps">
+    <div class="rpsicon" id="rpsIcon">🚔</div>
+    <h2 id="rpsTitle">Rabbit Protective Services</h2>
+    <p id="rpsMsg"></p>
+    <button id="rpsBtn">Adopt a new rabbit →</button>
+  </div>
+
+  <!-- ---------- Number-guessing minigame ---------- -->
+  <div id="guess" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>🎲 Guess My Number</span><button id="guessClose">✕</button></div>
+      <div class="gbunny"><div class="gface" id="gFace">🐰</div>
+        <div class="gbubble" id="gBubble">I'm thinking of a number…</div></div>
+      <div class="glives" id="gLives"></div>
+      <div class="ghint" id="gHint"></div>
+      <div class="gpad" id="gPad"></div>
+      <div class="gmsg" id="gMsg"></div>
+      <div class="mghint">Guess the number your bunny picked. <b>3 tries.</b> Right = <b>+50🥕</b>. Wrong (all 3) = a furious max <b>THUMP</b>! Angrier bunny = bigger range.</div>
+    </div>
+  </div>
+
+  <!-- ---------- Fact card (real rabbit fact at a moment of consequence) ---------- -->
+  <div id="factCard" role="button" tabindex="0">
+    <div class="fc-icon" id="fcIcon">🐰</div>
+    <div class="fc-body">
+      <div class="fc-title" id="fcTitle"></div>
+      <div class="fc-text" id="fcText"></div>
+      <div class="fc-dismiss">Did you know? · tap to dismiss</div>
+    </div>
+  </div>
+
+  <!-- ---------- Slide-up panel (Shop / Goals / Menu) ---------- -->
+  <div id="panelWrap">
+    <div id="panel">
+      <div id="panelHead">
+        <span id="panelTitle">Shop</span>
+        <button id="panelClose">✕</button>
+      </div>
+      <div id="panelBody"></div>
+    </div>
+  </div>
+
+  <!-- ---------- Start / adoption screen ---------- -->
+  <div id="start">
+    <div class="card">
+      <div class="logo">🐰</div>
+      <h1>THUMPAGOTCHI</h1>
+      <p class="thesis">Rabbits aren't starter pets. Good thing you're not a starter owner.</p>
+
+      <button id="continueBtn" style="display:none">▶ Continue</button>
+
+      <label>Name</label>
+      <input id="nameInput" maxlength="12" placeholder="e.g. Mowgli" autocomplete="off">
+
+      <label>Breed</label>
+      <div class="seg breedseg" id="breedSeg">
+        <button data-breed="holland" class="on">🐰 Holland</button>
+        <button data-breed="netherland">🐇 Netherland</button>
+        <button data-breed="lionhead" id="breedLion" disabled>🦁 Lionhead 🔒</button>
+      </div>
+
+      <label>Sex</label>
+      <div class="seg" id="sexSeg">
+        <button data-sex="doe" class="on">♀ Doe</button>
+        <button data-sex="buck">♂ Buck</button>
+      </div>
+
+      <label>Coat colour</label>
+      <div class="swatches" id="swatches"></div>
+      <div class="coatName" id="coatName">Sable Point (Grey)</div>
+
+      <button id="startBtn">Bring them home →</button>
+    </div>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
