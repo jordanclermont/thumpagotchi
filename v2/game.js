@@ -280,27 +280,36 @@ function save(){
 function loadRaw(){
   try{ return JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){ return null; }
 }
+// numeric fields pass through num() so a corrupt save or hostile import can never
+// NaN-poison a stat (clamp(NaN) stays NaN forever) — non-finite values fall back
+const num=(v,f)=>{ v=+v; return Number.isFinite(v)?v:f; };
 function applySave(d){
   rab.name=d.name||'Mowgli'; rab.sex=d.sex||'doe';
   rab.breed = d.breed && BREEDS[d.breed] ? d.breed : 'holland';
   coatKey = d.coatKey && COATS[d.coatKey] ? d.coatKey : (BREED_DEFAULT_COAT[rab.breed]||'sableGrey');
   coat = COATS[coatKey];
-  Object.assign(stats, d.stats||{});
-  if(stats.energy===undefined) stats.energy=70;
-  rab.thumps=d.thumps||0; rab.cold=!!d.cold; rab.bananasToday=d.bananasToday||0;
-  rab.day=d.day||1; rab.ageDays=d.ageDays||0; timeOfDay=d.timeOfDay??0.05;
-  rab.bondLevel=d.bondLevel||1; rab.bondXP=d.bondXP||0; rab.carrots=d.carrots??12;
-  rab.weight=d.weight??100; rab.health=d.health??100; rab.sick=!!d.sick;
+  const ds=d.stats||{};
+  for(const k of Object.keys(stats)) stats[k]=clamp(num(ds[k], stats[k]));
+  rab.thumps=clamp(num(d.thumps,0),0,5); rab.cold=!!d.cold; rab.bananasToday=num(d.bananasToday,0);
+  rab.day=Math.max(1,Math.round(num(d.day,1))); rab.ageDays=Math.max(0,Math.round(num(d.ageDays,0)));
+  timeOfDay=clamp(num(d.timeOfDay,0.05),0,1);
+  rab.bondLevel=Math.max(1,Math.round(num(d.bondLevel,1))); rab.bondXP=Math.max(0,num(d.bondXP,0));
+  rab.carrots=Math.max(0,Math.round(num(d.carrots,12)));
+  rab.weight=clamp(num(d.weight,100),45,175); rab.health=clamp(num(d.health,100)); rab.sick=!!d.sick;
   rab.items=d.items||{}; rab.mastery=d.mastery||{}; rab.achievements=d.achievements||{};
-  rab.goals=d.goals||[]; rab.goalDay=d.goalDay||0; rab.goalCounters=d.goalCounters||{};
-  rab.lifetimePets=d.lifetimePets||0;
+  rab.goals=Array.isArray(d.goals)?d.goals:[]; rab.goalDay=num(d.goalDay,0); rab.goalCounters=d.goalCounters||{};
+  rab.lifetimePets=num(d.lifetimePets,0);
   rab.decor=d.decor||{rug:null,bed:null};
-  rab.maxAngerCount=d.maxAngerCount||0; rab.weightStrikes=d.weightStrikes||0; rab.pelletsToday=d.pelletsToday||0;
+  rab.maxAngerCount=num(d.maxAngerCount,0); rab.weightStrikes=num(d.weightStrikes,0); rab.pelletsToday=num(d.pelletsToday,0);
   // v2 flags — migrate with defaults; established (day 2+) saves always have Games revealed
   rab.firedCards=d.firedCards||{};
   rab.gamesRevealed=!!d.gamesRevealed || rab.day>=2;
-  rab.baitDone=!!d.baitDone; rab.thumpSeen=!!d.thumpSeen; rab.exitBeatShown=!!d.exitBeatShown;
-  rab.lastSeen=d.lastSeen||0;
+  rab.baitDone=!!d.baitDone;
+  // pre-field saves (e.g. from the root build — same storage key) at day 2+ have surely
+  // thumped already; only trust an explicit false from a save this build wrote itself
+  rab.thumpSeen = d.thumpSeen===undefined ? rab.day>=2 : !!d.thumpSeen;
+  rab.exitBeatShown=!!d.exitBeatShown;
+  rab.lastSeen=num(d.lastSeen,0);
   rab.curScale=stageFor(rab.ageDays).scale;
 }
 function wipeSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
@@ -438,6 +447,7 @@ function dismissFact(){
   setTimeout(showNextFact, 260);   // slide out, then show any queued card
 }
 bind('factCard', dismissFact);
+$('factCard').addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); dismissFact(); } });
 
 /* ============================================================================ *
  *  Rabbit geometry
@@ -2042,12 +2052,15 @@ function renderGoals(inPanel){
 function buildSaveCode(){
   save();   // flush the latest state to storage first
   const data = loadRaw();
+  if(!data) return null;   // storage unavailable — never hand out a junk code
   const payload = { c:'thump', v:2, save:data, unlocks };
   return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));   // unicode-safe base64
 }
 function parseSaveCode(code){
+  code=(code||'').trim();
+  if(!code || code.length>200000) return {ok:false, err:'That code isn’t readable.'};   // size cap: no quota blowups
   let payload;
-  try{ payload = JSON.parse(decodeURIComponent(escape(atob((code||'').trim())))); }
+  try{ payload = JSON.parse(decodeURIComponent(escape(atob(code)))); }
   catch(e){ return {ok:false, err:'That code isn’t readable.'}; }
   if(!payload || payload.c!=='thump' || payload.v!==2 || !payload.save || typeof payload.save!=='object')
     return {ok:false, err:'That code isn’t a Thumpagotchi save.'};
@@ -2114,7 +2127,9 @@ function renderMenu(){
   };
   // --- Save codes (item 8) ---
   $('mExport').onclick=()=>{
-    const box=$('saveCodeBox'); box.value=buildSaveCode();
+    const code=buildSaveCode();
+    if(!code){ toast('⚠️ Couldn’t read storage — no save to export.'); return; }
+    const box=$('saveCodeBox'); box.value=code;
     box.focus(); box.select(); $('mCopy').disabled=false;
     toast('Save code ready — copy it somewhere safe. 📤');
   };

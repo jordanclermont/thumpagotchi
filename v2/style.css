@@ -432,8 +432,9 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 .thesis{font-size:12px;line-height:1.45;margin:1px auto 15px;max-width:300px;color:#8a6072;opacity:.9;}
 
 /* ---- Fact cards: real rabbit facts at moments of consequence ---- */
-#factCard{position:absolute;left:50%;top:118px;transform:translate(-50%,-14px);
-  z-index:15;display:flex;gap:12px;align-items:flex-start;width:min(420px,88vw);
+/* bottom-anchored above the toast so it can't cover the HUD stat bars or collide with toasts */
+#factCard{position:absolute;left:50%;bottom:calc(200px + env(safe-area-inset-bottom));transform:translate(-50%,14px);
+  z-index:16;display:flex;gap:12px;align-items:flex-start;width:min(420px,88vw);
   padding:14px 16px;border-radius:16px;cursor:pointer;
   background:linear-gradient(180deg,#fdf5ec,#f6e7d2);color:#3a2a22;
   border:1px solid rgba(150,100,60,.28);box-shadow:0 14px 40px rgba(70,40,20,.35);
@@ -443,4 +444,4 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 #factCard .fc-title{font-size:14px;font-weight:800;color:#8a5a20;margin-bottom:3px;letter-spacing:.2px;}
 #factCard .fc-text{font-size:13px;line-height:1.5;}
 #factCard .fc-dismiss{margin-top:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;opacity:.6;}
-@media (max-width:560px){ #factCard{top:auto;bottom:150px;} }
+@media (max-width:560px){ #factCard{bottom:calc(178px + env(safe-area-inset-bottom));} }
