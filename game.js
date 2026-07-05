@@ -67,7 +67,7 @@ let coatKey = 'sableGrey';
    and body/head proportions. Lionhead unlocks account-wide at Bond level 10. */
 const BREEDS = {
   holland:    {name:'Holland Lop',      ears:'lop', mane:false, scale:1.0,  headScale:1.0,               idealLbs:3.5, emoji:'🐰', desc:'Floppy lop ears, cobby & chill.'},
-  netherland: {name:'Netherland Dwarf', ears:'up',  mane:false, scale:0.84, headScale:1.16, earLen:0.95, idealLbs:2.2, emoji:'🐇', desc:'Tiny body, big head, upright ears.'},
+  netherland: {name:'Netherland Dwarf', ears:'up',  mane:false, scale:0.72, headScale:1.16, earLen:0.95, idealLbs:2.2, emoji:'🐇', desc:'Tiny body, big head, upright ears.'},   // a dwarf stays visibly small, even grown
   lionhead:   {name:'Lionhead',         ears:'up',  mane:true,  scale:0.94, headScale:1.06, earLen:1.2,  idealLbs:3.0, emoji:'🦁', desc:'A majestic fluffy mane.', unlock:'bond5'},
 };
 const BREED_COATS = {
@@ -173,20 +173,29 @@ function resize(){
   rcanvas.width = Math.max(2, Math.round(W*rscale));
   rcanvas.height = Math.max(2, Math.round(H*rscale));
   rctx.setTransform(rscale,0,0,rscale,0,0);
-  // Toys/furniture are sized to the rabbit (bigger overall) and scale with breed.
-  const bs = (typeof BREEDS!=='undefined' && BREEDS[rab.breed]) ? BREEDS[rab.breed].scale : 1;
+  // Toys/furniture are sized to the rabbit and scale with breed — but only HALFWAY,
+  // so a dwarf breed still reads visibly small against its furniture.
+  const rawBs = (typeof BREEDS!=='undefined' && BREEDS[rab.breed]) ? BREEDS[rab.breed].scale : 1;
+  const bs = (1+rawBs)/2;
   // Layout is shifted up so the bed/bowls stay clear of the bottom control dock.
+  // Depth rows: BACK (bases just below floorY) → FRONT (near the dock). Every prop's
+  // base must land on the floor (y >= floorY), and back-row props must not overlap.
+  // Centre lane (x ~0.42–0.60) is kept clear for the rabbit; big furniture flanks it
+  // so nothing sits dead-behind her and her hop-to-nap / hop-to-den reads as real motion.
   world.floorY = H*0.56;
   world.rug   = {x:W*0.5,  y:H*0.76, rx:W*0.45, ry:H*0.15};
-  world.litter= {x:W*0.15, y:H*0.65, w:Math.min(230,W*0.32)*bs, h:Math.min(120,H*0.20)*bs};
-  world.food  = {x:W*0.26, y:H*0.79, r:Math.min(32,W*0.05)};
-  world.water = {x:W*0.36, y:H*0.80, r:Math.min(30,W*0.045)};
-  world.tube  = {x:W*0.83, y:H*0.62, w:Math.min(250,W*0.36)*bs, h:Math.min(126,H*0.21)*bs};
-  world.bed   = {x:W*0.70, y:H*0.78, r:Math.min(92,W*0.135)*bs};
-  world.castle= {x:W*0.87, y:H*0.72, r:Math.min(100,W*0.155)*bs};
-  world.ball  = {x:W*0.19, y:H*0.80, r:Math.min(27,W*0.042)*bs};
-  world.tower = {x:W*0.76, y:H*0.47, r:Math.min(80,W*0.12)*bs};
-  world.hutch = {x:W*0.31, y:H*0.45, r:Math.min(66,W*0.10)*bs};   // back-left, clear of the charger
+  world.litter= {x:W*0.14, y:H*0.66, w:Math.min(230,W*0.30)*bs, h:Math.min(118,H*0.19)*bs};
+  world.food  = {x:W*0.27, y:H*0.79, r:Math.min(32,W*0.05)};
+  world.water = {x:W*0.365,y:H*0.80, r:Math.min(30,W*0.045)};
+  world.hammock={x:W*0.185,y:H*0.70, w:Math.min(190,W*0.26)*bs};  // back-left, low cosy sling
+  world.hammock.postH = world.hammock.w*0.42;                     // short stands — don't tower over her
+  world.hammock.sy = world.hammock.y - world.hammock.postH*0.85;  // top of the sling
+  world.tower = {x:W*0.375,y:H*0.63, r:Math.min(78,W*0.115)*bs};  // left-of-centre, back
+  world.hutch = {x:W*0.665,y:H*0.605,r:Math.min(80,W*0.12)*bs};   // right-of-centre — she hops here to den
+  world.tube  = {x:W*0.86, y:H*0.65, w:Math.min(230,W*0.30)*bs, h:Math.min(116,H*0.19)*bs};
+  world.bed   = {x:W*0.585,y:H*0.795,r:Math.min(84,W*0.125)*bs};  // front, right of centre
+  world.castle= {x:W*0.875,y:H*0.835,r:Math.min(80,W*0.12)*bs};   // front-far-right, below the tunnel mouth
+  world.ball  = {x:W*0.305,y:H*0.815,r:Math.min(27,W*0.042)*bs};
   world.win   = {x:W*0.5-W*0.11, y:H*0.06, w:W*0.22, h:H*0.28};
   rab.baseY = world.rug.y - 6;
   rab.x = clamp(rab.x||world.rug.x, world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6);
@@ -211,7 +220,8 @@ const rab = {
   trick:null,
   restUntil:0,
   play:null, playAlpha:1, playYOff:0, hidden:false,
-  boxT:0, boxYOff:0, decor:{rug:null,bed:null}, petReact:0, begUntil:0,
+  boxT:0, boxYOff:0, decor:{rug:null,bed:null}, petReact:0,
+  begUntil:0, begCooldown:0, begWant:'🍌', denUntil:0,
   maxAngerCount:0, weightStrikes:0, pelletsToday:0, _obeseT:0, _obeseWarned:false,
   // v2 "first ten minutes" state — persisted flags + runtime-only scripting timers
   firedCards:{}, gamesRevealed:false, baitDone:false, thumpSeen:false, exitBeatShown:false, lastSeen:0,
@@ -567,12 +577,19 @@ function drawRoom(){
   ctx.strokeStyle='rgba(255,255,255,.16)';ctx.lineWidth=3;
   ctx.beginPath();ctx.ellipse(r.x,r.y,r.rx*0.55,r.ry*0.55,0,0,7);ctx.stroke();
 
+  // back row (drawn first = furthest), then front row
+  if(owns('hammock')) drawHammock();
   if(owns('hutch')) drawHutch();
   if(owns('tower')) drawTower();
   if(owns('tunnel')) drawTube();          // tunnel only appears once bought
   drawBed(); drawLitter(); drawFoodBowl(); drawWaterBowl();
   if(owns('castle')) drawCastle();
   if(owns('ball'))   drawBall();
+}
+// soft contact shadow so furniture reads as sitting ON the floor, not floating
+function groundShadow(x,y,rx){
+  ctx.fillStyle='rgba(40,25,12,.18)';
+  ctx.beginPath();ctx.ellipse(x,y,rx,rx*0.22,0,0,7);ctx.fill();
 }
 function drawLitterFront(){
   const L=world.litter;
@@ -583,6 +600,7 @@ function drawLitterFront(){
 }
 function drawTower(){
   const c=world.tower, r=c.r;
+  groundShadow(c.x, c.y+r*0.24, r*0.95);
   ctx.fillStyle='#6f5436';
   ctx.fillRect(c.x-r*0.62, c.y-r*1.5, r*0.13, r*1.7); ctx.fillRect(c.x+r*0.5, c.y-r*1.5, r*0.13, r*1.7);
   for(let i=0;i<3;i++){
@@ -594,12 +612,59 @@ function drawTower(){
 }
 function drawHutch(){
   const c=world.hutch, r=c.r;
-  ctx.fillStyle='#b58a5a'; roundRect(c.x-r*0.9, c.y-r*0.6, r*1.8, r*1.3, 6); ctx.fill();
-  ctx.fillStyle='#8a5f38';
-  ctx.beginPath();ctx.moveTo(c.x-r*1.02, c.y-r*0.5);ctx.lineTo(c.x, c.y-r*1.35);ctx.lineTo(c.x+r*1.02, c.y-r*0.5);ctx.closePath();ctx.fill();
-  ctx.fillStyle='#2a1f16'; roundRect(c.x-r*0.36, c.y-r*0.1, r*0.72, r*0.8, 5); ctx.fill();
+  const baseY=c.y+r*0.7;                                   // the hutch SITS here
+  groundShadow(c.x, baseY+3, r*1.15);
+  ctx.fillStyle='#b58a5a'; roundRect(c.x-r*0.95, c.y-r*0.6, r*1.9, r*1.3, 6); ctx.fill();
+  // plank lines
   ctx.strokeStyle='rgba(90,60,30,.3)';ctx.lineWidth=1.5;
-  for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(c.x-r*0.9,c.y-r*0.6+i*r*0.43);ctx.lineTo(c.x+r*0.9,c.y-r*0.6+i*r*0.43);ctx.stroke();}
+  for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(c.x-r*0.95,c.y-r*0.6+i*r*0.43);ctx.lineTo(c.x+r*0.95,c.y-r*0.6+i*r*0.43);ctx.stroke();}
+  // pitched roof with a little overhang
+  ctx.fillStyle='#8a5f38';
+  ctx.beginPath();ctx.moveTo(c.x-r*1.1, c.y-r*0.55);ctx.lineTo(c.x, c.y-r*1.3);ctx.lineTo(c.x+r*1.1, c.y-r*0.55);ctx.closePath();ctx.fill();
+  // a rabbit-sized arched doorway, opening at floor level
+  ctx.fillStyle='#2a1f16';
+  ctx.beginPath();
+  ctx.moveTo(c.x-r*0.42, baseY);
+  ctx.lineTo(c.x-r*0.42, c.y-r*0.05);
+  ctx.arc(c.x, c.y-r*0.05, r*0.42, Math.PI, 0);
+  ctx.lineTo(c.x+r*0.42, baseY);
+  ctx.closePath(); ctx.fill();
+  // welcome mat of straw at the door
+  ctx.strokeStyle='rgba(200,170,90,.8)'; ctx.lineWidth=2;
+  for(let i=0;i<5;i++){const sx=c.x-r*0.3+i*r*0.15;
+    ctx.beginPath();ctx.moveTo(sx,baseY+4);ctx.lineTo(sx+4,baseY+9);ctx.stroke();}
+}
+function drawHammock(){
+  const hm=world.hammock, w=hm.w, px=hm.x, py=hm.y, sy=hm.sy;
+  // the sling dips a little deeper while she's napping beside it
+  const occupied = rab.state==='rest' && Math.abs(rab.x-px)<w*0.6;
+  const low = w*0.26 + (occupied? w*0.05 : 0);          // depth of the pouch below its top edge
+  const legSpread=w*0.15;                               // A-frame feet splay out for stability
+  groundShadow(px-w/2-legSpread*0.4, py+3, w*0.13); groundShadow(px+w/2+legSpread*0.4, py+3, w*0.13);
+  // wooden A-frame stands (two splayed legs meeting at a hanging peg)
+  ctx.strokeStyle='#7a5a38'; ctx.lineWidth=Math.max(4,w*0.05); ctx.lineCap='round';
+  for(const s of [-1,1]){
+    const topx=px+s*w/2, ty=sy-w*0.04;
+    ctx.beginPath();ctx.moveTo(topx-legSpread, py);ctx.lineTo(topx, ty);ctx.lineTo(topx+legSpread, py);ctx.stroke();
+    ctx.fillStyle='#5f4526';ctx.beginPath();ctx.arc(topx,ty,w*0.045,0,7);ctx.fill();  // hanging peg
+  }
+  ctx.lineCap='butt';
+  // the slung fabric — a deep pouch with a rolled top lip
+  const grad=ctx.createLinearGradient(0,sy,0,sy+low*1.6);
+  grad.addColorStop(0,'#d67d92'); grad.addColorStop(1,'#a84a60');
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.moveTo(px-w/2, sy);
+  ctx.quadraticCurveTo(px, sy+low*1.9, px+w/2, sy);           // deep underside
+  ctx.quadraticCurveTo(px, sy+low*1.05, px-w/2, sy);          // top scoop (open mouth)
+  ctx.fill();
+  ctx.strokeStyle='#8f3f54'; ctx.lineWidth=Math.max(3,w*0.025);
+  ctx.beginPath();ctx.moveTo(px-w/2, sy);ctx.quadraticCurveTo(px, sy+low*1.05, px+w/2, sy);ctx.stroke();
+  // a plush cushion nestled in the low point
+  ctx.fillStyle='#f2c8d3';
+  ctx.beginPath();ctx.ellipse(px, sy+low*1.15, w*0.28, w*0.11, 0, 0, 7);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.4)';
+  ctx.beginPath();ctx.ellipse(px-w*0.08, sy+low*1.08, w*0.10, w*0.04, 0, 0, 7);ctx.fill();
 }
 
 function drawLitter(){
@@ -664,18 +729,28 @@ function drawBed(){
 }
 function drawTube(){
   const tb=world.tube;
+  groundShadow(tb.x, tb.y+tb.h*0.52, tb.w*0.48);
   const g=ctx.createLinearGradient(0,tb.y-tb.h/2,0,tb.y+tb.h/2);
   g.addColorStop(0,'#7ea9d6'); g.addColorStop(0.5,'#5b83b4'); g.addColorStop(1,'#3f5f8c');
   ctx.fillStyle=g; roundRect(tb.x-tb.w/2,tb.y-tb.h/2,tb.w,tb.h,tb.h*0.5); ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=3;
-  for(let i=1;i<6;i++){const x=tb.x-tb.w/2+i*tb.w/6;
-    ctx.beginPath();ctx.ellipse(x,tb.y,tb.h*0.16,tb.h*0.5,0,-1.4,1.4);ctx.stroke();}
-  ctx.fillStyle='#241a2a';
-  ctx.beginPath();ctx.ellipse(tb.x-tb.w/2+tb.h*0.14,tb.y,tb.h*0.22,tb.h*0.46,0,0,7);ctx.fill();
-  ctx.beginPath();ctx.ellipse(tb.x+tb.w/2-tb.h*0.14,tb.y,tb.h*0.22,tb.h*0.46,0,0,7);ctx.fill();
+  // fabric ribs — subtle, matching the end-cap curvature
+  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=3;
+  for(let i=1;i<4;i++){const x=tb.x-tb.w/2+i*tb.w/4;
+    ctx.beginPath();ctx.ellipse(x,tb.y,tb.h*0.22,tb.h*0.48,0,-1.35,1.35);ctx.stroke();}
+  // end openings: full-height mouths that match the capsule ends, with a rim
+  for(const dir of [-1,1]){
+    const ex=tb.x+dir*(tb.w/2-tb.h*0.30);
+    ctx.fillStyle='#31517e';                                // rim ring
+    ctx.beginPath();ctx.ellipse(ex,tb.y,tb.h*0.30,tb.h*0.485,0,0,7);ctx.fill();
+    ctx.fillStyle='#1c1426';                                // dark interior
+    ctx.beginPath();ctx.ellipse(ex,tb.y,tb.h*0.24,tb.h*0.42,0,0,7);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.10)';                  // faint inner curve
+    ctx.beginPath();ctx.ellipse(ex-dir*tb.h*0.05,tb.y-tb.h*0.10,tb.h*0.10,tb.h*0.22,0,0,7);ctx.fill();
+  }
 }
 function drawCastle(){
   const c=world.castle, r=c.r;
+  groundShadow(c.x, c.y+r*0.24, r*1.05);
   ctx.fillStyle='#c79a5e'; roundRect(c.x-r,c.y-r*1.1,r*2,r*1.3,6); ctx.fill();
   ctx.fillStyle='#b0824a'; for(let i=0;i<4;i++){ctx.fillRect(c.x-r+i*r*0.55, c.y-r*1.3, r*0.32, r*0.28);}
   ctx.fillStyle='#3a2a1c'; ctx.beginPath();ctx.ellipse(c.x,c.y-r*0.2,r*0.42,r*0.5,0,0,7);ctx.fill();
@@ -754,9 +829,9 @@ function startHazardEvent(){
 function tapCord(px,py){
   if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return false;
   if(Math.hypot(px-dayEvent.cord.x, py-dayEvent.cord.y) < 64){
-    dayEvent.secured=true;
+    dayEvent.secured=true; dayEvent.doneAt=now();   // unplugged — fades out, then gone
     addCarrots(6, rab.x, rab.baseY-60); addXP(8); stats.happy=clamp(stats.happy+4);
-    toast(`✅ Cord tucked away & rabbit-proofed! ${rab.name} is safe. (+6🥕)`);
+    toast(`✅ Unplugged and put away! ${rab.name} is safe. (+6🥕)`);
     save();
     return true;
   }
@@ -778,7 +853,7 @@ function drawBegBubble(){
   ctx.fillStyle='rgba(255,255,255,.95)';
   ctx.beginPath();ctx.moveTo(bx-7,by+12);ctx.lineTo(bx+7,by+12);ctx.lineTo(bx, by+24);ctx.closePath();ctx.fill();
   ctx.font='22px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('🍌', bx, by-2); ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillText(rab.begWant||'🍌', bx, by-2); ctx.textAlign='left'; ctx.textBaseline='alphabetic';
 }
 function tickEvent(dt,t){
   if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return;
@@ -796,13 +871,30 @@ function tickEvent(dt,t){
 }
 function drawHazard(){
   if(!dayEvent || dayEvent.type!=='hazard') return;
+  // once unplugged, linger with a ✅ for a couple of seconds, then clear entirely
+  let fade=1;
+  if(dayEvent.secured){
+    const el=now()-(dayEvent.doneAt||0);
+    if(el>2.5){ dayEvent=null; return; }
+    fade=clamp(1-el/2.5, 0, 1);
+  }
   const c=dayEvent.cord;
-  // a phone left charging on the floor, cord snaking in from the left edge
-  ctx.strokeStyle = dayEvent.secured? '#6f7a5a' : (dayEvent.chewed? '#a8452f' : '#242424');
-  ctx.lineWidth=3; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(c.x-54, c.y-2);
-  if(dayEvent.secured){ ctx.lineTo(c.x-22, c.y-2); ctx.lineTo(c.x-9, c.y+2); }        // tidied up
-  else ctx.bezierCurveTo(c.x-34, c.y+10, c.x-16, c.y-10, c.x-2, c.y+2);
-  ctx.stroke(); ctx.lineCap='butt';
+  ctx.save(); ctx.globalAlpha=fade;
+  // the wall outlet the charger is actually plugged into (on the baseboard)
+  const ox=Math.max(14, c.x-70), oy=world.floorY+14;
+  ctx.fillStyle='#efe6d4'; roundRect(ox-9, oy-13, 18, 26, 3); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1.5; roundRect(ox-9, oy-13, 18, 26, 3); ctx.stroke();
+  ctx.fillStyle='#4a4a4a'; ctx.fillRect(ox-3.5, oy-7, 2.5, 6); ctx.fillRect(ox+1, oy-7, 2.5, 6);
+  // the cord: plug at the outlet, drooping down the wall, snaking along the floor to the phone
+  ctx.strokeStyle = dayEvent.chewed? '#a8452f' : '#242424';
+  ctx.lineWidth=3; ctx.lineCap='round';
+  if(!dayEvent.secured){
+    ctx.fillStyle='#242424'; roundRect(ox-5, oy+1, 10, 9, 2); ctx.fill();              // plug body
+    ctx.beginPath(); ctx.moveTo(ox, oy+9);
+    ctx.bezierCurveTo(ox, c.y-6, c.x-46, c.y+10, c.x-2, c.y+2);                        // wall droop → floor snake
+    ctx.stroke();
+  }
+  ctx.lineCap='butt';
   ctx.fillStyle='#20242a'; roundRect(c.x-9, c.y-13, 18, 30, 3); ctx.fill();            // phone
   ctx.fillStyle='#3a6ea5'; roundRect(c.x-7, c.y-11, 14, 24, 1); ctx.fill();
   ctx.textAlign='center';
@@ -810,7 +902,7 @@ function drawHazard(){
   else if(dayEvent.chewed){ ctx.font='16px system-ui'; ctx.fillText('⚡', c.x, c.y-20); }
   else { const a=0.3+0.35*Math.sin(now()*4); ctx.strokeStyle=`rgba(255,90,60,${a})`; ctx.lineWidth=2.5;
     ctx.beginPath();ctx.arc(c.x, c.y, 26, 0,7);ctx.stroke(); }
-  ctx.textAlign='left';
+  ctx.textAlign='left'; ctx.restore();
 }
 
 /* ============================================================================ *
@@ -1209,8 +1301,6 @@ function endNight(){
   // Progressive disclosure: the Games tab appears on the morning of day 2 (item 5)
   const revealGames = !rab.gamesRevealed && rab.day>=2;
   if(revealGames){ rab.gamesRevealed=true; applyGamesTab(); }
-  // fresh daily goals + a login bonus
-  rollGoals();
   addCarrots(6);
   const ev = rollDailyEvent();
   if(ev==='hide'){
@@ -1222,6 +1312,10 @@ function endNight(){
     startBinky();
     toast(`☀️ Good morning! Day ${rab.day} — ${rab.name} is STARVING but binkying with joy. (+6🥕 daily bonus)`);
   }
+  // Fresh goals roll AFTER the morning binky/joy boost, so neither the binky goal nor
+  // the 90%-happiness goal starts the day partially complete for free.
+  rollGoals();
+  happy90Armed=false;
   // Staggered morning follow-ups so each beat is actually read (the toast is single-slot).
   let followT = 3200;
   if(grewTo){ const g=grewTo;
@@ -1487,9 +1581,10 @@ function togglePetting(){
 function restRabbit(){
   if(rab.cold){ coldRefuse(); return; }
   if(stats.energy>85){ toast(`${rab.name} isn't sleepy — plenty of energy right now.`); return; }
+  if(owns('hammock')) hopTo(world.hammock.x);   // she settles by her hammock for the cushier nap
   rab.restUntil=now()+4.5; rab.state='rest'; rab.trick=null;
   spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r);
-  toast(owns('hammock') ? `${rab.name} flops into the hammock for a deluxe nap. 😴🛏️`
+  toast(owns('hammock') ? `${rab.name} snuggles down by the hammock for a deluxe nap. 😴🛏️`
                         : `${rab.name} curls into a cozy nap. 😴`);
 }
 function playToy(){
@@ -1655,7 +1750,7 @@ function handlePet(px,py){
 }
 
 /* ---------------- Thump thresholds ---------------- */
-let wasAbove3=false;
+let wasAbove3=false, happy90Armed=false;
 function checkThreshold(){
   if(rab.thumps>=3 && !wasAbove3){ wasAbove3=true; triggerThump(); }
   if(rab.thumps<2.6) wasAbove3=false;
@@ -1670,8 +1765,26 @@ function idleBrain(dt,t){
   if(stats.energy<18 && Math.random()<0.01){ rab.restUntil=now()+rand(2,4); rab.state='rest';
     spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r); return; }
   if(stats.happy>88 && stats.energy>25 && Math.random()<0.004){ startBinky(); return; }
-  // occasionally begs for a banana with a 🍌 speech bubble — the classic overfeeding trap
-  if(now()>=rab.begUntil && stats.happy>35 && Math.random()<0.0035){ rab.begUntil=now()+rand(4,7); }
+  // occasionally asks for something with a speech bubble. What she wants is contextual
+  // (real needs first; treats/attention only when content), and there's a proper
+  // cooldown so she isn't a broken banana vending-machine ad.
+  if(now()>=rab.begUntil && now()>=rab.begCooldown && Math.random()<0.0012){
+    const wants=[];
+    if(stats.water<45)   wants.push('💧');
+    if(stats.hunger>60)  wants.push('🌾');
+    if(stats.hygiene<40) wants.push('🧹');
+    if(stats.energy<30)  wants.push('😴');
+    if(!wants.length && stats.happy>35){                        // content → mischief asks
+      wants.push('✋');
+      if(owns('ball')||owns('tunnel')||owns('tower')) wants.push('🧸');
+      if(rab.bananasToday<2) wants.push('🍌','🍌');             // still her favourite ask
+    }
+    if(wants.length){
+      rab.begWant=pick(wants);
+      rab.begUntil=now()+rand(4,6);
+      rab.begCooldown=now()+rand(22,40);                        // quiet time between asks
+    }
+  }
   nextIdle-=dt;
   if(nextIdle<=0){
     nextIdle=rand(3.5,7);
@@ -1679,7 +1792,8 @@ function idleBrain(dt,t){
     if(roll<0.4){ hopTo(rand(world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6)); }
     else if(roll<0.62){ rab.groomUntil=t+rand(1.4,2.6); }
     else if(roll<0.74 && stats.happy>75 && stats.energy>30){ startBinky(); }
-    else if(roll<0.86){ hopTo(world.bed.x); }
+    else if(roll<0.82 && owns('hutch')){ hopTo(world.hutch.x); rab.denUntil=now()+rand(3.5,5.5); }  // pops into her hutch
+    else if(roll<0.9){ hopTo(world.bed.x); }
     else { rab.groomUntil=0; }
   }
 }
@@ -1829,7 +1943,10 @@ function frame(){
   else if(!rab.cold) rab.thumps=clamp(rab.thumps - 0.12*dt,0,5);
   checkThreshold();
 
-  if(stats.happy>=90 && rab.goals.some(g=>g.track==='happy90'&&!g.done)) incGoal('happy90');
+  // the 90%-happiness goal must be EARNED: it only arms after happiness dips below 85
+  // during the day, so the big morning-joy boost can't auto-complete it at rollover
+  if(stats.happy<85) happy90Armed=true;
+  if(happy90Armed && stats.happy>=90 && rab.goals.some(g=>g.track==='happy90'&&!g.done)) incGoal('happy90');
 
   /* animation timers */
   rab.breath+=dt*2.2;
@@ -1865,6 +1982,13 @@ function frame(){
   }
   tickEvent(dt,t);
   tickScript(t);
+
+  /* owned-furniture interaction: she fades into the hutch doorway when she pops in
+     for a den visit (the hammock is a cosy nap spot she settles beside) */
+  if(!rab.play){
+    const inDen = t<rab.denUntil && owns('hutch') && !rab.hopping && Math.abs(rab.x-world.hutch.x)<world.hutch.r*0.5;
+    rab.playAlpha = damp(rab.playAlpha!==undefined?rab.playAlpha:1, inDen? 0.12 : 1, 5, dt);
+  }
 
   /* loaf pose: content, fed, calm */
   const wantsLoaf = rab.state==='loaf' && !rab.hopping && stats.happy>60 && stats.hunger<55;
