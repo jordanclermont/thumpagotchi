@@ -867,10 +867,13 @@ function drawRabbit(t){
   ctx.fillStyle='rgba(255,255,255,.26)';
   ctx.beginPath();ctx.ellipse(p.body.x-p.body.rx*0.18,p.body.y-p.body.ry*0.25,p.body.rx*0.5,p.body.ry*0.4,0,0,7);ctx.fill();
 
-  // Black & tan: chest markings — a white belly if the coat defines one (Elvis), else tan
+  // Black & tan: a white underside — a low, flat sliver along the belly line (Elvis
+  // has white on his belly, not a big chest patch; a large oval + dark paws reads as a skull)
   if(coat.tan){
     ctx.fillStyle=coat.belly || coat.tanCol;
-    ctx.beginPath();ctx.ellipse(p.body.x, p.body.y+p.body.ry*0.52, p.body.rx*0.52, p.body.ry*0.46, 0,0,7);ctx.fill();
+    ctx.globalAlpha=0.92;
+    ctx.beginPath();ctx.ellipse(p.body.x, p.body.y+p.body.ry*0.72, p.body.rx*0.4, p.body.ry*0.24, 0,0,7);ctx.fill();
+    ctx.globalAlpha=1;
   }
 
   if(rab.sick){
@@ -950,16 +953,17 @@ function drawHead(p,t,tummy,closedEyes){
     ctx.fillStyle=mg;
     ctx.beginPath();ctx.ellipse(nmx,nmy,r*0.6,r*0.64,0,0,7);ctx.fill();
   }
-  // Black & tan markings: WHITE eye patches with a soft tan ring, plus tan highlights.
+  // Black & tan markings: like the real Elvis — just a few white highlights tucked
+  // under the bottom of each eye (no big white patches; those read as spooky), plus
+  // the usual tan muzzle/cheek highlights.
   if(coat.tan){
     const eyeWhite = coat.belly || '#f2ece0';
+    ctx.strokeStyle=eyeWhite; ctx.lineWidth=2.6*s; ctx.lineCap='round';
     for(const dir of [-1,1]){
       const ex=hx+dir*r*0.46+look.x*0.6, ey=hy-r*0.02+look.y*0.6;
-      ctx.fillStyle=eyeWhite;
-      ctx.beginPath();ctx.ellipse(ex,ey, r*0.26, r*0.28, 0,0,7);ctx.fill();
-      ctx.strokeStyle=coat.tanCol; ctx.lineWidth=2.4*s;
-      ctx.beginPath();ctx.arc(ex,ey, r*0.25, 0,7);ctx.stroke();
+      ctx.beginPath();ctx.arc(ex,ey, 9.5*s, 0.22*Math.PI, 0.78*Math.PI);ctx.stroke();   // lower-lid crescent
     }
+    ctx.lineCap='butt';
     ctx.fillStyle=coat.tanCol;                            // tan highlights (muzzle + cheeks)
     ctx.beginPath();ctx.ellipse(nmx, hy+r*0.5, r*0.26, r*0.2, 0,0,7);ctx.fill();
     ctx.beginPath();ctx.arc(hx-r*0.64, hy+r*0.3, r*0.15,0,7);ctx.fill();
