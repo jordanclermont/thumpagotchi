@@ -213,6 +213,9 @@ const rab = {
   play:null, playAlpha:1, playYOff:0, hidden:false,
   boxT:0, boxYOff:0, decor:{rug:null,bed:null}, petReact:0, begUntil:0,
   maxAngerCount:0, weightStrikes:0, pelletsToday:0, _obeseT:0, _obeseWarned:false,
+  // v2 "first ten minutes" state — persisted flags + runtime-only scripting timers
+  firedCards:{}, gamesRevealed:false, baitDone:false, thumpSeen:false, exitBeatShown:false, lastSeen:0,
+  petArmedOnce:false, baitAt:0, fallbackThumpBy:0,
   // progression
   bondLevel:1, bondXP:0, carrots:12,
   weight:100, health:100, sick:false, sickAt:0,
@@ -226,6 +229,9 @@ const P=()=>PRON[rab.sex]||PRON.doe;
 /* time of day: 0..1 across daylight; then a night cutscene */
 let timeOfDay = 0.05;
 const DAY_LEN = 130;   // seconds of daylight (relaxed pacing)
+// Day 1 runs longer so adoption, the tutorial goals, the bait flop, the first shop
+// purchase and a quiet beat before nightfall all fit without the sun racing.
+const dayLen = day => day===1 ? 170 : DAY_LEN;
 let cutscene = null;
 let started = false;
 
@@ -263,6 +269,10 @@ function save(){
       goals:rab.goals, goalDay:rab.goalDay, goalCounters:rab.goalCounters,
       lifetimePets:rab.lifetimePets, decor:rab.decor,
       maxAngerCount:rab.maxAngerCount, weightStrikes:rab.weightStrikes, pelletsToday:rab.pelletsToday,
+      // v2 first-session flags + a heartbeat for welcome-back catch-up
+      firedCards:rab.firedCards, gamesRevealed:rab.gamesRevealed,
+      baitDone:rab.baitDone, thumpSeen:rab.thumpSeen, exitBeatShown:rab.exitBeatShown,
+      lastSeen:Date.now(),
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   }catch(e){/* storage unavailable — play unsaved */}
@@ -270,22 +280,36 @@ function save(){
 function loadRaw(){
   try{ return JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){ return null; }
 }
+// numeric fields pass through num() so a corrupt save or hostile import can never
+// NaN-poison a stat (clamp(NaN) stays NaN forever) — non-finite values fall back
+const num=(v,f)=>{ v=+v; return Number.isFinite(v)?v:f; };
 function applySave(d){
   rab.name=d.name||'Mowgli'; rab.sex=d.sex||'doe';
   rab.breed = d.breed && BREEDS[d.breed] ? d.breed : 'holland';
   coatKey = d.coatKey && COATS[d.coatKey] ? d.coatKey : (BREED_DEFAULT_COAT[rab.breed]||'sableGrey');
   coat = COATS[coatKey];
-  Object.assign(stats, d.stats||{});
-  if(stats.energy===undefined) stats.energy=70;
-  rab.thumps=d.thumps||0; rab.cold=!!d.cold; rab.bananasToday=d.bananasToday||0;
-  rab.day=d.day||1; rab.ageDays=d.ageDays||0; timeOfDay=d.timeOfDay??0.05;
-  rab.bondLevel=d.bondLevel||1; rab.bondXP=d.bondXP||0; rab.carrots=d.carrots??12;
-  rab.weight=d.weight??100; rab.health=d.health??100; rab.sick=!!d.sick;
+  const ds=d.stats||{};
+  for(const k of Object.keys(stats)) stats[k]=clamp(num(ds[k], stats[k]));
+  rab.thumps=clamp(num(d.thumps,0),0,5); rab.cold=!!d.cold; rab.bananasToday=num(d.bananasToday,0);
+  rab.day=Math.max(1,Math.round(num(d.day,1))); rab.ageDays=Math.max(0,Math.round(num(d.ageDays,0)));
+  timeOfDay=clamp(num(d.timeOfDay,0.05),0,1);
+  rab.bondLevel=Math.max(1,Math.round(num(d.bondLevel,1))); rab.bondXP=Math.max(0,num(d.bondXP,0));
+  rab.carrots=Math.max(0,Math.round(num(d.carrots,12)));
+  rab.weight=clamp(num(d.weight,100),45,175); rab.health=clamp(num(d.health,100)); rab.sick=!!d.sick;
   rab.items=d.items||{}; rab.mastery=d.mastery||{}; rab.achievements=d.achievements||{};
-  rab.goals=d.goals||[]; rab.goalDay=d.goalDay||0; rab.goalCounters=d.goalCounters||{};
-  rab.lifetimePets=d.lifetimePets||0;
+  rab.goals=Array.isArray(d.goals)?d.goals:[]; rab.goalDay=num(d.goalDay,0); rab.goalCounters=d.goalCounters||{};
+  rab.lifetimePets=num(d.lifetimePets,0);
   rab.decor=d.decor||{rug:null,bed:null};
-  rab.maxAngerCount=d.maxAngerCount||0; rab.weightStrikes=d.weightStrikes||0; rab.pelletsToday=d.pelletsToday||0;
+  rab.maxAngerCount=num(d.maxAngerCount,0); rab.weightStrikes=num(d.weightStrikes,0); rab.pelletsToday=num(d.pelletsToday,0);
+  // v2 flags — migrate with defaults; established (day 2+) saves always have Games revealed
+  rab.firedCards=d.firedCards||{};
+  rab.gamesRevealed=!!d.gamesRevealed || rab.day>=2;
+  rab.baitDone=!!d.baitDone;
+  // pre-field saves (e.g. from the root build — same storage key) at day 2+ have surely
+  // thumped already; only trust an explicit false from a save this build wrote itself
+  rab.thumpSeen = d.thumpSeen===undefined ? rab.day>=2 : !!d.thumpSeen;
+  rab.exitBeatShown=!!d.exitBeatShown;
+  rab.lastSeen=num(d.lastSeen,0);
   rab.curScale=stageFor(rab.ageDays).scale;
 }
 function wipeSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
@@ -350,6 +374,21 @@ function rollGoals(){
   rab.goals=chosen; rab.goalDay=rab.day; rab.goalCounters={};
   renderGoals();
 }
+// Day 1 uses a fixed, hand-ordered set instead of the random pool — the goals panel
+// IS the tutorial (three unmissable first actions), no overlay or forced clicks.
+// Economy check: new game starts at 12🥕 +5 (firstDay ach) = 17. These three pay
+// 7+5+7 = 19, plus the +6 all-goals-done bonus = 25, landing the player near ~42🥕
+// by dusk on day 1 — so the 18🥕 Treat Ball is comfortably affordable early on day 2
+// without grinding. Payouts mirror the comparable pool goals above.
+function setDay1Goals(){
+  rab.goals = [
+    {track:'hay',   target:1, reward:7, text:'Serve fresh hay'},
+    {track:'water', target:1, reward:5, text:'Refill the water bowl'},
+    {track:'pet',   target:5, reward:7, text:'Give ×5 head pets'},
+  ].map(g=>({...g, prog:0, done:false}));
+  rab.goalDay=rab.day; rab.goalCounters={};
+  renderGoals();
+}
 function incGoal(track, n=1){
   let any=false;
   for(const g of rab.goals){
@@ -362,6 +401,53 @@ function incGoal(track, n=1){
   if(any && rab.goals.every(g=>g.done)){ addCarrots(6); toast('🌟 All daily goals complete! Bonus +6🥕'); }
   renderGoals();
 }
+
+/* ============================================================================ *
+ *  FACT CARDS — one real rabbit fact at the moment of consequence, once/save.
+ *  Dismissible, one at a time, pauses nothing. Canadian spelling, warm voice.
+ *  Card copy lives here so v2.1 can add more with a single entry.
+ * ============================================================================ */
+const FACTS = {
+  feet:    {icon:'🦶', title:'About that thump…',
+    text:`A thump is an alarm — wild rabbits stomp to warn the whole warren of danger. {P} feet and hindquarters are off-limits for most rabbits; hands belong on the head and cheeks.`},
+  banana3: {icon:'🍌', title:'Easy on the treats',
+    text:`Rabbits can't vomit, and a hit of sugar throws their gut right off. That's why treats are capped — a bite of banana is a party; a whole one is a bellyache.`},
+  stasis:  {icon:'🚑', title:`This one's serious`,
+    text:`GI stasis is a genuine emergency — a gut that stops moving can turn fatal within a day or two. Unlimited hay keeps things moving; the vet handles the rest.`},
+  pellet3: {icon:'🌾', title:'Hay first, always',
+    text:`Hay should be roughly 80% of a rabbit's diet — it wears down ever-growing teeth and keeps the gut moving. Pellets are a small daily supplement, not the meal.`},
+  cold:    {icon:'🥶', title:'{S} remembers',
+    text:`Rabbits hold a grudge — they remember how they're treated, and trust is earned back rather than assumed. Give {o} space, a favourite treat, and a little time.`},
+};
+// Fact copy can carry pronoun tokens ({S}/{s} subject, {P}/{p} possessive, {O}/{o} object)
+// so a card reads right for a doe or a buck. Substituted at display time.
+function fillPron(str){
+  const p=P();
+  return str.replace(/\{S\}/g,cap(p.s)).replace(/\{s\}/g,p.s)
+           .replace(/\{P\}/g,cap(p.p)).replace(/\{p\}/g,p.p)
+           .replace(/\{O\}/g,cap(p.o)).replace(/\{o\}/g,p.o);
+}
+let factQueue = [], factShowing = false;
+function fireFact(id){
+  const f = FACTS[id]; if(!f || rab.firedCards[id]) return;
+  rab.firedCards[id] = 1; save();
+  factQueue.push(id);
+  if(!factShowing) showNextFact();
+}
+function showNextFact(){
+  const id = factQueue.shift();
+  if(!id){ factShowing=false; return; }
+  factShowing = true;
+  const f = FACTS[id];
+  $('fcIcon').textContent = f.icon; $('fcTitle').textContent = fillPron(f.title); $('fcText').textContent = fillPron(f.text);
+  $('factCard').classList.add('show');
+}
+function dismissFact(){
+  $('factCard').classList.remove('show');
+  setTimeout(showNextFact, 260);   // slide out, then show any queued card
+}
+bind('factCard', dismissFact);
+$('factCard').addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); dismissFact(); } });
 
 /* ============================================================================ *
  *  Rabbit geometry
@@ -1111,13 +1197,14 @@ function endNight(){
   stats.energy=clamp(stats.energy+55, 40, 100);
   rab.cold=false; rab.thumps=clamp(rab.thumps-1,0,5);
   rab.x=world.rug.x;
-  // life-stage growth check
+  // life-stage growth check — shown as a follow-up so the morning toast doesn't clobber it
   const st=stageFor(rab.ageDays);
-  if(st.key!=='kit' && stageFor(rab.ageDays-1).key!==st.key){
-    toast(`🎂 ${rab.name} grew up — now a ${st.name}! ${st.label}`);
-    if(st.key==='senior') unlockAch('senior');
-  }
+  const grewTo = (st.key!=='kit' && stageFor(rab.ageDays-1).key!==st.key) ? st : null;
+  if(grewTo && grewTo.key==='senior') unlockAch('senior');
   if(rab.ageDays>=7) unlockAch('week');
+  // Progressive disclosure: the Games tab appears on the morning of day 2 (item 5)
+  const revealGames = !rab.gamesRevealed && rab.day>=2;
+  if(revealGames){ rab.gamesRevealed=true; applyGamesTab(); }
   // fresh daily goals + a login bonus
   rollGoals();
   addCarrots(6);
@@ -1130,6 +1217,17 @@ function endNight(){
   } else {
     startBinky();
     toast(`☀️ Good morning! Day ${rab.day} — ${rab.name} is STARVING but binkying with joy. (+6🥕 daily bonus)`);
+  }
+  // Staggered morning follow-ups so each beat is actually read (the toast is single-slot).
+  let followT = 3200;
+  if(grewTo){ const g=grewTo;
+    setTimeout(()=>toast(`🎂 ${rab.name} grew up — now a ${g.name}! ${g.label}`), followT); followT+=3200; }
+  if(revealGames){
+    setTimeout(()=>toast('🎮 New! The Games tab just opened in the bottom bar — tap 🎮 Games for arcade minigames and extra 🥕.'), followT); followT+=3200; }
+  // Growth-moment exit beat: one quiet line right after the day-3 Kit→Junior growth (item 10)
+  if(grewTo && grewTo.key==='junior' && !rab.exitBeatShown){
+    rab.exitBeatShown=true;
+    setTimeout(()=>toast(`💾 ${cap(P().p)} progress saves right here in this browser. Want a backup? There's a save code in the ⚙️ Menu — for when ${P().s} matters to you.`), followT);
   }
   save();
 }
@@ -1188,6 +1286,7 @@ function getSick(){
   rab.sick=true; rab.sickAt=now();
   rab.thumps=clamp(rab.thumps+0.5,0,5);
   toast(`🤒 ${rab.name} has gone into GI stasis! ${cap(P().s)} needs the Vet — fast.`);
+  fireFact('stasis');
   refreshActions();
 }
 function cureSick(free){
@@ -1283,6 +1382,7 @@ function toast(msg){
   clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),3000);
 }
 function triggerThump(){
+  rab.thumpSeen=true;   // the thump has now been demonstrated — cancels the day-2 fallback (item 3b)
   rab.legStomp=1; thumpFx=0.5; thumpTextT=0.9;
   const p=parts(); thumpRipples.push({x:p.cx,y:rab.baseY,t:0}); spawnSparkle(p.feet.x,p.feet.y);
 }
@@ -1318,7 +1418,7 @@ function givePellets(){
   rab.pelletsToday++;
   // pellets are a 1–2×/day supplement; a 3rd+ scoop piles on the weight
   if(rab.pelletsToday<=2){ addWeight(2.5); }
-  else { addWeight(7); toast(`⚠️ That's ${P().p} ${ord(rab.pelletsToday)} scoop of pellets today — too many! Pellets are 1–2×/day; hay should be the main food.`); }
+  else { addWeight(7); toast(`⚠️ That's ${P().p} ${ord(rab.pelletsToday)} scoop of pellets today — too many! Pellets are 1–2×/day; hay should be the main food.`); fireFact('pellet3'); }
   addXP(2);
   hopTo(world.food.x);
   spawnHeart(parts().head.x, parts().head.y);
@@ -1349,6 +1449,7 @@ function offerBanana(){
     rab.thumps=clamp(rab.thumps+0.6,0,5);
     rab.health=clamp(rab.health-8); addWeight(6);
     toast(`That's ${P().p} 3rd banana — tummy ache! 🤢 Too much sugar hurts ${P().p} gut. (max 2/day)`);
+    fireFact('banana3');
     return;
   }
   rab.bananasToday++;
@@ -1373,6 +1474,11 @@ function togglePetting(){
   $('bPet').classList.toggle('armed',pettingMode);
   $('game').style.cursor = pettingMode ? 'grab' : 'default';   // hand cursor while petting
   toast(pettingMode? 'Petting ON — drag over the HEAD (never the feet!).' : 'Petting off.');
+  // Day-1 bait: once she's been armed for petting, arm one scripted feet-out flop (item 3a)
+  if(pettingMode && !rab.petArmedOnce){
+    rab.petArmedOnce=true;
+    if(rab.day===1 && !rab.baitDone) rab.baitAt = now()+rand(5,8);
+  }
 }
 function restRabbit(){
   if(rab.cold){ coldRefuse(); return; }
@@ -1526,6 +1632,7 @@ function handlePet(px,py){
       const dmg = rab.bondLevel>=8? 0.9 : 1.4;
       rab.thumps=clamp(rab.thumps+dmg,0,5); stats.happy=clamp(stats.happy-8);
       triggerThump(); toast('You touched the SACRED back feet! 😾 *THUMP*'); checkThreshold();
+      fireFact('feet');
     }
     return;
   }
@@ -1548,7 +1655,7 @@ let wasAbove3=false;
 function checkThreshold(){
   if(rab.thumps>=3 && !wasAbove3){ wasAbove3=true; triggerThump(); }
   if(rab.thumps<2.6) wasAbove3=false;
-  if(rab.thumps>=5 && !rab.cold){ rab.cold=true; onMaxAnger(); }   // maxed anger → a rage strike
+  if(rab.thumps>=5 && !rab.cold){ rab.cold=true; onMaxAnger(); fireFact('cold'); }   // maxed anger → a rage strike
 }
 
 /* ---------------- Idle brain ---------------- */
@@ -1650,6 +1757,31 @@ function renderThemes(){
  *  MAIN LOOP
  * ============================================================================ */
 let last=now();
+/* ============================================================================ *
+ *  FIRST-SESSION SCRIPTING — the engineered thump (item 3)
+ * ============================================================================ */
+function tickScript(t){
+  // (a) The bait: one luxurious, feet-out flop on day 1, once petting is armed. If she
+  //     stretches out and the player touches the sacred feet, the normal thump path fires.
+  if(rab.day===1 && !rab.baitDone && rab.petArmedOnce && rab.baitAt && t>=rab.baitAt){
+    // only when she's calm and idle, so the pose reads clearly and nothing is interrupted
+    if(!rab.cold && !rab.sick && !rab.play && !rab.hidden && !rab.trick
+       && rab.binkyT<=0 && !rab.hopping && rab.state!=='rest' && rab.state!=='tummy'){
+      rab.baitDone=true; rab.baitAt=0;
+      rab.trick={name:'flop', t:0, dur:6.5};   // long, luxurious flop (reuses the flop pose)
+      rab.state='trick';
+      toast(`${rab.name} flops over and stretches right out — back feet on full display. So relaxed. 😌`);
+      save();
+    }
+  }
+  // (b) The fallback: if no thump has happened by mid-day-2, guarantee one so the meter is
+  //     demonstrated either way. Crosses the 3-paw threshold once — recoverable, never cold shoulder.
+  if(!rab.thumpSeen && rab.day>=2 && timeOfDay>0.4){
+    rab.thumps=Math.max(rab.thumps,3.0);
+    checkThreshold();   // fires the natural thump; triggerThump() sets thumpSeen, so this won't repeat
+  }
+}
+
 function frame(){
   const t=now(); let dt=t-last; last=t; dt=Math.min(dt,0.05);
 
@@ -1662,7 +1794,7 @@ function frame(){
   const stage = stageFor(rab.ageDays);
   rab.curScale = damp(rab.curScale, stage.scale, 1.5, dt);
 
-  timeOfDay += dt/DAY_LEN;
+  timeOfDay += dt/dayLen(rab.day);
   if(timeOfDay>=1){ timeOfDay=1; startNight(); requestAnimationFrame(frame); return; }
   $('clockLbl').textContent =
     timeOfDay<0.15?'🌅': timeOfDay<0.45?'☀️': timeOfDay<0.75?'🌤️': timeOfDay<0.9?'🌇':'🌆';
@@ -1728,6 +1860,7 @@ function frame(){
     updateState(t);
   }
   tickEvent(dt,t);
+  tickScript(t);
 
   /* loaf pose: content, fed, calm */
   const wantsLoaf = rab.state==='loaf' && !rab.hopping && stats.happy>60 && stats.hunger<55;
@@ -1876,7 +2009,7 @@ function buy(id){
       stats.energy=clamp(stats.energy+6); addWeight(1.5); rab.thumps=clamp(rab.thumps-0.3,0,5); }   // treat
     stats.happy=clamp(stats.happy+6); spawnHeart(parts().head.x,parts().head.y);
     if(id==='oxbow' && rab.pelletsToday>2)
-      toast(`⚠️ That's ${P().p} ${ord(rab.pelletsToday)} scoop of pellets today — too many! Hay should be the main food.`);
+      { toast(`⚠️ That's ${P().p} ${ord(rab.pelletsToday)} scoop of pellets today — too many! Hay should be the main food.`); fireFact('pellet3'); }
     else toast(`Yum! ${it.name} served. 😋`);
   } else if(it.type==='cure'){
     rab.items[id]=(rab.items[id]||0)+1;
@@ -1913,6 +2046,30 @@ function renderGoals(inPanel){
   });
 }
 
+/* ---- Save codes (item 8): a compact base64 backup — the only guard against cleared
+ *      browser storage. Bundles the save blob plus account-wide unlocks. Import validates
+ *      before writing anything, so corrupt/hostile input never crashes or wipes a save. */
+function buildSaveCode(){
+  save();   // flush the latest state to storage first
+  const data = loadRaw();
+  if(!data) return null;   // storage unavailable — never hand out a junk code
+  const payload = { c:'thump', v:2, save:data, unlocks };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));   // unicode-safe base64
+}
+function parseSaveCode(code){
+  code=(code||'').trim();
+  if(!code || code.length>200000) return {ok:false, err:'That code isn’t readable.'};   // size cap: no quota blowups
+  let payload;
+  try{ payload = JSON.parse(decodeURIComponent(escape(atob(code)))); }
+  catch(e){ return {ok:false, err:'That code isn’t readable.'}; }
+  if(!payload || payload.c!=='thump' || payload.v!==2 || !payload.save || typeof payload.save!=='object')
+    return {ok:false, err:'That code isn’t a Thumpagotchi save.'};
+  const s = payload.save;
+  if(!s.name || !s.stats || typeof s.day!=='number')
+    return {ok:false, err:'That save is missing key fields.'};
+  return {ok:true, payload};   // ranges are re-clamped by applySave on reload
+}
+
 function renderMenu(){
   const body=$('panelBody'); body.innerHTML='';
   const weightTxt = rab.weight>140?'Overweight ⚠️':rab.weight<75?'Underweight ⚠️':'Ideal 👌';
@@ -1946,6 +2103,17 @@ function renderMenu(){
       <button id="mSave" class="mbtn">💾 Save now</button>
       <button id="mReset" class="mbtn danger">🗑️ Rehome (reset)</button>
     </div>
+    <div class="mhdr">Backup — save code</div>
+    <div class="mbackup">
+      <textarea id="saveCodeBox" class="mcode" readonly rows="3" placeholder="Tap “Export” to generate your save code…"></textarea>
+      <div class="mbtns">
+        <button id="mExport" class="mbtn">📤 Export</button>
+        <button id="mCopy" class="mbtn" disabled>📋 Copy</button>
+      </div>
+      <textarea id="importBox" class="mcode" rows="3" placeholder="Paste a save code here to restore…"></textarea>
+      <div class="mbtns"><button id="mImport" class="mbtn">📥 Import &amp; reload</button></div>
+      <div class="mtip">Your save lives only in this browser. A save code is your one backup — copy it somewhere safe, or use it to move to another device.</div>
+    </div>
     <div class="mtip">Tip: hay keeps weight healthy; bananas are treats (max 2/day). Neglect risks GI&nbsp;stasis — keep the Vet 🩺 and Gut Medicine 💊 in mind.</div>`;
   $('rugTeal').onclick=()=>{ rab.decor.rug=null; save(); renderMenu(); };
   $('rugRose').onclick=()=>{ if(owns('rug_rose')){ rab.decor.rug='rose'; save(); renderMenu(); } };
@@ -1956,6 +2124,34 @@ function renderMenu(){
     if(confirm('Rehome your rabbit and start over? This erases your save.')){
       wipeSave(); location.reload();
     }
+  };
+  // --- Save codes (item 8) ---
+  $('mExport').onclick=()=>{
+    const code=buildSaveCode();
+    if(!code){ toast('⚠️ Couldn’t read storage — no save to export.'); return; }
+    const box=$('saveCodeBox'); box.value=code;
+    box.focus(); box.select(); $('mCopy').disabled=false;
+    toast('Save code ready — copy it somewhere safe. 📤');
+  };
+  $('mCopy').onclick=()=>{
+    const box=$('saveCodeBox'); if(!box.value) return;
+    box.focus(); box.select();
+    const done=()=>toast('Copied to clipboard! 📋');
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(box.value).then(done,()=>{ try{document.execCommand('copy');done();}catch(e){toast('Copy failed — select the text and copy manually.');} });
+    else { try{document.execCommand('copy');done();}catch(e){toast('Select the text and copy manually.');} }
+  };
+  $('mImport').onclick=()=>{
+    const res=parseSaveCode($('importBox').value);
+    if(!res.ok){ toast('⚠️ '+res.err+' Your current game is untouched.'); return; }
+    const s=res.payload.save;
+    if(!confirm(`Import ${s.name} (Day ${s.day||1})? This replaces your current rabbit.`)) return;
+    try{
+      localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+      if(res.payload.unlocks && typeof res.payload.unlocks==='object')
+        localStorage.setItem(UNLOCK_KEY, JSON.stringify(res.payload.unlocks));
+    }catch(e){ toast('⚠️ Couldn’t write to storage — import cancelled.'); return; }
+    location.reload();
   };
 }
 
@@ -1988,6 +2184,9 @@ bind('bBanana',offerBanana); bind('bPet',togglePetting); bind('bTrick',doTrick);
 bind('bClean',cleanLitter); bind('bRest',restRabbit); bind('bPlay',playToy); bind('bVet',callVet);
 bind('tbTheme',()=>openPanel('themes'));
 bind('tbShop',()=>openPanel('shop')); bind('tbGoals',()=>openPanel('goals')); bind('tbMenu',()=>openPanel('menu'));
+
+// Games tab stays hidden until it's revealed (day 2, or immediately for established saves) — item 5
+function applyGamesTab(){ const t=$('tabGames'); if(t) t.style.display = rab.gamesRevealed ? '' : 'none'; }
 
 // bottom-dock sub-tabs (Care / Play / Health)
 function setTab(name){
@@ -2061,11 +2260,32 @@ function buildStart(){
 }
 function beginLoop(){
   $('start').classList.add('hidden');
-  initPaws(); refreshActions(); setTab('care'); resize();
+  initPaws(); refreshActions(); applyGamesTab(); setTab('care'); resize();
   rab.baseY=world.rug.y-6;
   renderGoals(); updateHUD();
   last=now();
   requestAnimationFrame(frame);
+}
+// Welcome-back catch-up: if she's been alone a long while, a gentle, capped drift —
+// hungrier, thirstier, messier box, but never sick, never cold, never below safety floors (item 9).
+const AWAY_MS = 12*60*60*1000;   // 12 real hours
+function welcomeBack(){
+  const away = rab.lastSeen ? Date.now()-rab.lastSeen : 0;
+  if(away < AWAY_MS){ toast(`Welcome back! ${rab.name} missed you. 🐰`); return; }
+  stats.hunger  = clamp(Math.max(stats.hunger, 62), 0, 92);   // hungry, not starving into crisis
+  stats.water   = clamp(Math.min(stats.water, 45), 30, 100);  // thirsty, above the safety floor
+  stats.hygiene = clamp(Math.min(stats.hygiene, 42), 30, 100);// box needs a tidy, not filthy
+  stats.happy   = clamp(Math.max(stats.happy, 40), 40, 100);  // a touch mopey, never miserable
+  rab.thumps    = clamp(Math.min(rab.thumps, 1.5), 0, 5);     // calm on return, never a grudge she didn't earn
+  const colour = pick([
+    `dug a crater in the litter box`,
+    `rearranged every hay strand into one suspicious pile`,
+    `binky'd at 3 a.m. and knocked the water bowl askew`,
+    `flopped in your spot and won't admit it`,
+    `chinned the entire room to reclaim it as ${P().p} own`,
+  ]);
+  save();
+  toast(`👋 Welcome back! While you were away, ${rab.name} ${colour}. ${cap(P().s)}'s hungry and the box could use a tidy.`);
 }
 function startGame(fromSave, saved){
   if(started) return;
@@ -2074,9 +2294,9 @@ function startGame(fromSave, saved){
     applySave(saved);
     $('petName').textContent=rab.name;
     $('dayLbl').textContent='Day '+rab.day;
-    if(!rab.goals.length || rab.goalDay!==rab.day) rollGoals();
+    if(!rab.goals.length || rab.goalDay!==rab.day){ rab.day<=1 ? setDay1Goals() : rollGoals(); }
     beginLoop();
-    toast(`Welcome back! ${rab.name} missed you. 🐰`);
+    welcomeBack();
     return;
   }
   rab.breed = BREEDS[chosenBreed] ? chosenBreed : 'holland';
@@ -2086,7 +2306,7 @@ function startGame(fromSave, saved){
   rab.name = nm || pick(['Mowgli','Nutmeg','Clover','Waffles','Mochi','Pip','Biscuit','Bramble','Poppy']);
   $('petName').textContent=rab.name;
   rab.curScale=stageFor(0).scale;
-  rollGoals();
+  setDay1Goals();          // day 1 = the fixed tutorial goal set (item 2)
   unlockAch('firstDay');
   beginLoop();
   rab.x=world.rug.x;

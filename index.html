@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Thumpagotchi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Thumpagotchi — a house-rabbit care sim</title>
+<!-- link-preview metadata for portfolio/social embeds -->
+<meta name="description" content="Adopt a rabbit, earn its trust, and keep the feet sacred. A hand-drawn HTML5 canvas care sim about what house rabbits actually need — playable in about ten minutes.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Thumpagotchi — a house-rabbit care sim">
+<meta property="og:description" content="Adopt a rabbit, earn its trust, and keep the feet sacred. A hand-drawn canvas care sim about what house rabbits actually need — playable in about ten minutes.">
+<meta name="theme-color" content="#a05f70">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -132,6 +138,16 @@
     </div>
   </div>
 
+  <!-- ---------- Fact card (real rabbit fact at a moment of consequence) ---------- -->
+  <div id="factCard" role="button" tabindex="0">
+    <div class="fc-icon" id="fcIcon">🐰</div>
+    <div class="fc-body">
+      <div class="fc-title" id="fcTitle"></div>
+      <div class="fc-text" id="fcText"></div>
+      <div class="fc-dismiss">Did you know? · tap to dismiss</div>
+    </div>
+  </div>
+
   <!-- ---------- Slide-up panel (Shop / Goals / Menu) ---------- -->
   <div id="panelWrap">
     <div id="panel">
@@ -148,6 +164,7 @@
     <div class="card">
       <div class="logo">🐰</div>
       <h1>THUMPAGOTCHI</h1>
+      <p class="thesis">Rabbits aren't starter pets. Good thing you're not a starter owner.</p>
 
       <button id="continueBtn" style="display:none">▶ Continue</button>
 

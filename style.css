@@ -22,7 +22,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#1a1310;overscroll-beh
 #rc{filter:var(--art-filter,none);transition:filter .3s ease;pointer-events:none;}
 
 /* ---- Top HUD ---- */
-#hud{position:absolute;top:0;left:0;right:0;padding:9px 12px;
+#hud{position:absolute;top:0;left:0;right:0;padding:max(9px, env(safe-area-inset-top)) 12px 9px;
   display:flex;flex-wrap:wrap;gap:7px 14px;align-items:center;
   background:linear-gradient(180deg,rgba(20,14,10,.82),rgba(20,14,10,0));
   pointer-events:none;}
@@ -33,7 +33,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:#1a1310;overscroll-beh
 .track{position:relative;flex:1;height:15px;border-radius:8px;
   background:rgba(0,0,0,.42);overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.55);}
 .fill{position:absolute;inset:0;width:50%;border-radius:8px;transition:width .35s ease, background .3s;}
-.brand{width:100%;display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;padding-right:140px;}
+.brand{width:100%;display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;
+  padding-right:196px;min-height:44px;}   /* clears the 4-button toolbar (width AND height) so stat bars never slide under it */
 .brand h1{font-size:17px;margin:0;letter-spacing:1px;
   background:linear-gradient(90deg,#f4ecd8,#e8a13a);-webkit-background-clip:text;background-clip:text;color:transparent;}
 .brand .day{font-size:11px;opacity:.7;}
@@ -59,7 +60,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#1a1310;overscroll-beh
 .paw.on{opacity:1;filter:drop-shadow(0 0 4px rgba(224,96,58,.8));transform:scale(1.12);}
 
 /* ---- Top-right toolbar ---- */
-#toolbar{position:absolute;top:8px;right:10px;display:flex;gap:7px;z-index:6;}
+#toolbar{position:absolute;top:max(8px, env(safe-area-inset-top));right:max(10px, env(safe-area-inset-right));display:flex;gap:7px;z-index:6;}
 .tbtn{position:relative;appearance:none;border:none;cursor:pointer;width:40px;height:40px;
   border-radius:12px;font-size:19px;background:rgba(28,20,16,.6);color:#fff;
   backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);
@@ -69,7 +70,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#1a1310;overscroll-beh
   font-weight:700;padding:1px 4px;border-radius:8px;border:1px solid rgba(0,0,0,.3);}
 
 /* ---- Bottom controls (tabbed) ---- */
-#controls{position:absolute;left:0;right:0;bottom:0;padding:8px 8px 14px;
+#controls{position:absolute;left:0;right:0;bottom:0;padding:8px 8px calc(22px + env(safe-area-inset-bottom));
   display:flex;flex-direction:column;align-items:stretch;gap:8px;
   background:linear-gradient(0deg,rgba(20,14,10,.85),rgba(20,14,10,0));}
 #actTabs{display:flex;gap:6px;justify-content:center;}
@@ -93,12 +94,14 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
   box-shadow:0 3px 0 #8a3020,0 0 14px #e0603a;animation:blink 1s steps(2,end) infinite;}
 
 /* ---- Toast + hint ---- */
-#toast{position:absolute;top:64px;left:50%;transform:translateX(-50%);
+/* anchored to the bottom (above the hint/controls) so it never covers the HUD stat bars */
+#toast{position:absolute;bottom:calc(150px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(8px);
   background:var(--panel);padding:8px 16px;border-radius:20px;font-size:13px;
   backdrop-filter:blur(4px);opacity:0;transition:opacity .3s, transform .3s;
-  pointer-events:none;max-width:86vw;text-align:center;border:1px solid rgba(255,255,255,.08);z-index:5;}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(4px);}
-#hint{position:absolute;bottom:112px;left:50%;transform:translateX(-50%);
+  pointer-events:none;max-width:86vw;text-align:center;border:1px solid rgba(255,255,255,.08);z-index:24;
+  box-shadow:0 6px 18px rgba(0,0,0,.4);}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#hint{position:absolute;bottom:calc(122px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
   font-size:12px;opacity:.5;pointer-events:none;text-align:center;width:90%;}
 
 /* ---- Slide-up panel (Shop / Goals / Menu) ---- */
@@ -152,6 +155,12 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
   font-size:13px;color:#231810;background:linear-gradient(180deg,#fbe9c4,#e6c078);box-shadow:0 2px 0 #a9803e;}
 .mbtn.danger{background:linear-gradient(180deg,#f0a89a,#e0603a);color:#fff;box-shadow:0 2px 0 #8a3020;}
 .mtip{font-size:11px;opacity:.6;margin-top:14px;line-height:1.5;}
+.mbackup{margin-top:6px;}
+.mcode{width:100%;box-sizing:border-box;margin-top:8px;resize:vertical;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;line-height:1.4;
+  color:#f3ead6;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.14);
+  border-radius:10px;padding:9px 10px;word-break:break-all;}
+.mcode:focus{outline:2px solid var(--accent);outline-offset:-1px;}
 
 /* ---- Start / adoption screen ---- */
 #start{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
@@ -228,7 +237,7 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 
   /* Hide the tip line on small screens to save vertical space */
   #hint{display:none;}
-  #toast{top:52px;font-size:12px;padding:7px 13px;}
+  #toast{top:auto;bottom:calc(130px + env(safe-area-inset-bottom));font-size:12px;padding:7px 13px;}
 
   /* Bottom-sheet panels use the full width */
   #panel{border-radius:16px 16px 0 0;max-height:86vh;}
@@ -324,10 +333,11 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 #snakeCanvas{border-radius:12px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.12), 0 6px 16px rgba(0,0,0,.4);
   touch-action:none;image-rendering:auto;}
 .mgmsg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-  background:rgba(20,14,10,.62);border-radius:12px;text-align:center;}
+  background:rgba(12,8,6,.82);border-radius:12px;text-align:center;line-height:normal;padding:14px;}
 .mgmsg.show{display:flex;}
-.mgover h3{margin:0 0 4px;font-size:22px;color:#ffd98a;}
-.mgover p{margin:0 0 12px;font-size:14px;}
+.mgover{display:flex;flex-direction:column;align-items:center;}
+.mgover h3{margin:0 0 6px;font-size:22px;line-height:1.2;color:#ffd98a;text-shadow:0 2px 6px rgba(0,0,0,.7);}
+.mgover p{margin:0 0 14px;font-size:14px;line-height:1.4;color:#f4ecd8;}
 .mgbtns{display:flex;gap:8px;justify-content:center;}
 .mgbtns button{appearance:none;border:none;cursor:pointer;font-weight:700;font-size:14px;color:#231810;
   padding:10px 16px;border-radius:11px;background:linear-gradient(180deg,#fbe9c4,#e6c078);box-shadow:0 3px 0 #a9803e;}
@@ -404,6 +414,7 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 .vitals{background:rgba(255,255,255,.5);color:#3a2f26;} .vitals b{color:#8a5a20;}
 .mhdr{color:#7a6653;opacity:1;} .mrow{color:#3a2f26;border-color:rgba(120,90,60,.14);} .mrow i{color:#9a8672;}
 .mtip{color:#7a6653;opacity:1;}
+.mcode{color:#3a2f26;background:rgba(255,255,255,.6);border-color:rgba(120,90,60,.24);}
 
 /* start / adoption screen → dark pastel pink with a legible cream card */
 #start{background:linear-gradient(160deg,#c58596,#a05f70 55%,#8a4f60);}
@@ -416,3 +427,21 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 .seg button.on{background:linear-gradient(180deg,#f6d9a0,#e8b06a);color:#3a2830;}
 .coatName{color:#9a5670;opacity:1;font-weight:600;}
 #continueBtn{background:linear-gradient(180deg,#bfe6b0,#7bc46c);box-shadow:0 4px 0 #4f8a44;}
+
+/* ---- Adoption thesis line (quiet, sets the tone) ---- */
+.thesis{font-size:12px;line-height:1.45;margin:1px auto 15px;max-width:300px;color:#8a6072;opacity:.9;}
+
+/* ---- Fact cards: real rabbit facts at moments of consequence ---- */
+/* bottom-anchored above the toast so it can't cover the HUD stat bars or collide with toasts */
+#factCard{position:absolute;left:50%;bottom:calc(200px + env(safe-area-inset-bottom));transform:translate(-50%,14px);
+  z-index:16;display:flex;gap:12px;align-items:flex-start;width:min(420px,88vw);
+  padding:14px 16px;border-radius:16px;cursor:pointer;
+  background:linear-gradient(180deg,#fdf5ec,#f6e7d2);color:#3a2a22;
+  border:1px solid rgba(150,100,60,.28);box-shadow:0 14px 40px rgba(70,40,20,.35);
+  opacity:0;pointer-events:none;transition:opacity .28s ease, transform .28s ease;}
+#factCard.show{opacity:1;transform:translate(-50%,0);pointer-events:auto;}
+#factCard .fc-icon{font-size:30px;line-height:1.05;flex:0 0 auto;}
+#factCard .fc-title{font-size:14px;font-weight:800;color:#8a5a20;margin-bottom:3px;letter-spacing:.2px;}
+#factCard .fc-text{font-size:13px;line-height:1.5;}
+#factCard .fc-dismiss{margin-top:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;opacity:.6;}
+@media (max-width:560px){ #factCard{bottom:calc(178px + env(safe-area-inset-bottom));} }
