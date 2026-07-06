@@ -179,7 +179,13 @@ function resize(){
   world.ball  = {x:W*0.305,y:H*0.815,r:Math.min(27,W*0.042)*bs};
   world.win   = {x:W*0.5-W*0.11, y:H*0.06, w:W*0.22, h:H*0.28};
   rab.baseY = world.rug.y - 6;
-  rab.x = clamp(rab.x||world.rug.x, world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6);
+  // Re-clamp her — and any in-flight hop — to the new floor bounds. A device rotation mid-hop
+  // changes W, so hopFromX/hopToX (absolute pixels for the OLD width) can point off the new rug
+  // or into a prop; clamping rab.x alone isn't enough because the next frame lerps her straight
+  // back out toward the stale target (and touchdown snaps her to it).
+  const rugLo = world.rug.x-world.rug.rx*0.6, rugHi = world.rug.x+world.rug.rx*0.6;
+  rab.x = clamp(rab.x||world.rug.x, rugLo, rugHi);
+  if(rab.hopping){ rab.hopFromX = clamp(rab.hopFromX, rugLo, rugHi); rab.hopToX = clamp(rab.hopToX, rugLo, rugHi); }
 }
 window.addEventListener('resize', resize);
 
@@ -1368,6 +1374,7 @@ function drawThumpFx(dt){
  * ============================================================================ */
 function startNight(){ cutscene={type:'night', t:0, dur:5.5}; }
 function endNight(){
+  if(!cutscene) return;   // one-shot guard: the daily rollover must never run twice for a single night
   cutscene=null;
   timeOfDay=0.04;
   rab.day++; rab.ageDays++; rab.bananasToday=0; rab.pelletsToday=0;
@@ -1986,9 +1993,12 @@ function frame(){
   else if(!rab.cold) rab.thumps=clamp(rab.thumps - 0.12*dt,0,5);
   checkThreshold();
 
-  // the 90%-happiness goal must be EARNED: it only arms after happiness dips below 85
-  // during the day, so the big morning-joy boost can't auto-complete it at rollover
-  if(stats.happy<85) happy90Armed=true;
+  // the 90%-happiness goal must be EARNED: it arms once happiness has dipped below the 90 target
+  // (which any normal day does within seconds of the morning-joy peak), then completes when she's
+  // brought back up to 90. Arming at the target — not a lower 85 — means it can never get stuck
+  // uncompletable when she wakes at 90+; the morning-joy boost still can't auto-complete it because
+  // she starts the day above 90, so the flag stays disarmed until she first drops below it.
+  if(stats.happy<90) happy90Armed=true;
   if(happy90Armed && stats.happy>=90 && rab.goals.some(g=>g.track==='happy90'&&!g.done)) incGoal('happy90');
 
   /* animation timers */
@@ -2346,12 +2356,20 @@ function onDown(e){pointer.down=true;const p=canvasPos(e);pointer.x=p.x;pointer.
   handlePet(p.x,p.y);}
 function onMove(e){const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;if(pointer.down)handlePet(p.x,p.y);}
 function onUp(){pointer.down=false; if(pettingMode) $('game').style.cursor='grab';}
-canvas.addEventListener('mousedown',onDown);
-canvas.addEventListener('mousemove',onMove);
-window.addEventListener('mouseup',onUp);
-canvas.addEventListener('touchstart',e=>{e.preventDefault();onDown(e);},{passive:false});
-canvas.addEventListener('touchmove',e=>{e.preventDefault();onMove(e);},{passive:false});
-window.addEventListener('touchend',onUp);
+// Register pointer handlers exactly once. Reset/import reload the page today, but guarding here
+// means a future reload-free reset can't stack duplicate handlers (every pet would fire twice).
+let _inputBound=false;
+function bindInput(){
+  if(_inputBound) return;
+  _inputBound=true;
+  canvas.addEventListener('mousedown',onDown);
+  canvas.addEventListener('mousemove',onMove);
+  window.addEventListener('mouseup',onUp);
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();onDown(e);},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();onMove(e);},{passive:false});
+  window.addEventListener('touchend',onUp);
+}
+bindInput();
 
 function bind(id,fn){ const el=$(id); if(el) el.addEventListener('click',fn); }
 bind('bHay',giveHay); bind('bPellets',givePellets); bind('bWater',giveWater);
