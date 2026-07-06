@@ -764,7 +764,7 @@ function drawRoom(){
   if(owns('hutch'))  prop(w.hutch.x,  w.hutch.y+w.hutch.r*0.73, w.hutch.r*1.15, drawHutch);
   if(owns('hammock'))prop(w.hammock.x,w.hammock.y+3, w.hammock.w*0.16, drawHammock);
   if(owns('tunnel')) prop(w.tube.x,   w.tube.y+w.tube.h*0.52, w.tube.w*0.46, drawTube);
-  prop(w.bed.x, w.bed.y+w.bed.r*0.5, w.bed.r*0.9, drawBed);
+  prop(w.bed.x, w.bed.y+w.bed.r*0.62, w.bed.r*0.95, drawBed);
   prop(w.litter.x, w.litter.y+w.litter.h*0.5, w.litter.w*0.5, drawLitter);
   prop(w.food.x, w.food.y+w.food.r*0.5, w.food.r*1.05, drawFoodBowl);
   prop(w.water.x, w.water.y+w.water.r*0.5, w.water.r*1.05, drawWaterBowl);
@@ -901,24 +901,31 @@ function drawHammockFront(){
 }
 
 function drawLitter(){
-  const L=world.litter;
-  ctx.fillStyle='#3f6fae'; roundRect(L.x-L.w/2,L.y-L.h/2,L.w,L.h,10); ctx.fill();
-  ctx.strokeStyle=shade('#3f6fae',0.45); ctx.lineWidth=2; roundRect(L.x-L.w/2,L.y-L.h/2,L.w,L.h,10); ctx.stroke();
-  ctx.fillStyle='#5a86c2'; roundRect(L.x-L.w/2+6,L.y-L.h/2+6,L.w-12,L.h-12,7); ctx.fill();
-  ctx.fillStyle='#e7dcc4'; roundRect(L.x-L.w/2+10,L.y-L.h/2+10,L.w-20,L.h-20,6); ctx.fill();
-  const hx=L.x, hy=L.y-L.h/2+12, bright = hayFresh>0?1:0.75;
-  for(let i=0;i<34;i++){
-    const bx=hx-L.w*0.36+((i*29)%(L.w*0.72));
-    const by=hy+((i*13)%(L.h*0.42));
+  // an OPEN litter tray you look down into: box walls + a lit top rim (wall thickness) around a
+  // sunken hay well — reads as a 3D container instead of a flat billboard. Footprint unchanged so
+  // drawLitterFront (the near wall over the napping rabbit) still lines up.
+  const L=world.litter, x=L.x, w=L.w, h=L.h, top=L.y-L.h/2;
+  const rim=Math.min(11, w*0.05);
+  ctx.fillStyle='#3f6fae'; roundRect(x-w/2, top, w, h, 11); ctx.fill();
+  ctx.strokeStyle=shade('#3f6fae',0.5); ctx.lineWidth=2; roundRect(x-w/2, top, w, h, 11); ctx.stroke();
+  ctx.fillStyle='#6f9bd0'; roundRect(x-w/2+3, top+3, w-6, rim, 6); ctx.fill();          // lit top rim = wall thickness
+  const wx=x-w/2+rim, wy=top+rim, ww=w-rim*2, wh=h-rim*2;
+  ctx.fillStyle='#2c4a7c'; roundRect(wx, wy, ww, wh, 7); ctx.fill();                     // sunken interior (dark)
+  const bright=hayFresh>0?1:0.75;
+  ctx.fillStyle='#e7dcc4'; roundRect(wx+3, wy+4, ww-6, wh-7, 5); ctx.fill();             // hay bed in the well
+  ctx.fillStyle='rgba(18,32,58,.20)'; roundRect(wx+3, wy+3, ww-6, 7, 5); ctx.fill();     // back-wall shadow (recedes)
+  const bx0=wx+6, byTop=wy+9, bw=Math.max(6,ww-12), bh=Math.max(6,wh-16);
+  for(let i=0;i<32;i++){
+    const bx=bx0+((i*29)%bw), by=byTop+((i*13)%bh);
     ctx.strokeStyle=`hsl(${72+((i*11)%26)},58%,${(46+((i*7)%15))*bright}%)`;
     ctx.lineWidth=2;
     const ang=((i%5)-2)*0.3;
-    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+Math.sin(ang)*13,by-13);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+Math.sin(ang)*12,by-12);ctx.stroke();
   }
   const mess = Math.round((100-stats.hygiene)/13);
   for(let i=0;i<mess;i++){
-    const mx=L.x-L.w/2+16+((i*37)%(L.w-32));
-    const my=L.y+2+((i*23)%(L.h*0.32));
+    const mx=wx+8+((i*37)%Math.max(6,ww-16));
+    const my=wy+8+((i*23)%Math.max(6,wh-14));
     ctx.fillStyle= i%3? 'rgba(110,80,45,.85)':'rgba(140,112,66,.7)';
     ctx.beginPath();ctx.ellipse(mx,my,5,3.4,0.5,0,7);ctx.fill();
   }
@@ -960,11 +967,17 @@ function drawBed(){
     ctx.fillStyle='#eef3fb'; ctx.beginPath();ctx.ellipse(b.x-b.r*0.18,b.y-b.r*0.02,b.r*0.3,b.r*0.14,0,0,7);ctx.fill();
     return;
   }
-  /* basket bed with real depth: tall BACK rim, sunken cushion, low FRONT rim.
-     (In-game, the front rim is re-drawn over the rabbit while she naps in it.) */
-  ctx.fillStyle='#a34a5f'; ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.06, b.r, b.r*0.5, 0,0,7);ctx.fill();
+  /* basket bed with real depth: an exterior side WALL for height (so it sits at the room's angle,
+     not top-down) + tall BACK rim, sunken cushion, low FRONT rim. The front rim is re-drawn over
+     the rabbit while she naps (drawBedFront), so its geometry stays fixed. */
+  const bcy=b.y+b.r*0.06, bry=b.r*0.44, bwall=b.r*0.17;
+  ctx.fillStyle=shade('#a34a5f',0.34);
+  ctx.beginPath();ctx.ellipse(b.x, bcy+bwall, b.r, bry, 0,0,7);ctx.fill();            // bowl base (bottom ellipse)
+  ctx.fillRect(b.x-b.r, bcy, b.r*2, bwall);                                           // exterior side band
+  ctx.fillStyle=shade('#a34a5f',0.18); ctx.fillRect(b.x-b.r, bcy+bwall*0.5, b.r*2, bwall*0.5);  // wall picks up a little light
+  ctx.fillStyle='#a34a5f'; ctx.beginPath();ctx.ellipse(b.x, bcy, b.r, bry, 0,0,7);ctx.fill();    // top opening (flattened)
   ctx.strokeStyle=shade('#a34a5f',0.4); ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.06, b.r, b.r*0.5, 0,0,7);ctx.stroke();
+  ctx.beginPath();ctx.ellipse(b.x, bcy, b.r, bry, 0,0,7);ctx.stroke();
   /* back rim — thicker and higher than the front */
   ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.30; ctx.lineCap='round';
   ctx.beginPath();ctx.ellipse(b.x, b.y-b.r*0.02, b.r*0.80, b.r*0.42, 0, Math.PI, 0);ctx.stroke();
