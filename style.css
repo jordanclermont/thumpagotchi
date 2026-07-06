@@ -90,6 +90,16 @@ button.act:active{transform:translateY(3px);box-shadow:0 0 0 #a9803e,0 2px 6px r
 button.act:disabled{opacity:.4;filter:saturate(.5);cursor:default;box-shadow:var(--btn-shadow);}
 button.act:disabled:active{transform:none;}
 button.act .emo{font-size:16px;}
+/* Desktop hover states — skipped on touch so a tap doesn't leave a stuck hover */
+@media (hover:hover){
+  button.act:hover:not(:disabled){ filter:brightness(1.07); transform:translateY(-1px); }
+  .atab:hover:not(.on){ background:rgba(255,255,255,.16); }
+  .tbtn:hover{ background:rgba(255,255,255,.2); transform:translateY(-1px); }
+  .mbtn:hover:not(:disabled){ filter:brightness(1.08); }
+  .sbuy:hover:not(:disabled){ filter:brightness(1.08); transform:translateY(-1px); }
+  #panelClose:hover{ background:rgba(255,255,255,.18); }
+  .swatch:hover{ transform:scale(1.08); }
+}
 button.act.armed{background:linear-gradient(180deg,#ffd9a0,#f0a94e);box-shadow:0 0 0 2px #fff6 inset,0 3px 0 #a9803e,0 0 14px #e8a13a;}
 button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
   box-shadow:0 3px 0 #8a3020,0 0 14px #e0603a;animation:blink 1s steps(2,end) infinite;}
@@ -109,14 +119,16 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
   font-size:12px;opacity:.5;pointer-events:none;text-align:center;width:90%;}
 
 /* ---- Slide-up panel (Shop / Goals / Menu) ---- */
-#panelWrap{position:absolute;inset:0;z-index:15;display:none;align-items:flex-end;justify-content:center;
-  background:rgba(0,0,0,.45);backdrop-filter:blur(2px);}
-#panelWrap.show{display:flex;}
+/* Kept displayed so opacity/transform can transition on BOTH open and close (display:none can't). */
+#panelWrap{position:absolute;inset:0;z-index:15;display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(2px);
+  opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s ease, visibility 0s .25s;}
+#panelWrap.show{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .25s ease;}
 #panel{width:min(520px,100%);max-height:82vh;display:flex;flex-direction:column;
   background:var(--panel-bg);border:1px solid rgba(255,255,255,.12);
   border-radius:18px 18px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.6);
-  animation:slideup .22s ease;}
-@keyframes slideup{from{transform:translateY(30px);opacity:.5;}to{transform:none;opacity:1;}}
+  transform:translateY(26px);transition:transform .26s cubic-bezier(.2,.9,.3,1);}
+#panelWrap.show #panel{transform:none;}
 #panelHead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
 #panelTitle{font-size:17px;font-weight:800;letter-spacing:.5px;
   background:linear-gradient(90deg,#f4ecd8,#e8a13a);-webkit-background-clip:text;background-clip:text;color:transparent;}

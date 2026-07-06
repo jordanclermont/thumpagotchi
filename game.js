@@ -2466,9 +2466,12 @@ function initPaws(){
   for(let i=0;i<5;i++){const d=document.createElement('span');d.innerHTML=PAW_SVG('#e0603a');wrap.appendChild(d.firstChild);}
 }
 function barColor(v){
-  return v>55?'linear-gradient(90deg,#6fbf73,#8fd68f)'
-       : v>28?'linear-gradient(90deg,#e2b23c,#f0c766)'
-       :       'linear-gradient(90deg,#e0603a,#f0855f)';
+  // continuous crimson→amber→green ramp (no hard step boundaries); the .fill CSS transition
+  // then eases the colour as a stat drifts, instead of snapping at 55/28
+  v=clamp(v,0,100);
+  const hue = v<50 ? 6 + (v/50)*(46-6) : 46 + ((v-50)/50)*(124-46);
+  const sat = v<50 ? 70 : 58;
+  return `linear-gradient(90deg,hsl(${hue|0} ${sat}% 49%),hsl(${hue|0} ${sat}% 62%))`;
 }
 function updateHUD(){
   const set=(id,v,invert)=>{
