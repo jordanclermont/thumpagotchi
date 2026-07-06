@@ -466,14 +466,15 @@ function parts(){
   const B = BREEDS[rab.breed] || BREEDS.holland;
   const s = rab.curScale * (B.scale||1) * Math.min(W,H)/560 * 0.88;   // ~12% smaller so toys fit
   const cx = rab.x;
-  const cy = rab.baseY + rab.hopOff + rab.binkyHop + (rab.playYOff||0) + (rab.boxYOff||0);
+  const cr = rab.crouch||0;   // pre-hop anticipation crouch: compress down & wide before launch
+  const cy = rab.baseY + rab.hopOff + rab.binkyHop + (rab.playYOff||0) + (rab.boxYOff||0) + cr*5*s;
   const loaf = rab.loaf;
-  // squash & stretch: she stretches tall at the peak of a hop and squashes wide on impact
+  // squash & stretch: she stretches tall at the peak of a hop and squashes wide on impact/crouch
   const air = Math.max(0, -(rab.hopOff+rab.binkyHop));
   const stretch = clamp(air/70, 0, 0.22);
   const land = rab.landSquash||0;
-  const sqX = 1 - stretch*0.5 + land*0.15;
-  const sqY = 1 + stretch*0.9 - land*0.17;
+  const sqX = 1 - stretch*0.5 + land*0.15 + cr*0.14;
+  const sqY = 1 + stretch*0.9 - land*0.17 - cr*0.13;
   const bodyRx = 92*s*(1+0.06*loaf)*sqX, bodyRy = 72*s*(1-0.10*loaf)*sqY;
   const bodyCy = cy - bodyRy*0.82;
   const headR  = 60*s*(B.headScale||1);   // big head on a compact body — chibi proportions
@@ -1456,10 +1457,12 @@ function drawHead(p,t,tummy,closedEyes){
 
 function drawLopEar(hx,hy,r,s,dir,t){
   const jiggle = Math.sin(t*26 + dir)*(rab.earJiggle||0)*9*s;     // floppy bounce on landing
-  const sway = Math.sin(t*1.4 + dir)*3*s + (rab.state==='alert'? -6*s:0) + jiggle;
+  const swivel = (dir===rab.earSwivelDir? Math.sin((rab.earSwivel||0)*Math.PI)*8*s : 0);   // occasional single-ear swivel
+  const trail  = clamp((rab.earTrail||0)*0.03, -7, 7)*s;          // heavy tips lag the body's vertical motion
+  const sway = Math.sin(t*1.4 + dir)*3*s + (rab.state==='alert'? -6*s:0) + jiggle + swivel;
   const baseY = hy - r*0.55;
   const tipX  = hx + dir*r*1.15 + sway;
-  const tipY  = hy + r*1.05;
+  const tipY  = hy + r*1.05 - trail;
   const g=ctx.createLinearGradient(hx,baseY,tipX,tipY);
   g.addColorStop(0,coat.body);g.addColorStop(0.5,coat.bodySh);
   g.addColorStop(0.82,coat.pointMid);g.addColorStop(1,coat.point);
@@ -1483,7 +1486,9 @@ function drawLopEar(hx,hy,r,s,dir,t){
 function drawUprightEar(hx,hy,r,s,dir,t,B){
   const alert = rab.state==='alert';
   const jiggle = Math.sin(t*24 + dir)*(rab.earJiggle||0)*0.10;    // ears wobble on landing
-  const sway = Math.sin(t*1.5 + dir)*0.05 + (alert? -0.06 : 0) + jiggle;
+  const swivel = (dir===rab.earSwivelDir? Math.sin((rab.earSwivel||0)*Math.PI)*0.13 : 0);   // occasional single-ear swivel
+  const trail  = clamp((rab.earTrail||0)*0.00035, -0.09, 0.09);   // vertical motion tilts the upright ears
+  const sway = Math.sin(t*1.5 + dir)*0.05 + (alert? -0.06 : 0) + jiggle + swivel + dir*trail;
   const baseX = hx + dir*r*0.42, baseY = hy - r*0.42;
   const len = r*(B.earLen||1.15);
   ctx.save();
@@ -1863,9 +1868,11 @@ function startBinky(){ rab.binkyT=rab.binkyDur; const p=parts();
   for(let i=0;i<5;i++) spawnHeart(p.head.x+rand(-24,24),p.head.y);
   stats.energy=clamp(stats.energy-4);
   incGoal('binky'); }
+const HOP_CROUCH = 0.11;   // anticipation: she compresses for a beat before launching
 function hopTo(x){
-  rab.hopToX=clamp(x, 80, W-80); rab.hopFromX=rab.x; rab.hopT0=now(); rab.hopping=true;
-  rab.lookX=Math.sign(rab.hopToX-rab.x);
+  rab.hopToX=clamp(x, 80, W-80); rab.hopFromX=rab.x; rab.hopT0=now()+HOP_CROUCH; rab.hopping=true;
+  rab.crouchT=1;                                   // deepen the pre-hop crouch until takeoff
+  rab.lookXTarget=Math.sign(rab.hopToX-rab.x);
   stats.energy=clamp(stats.energy-1.5);
 }
 function wake(){ if(rab.state==='rest'){ rab.restUntil=0; } }
@@ -2071,7 +2078,7 @@ function updatePlay(dt){
     rab.x=lerp(rab.x, behind, Math.min(1,dt*6));
     rab.x=clamp(rab.x, world.rug.x-world.rug.rx*0.72, world.rug.x+world.rug.rx*0.72);
     rab.hopOff=-Math.abs(Math.sin(pl.t*6.0))*16*sc;
-    rab.lookX=Math.sign(bx-rab.x);
+    rab.lookXTarget=Math.sign(bx-rab.x);   // eased head-turn toward the ball
     if(Math.random()<dt*3) spawnSparkle(bx,by);
     if(k>=1) endPlay();
   } else if(pl.type==='tunnel'){
@@ -2264,9 +2271,9 @@ function updateState(t){
   if(rab.hopping || rab.binkyT>0 || near || needy){
     rab.state='alert';
     if(pointer.down){
-      rab.lookX=clamp((pointer.x-p.head.x)/120,-1,1);
+      rab.lookXTarget=clamp((pointer.x-p.head.x)/120,-1,1);   // eased toward this in the frame timers
       rab.lookY=clamp((pointer.y-p.head.y)/120,-1,1);
-    } else { rab.lookX=0; rab.lookY=0; }
+    } else { rab.lookXTarget=0; rab.lookY=0; }
     return;
   }
   rab.state='loaf';
@@ -2355,16 +2362,30 @@ function frame(){
 
   /* animation timers */
   rab.breath+=dt*2.2;
-  rab.noseTwitch+=dt*(rab.state==='alert'?12:4);
+  // idle micro-motion: the nose sniffs in occasional bursts, not at a constant rate
+  rab.noseBurstT=(rab.noseBurstT||0)-dt;
+  if(rab.noseBurstT<=0){ rab.noseBurstT=rand(1.4,4); rab.noseBurst=rand(0.35,0.6); }
+  if(rab.noseBurst>0) rab.noseBurst=Math.max(0,rab.noseBurst-dt);
+  rab.noseTwitch += dt*((rab.state==='alert'?12:4) + (rab.noseBurst>0?9:0));
   if(rab.legStomp>0) rab.legStomp=Math.max(0,rab.legStomp-dt*2.2);
   if(thumpFx>0) thumpFx=Math.max(0,thumpFx-dt);
   if(rab.binkyT>0){ rab.binkyT=Math.max(0,rab.binkyT-dt);
     const pr=1-rab.binkyT/rab.binkyDur; rab.binkyHop=-Math.sin(pr*Math.PI)*72*(Math.min(W,H)/560); }
   else rab.binkyHop=0;
   if(rab.trick){ rab.trick.t+=dt; if(rab.trick.t>=rab.trick.dur) rab.trick=null; }
-  rab.nextBlink-=dt; if(rab.nextBlink<=0){ rab.blink=0.12; rab.nextBlink=rand(2.5,6); }
+  // blink variation: varied duration + an occasional quick double-blink
+  rab.nextBlink-=dt; if(rab.nextBlink<=0){ rab.blink=rand(0.09,0.16); rab.nextBlink = Math.random()<0.22? 0.2 : rand(2.5,6); }
   if(rab.blink>0) rab.blink-=dt;
   if(rab.petReact>0) rab.petReact=Math.max(0,rab.petReact-dt);
+  // pre-hop crouch settle/release, eased head-turn, ear-trail spring, occasional ear swivel
+  rab.crouch = damp(rab.crouch||0, rab.crouchT||0, 16, dt);
+  rab.lookX  = damp(rab.lookX||0, rab.lookXTarget||0, 12, dt);
+  const _bodyOff = rab.hopOff + rab.binkyHop;                         // ear trail = smoothed vertical velocity
+  rab.earTrail = damp(rab.earTrail||0, (_bodyOff-(rab._earPrev||0))/Math.max(dt,0.001), 13, dt);
+  rab._earPrev = _bodyOff;
+  rab.earSwivelT=(rab.earSwivelT||0)-dt;
+  if(rab.earSwivelT<=0){ rab.earSwivelT=rand(3.5,8); if(!rab.hopping && rab.binkyT<=0){ rab.earSwivel=1; rab.earSwivelDir=Math.random()<0.5?-1:1; } }
+  if(rab.earSwivel>0) rab.earSwivel=Math.max(0,rab.earSwivel-dt*1.4);
 
   if(rab.play){
     updatePlay(dt);
@@ -2379,8 +2400,9 @@ function frame(){
     rab.boxYOff = damp(rab.boxYOff||0, 0, 6, dt);
     if(rab.hopping){
       const k=(t-rab.hopT0)/rab.hopDur;
-      if(k>=1){rab.hopping=false;rab.hopOff=0;rab.x=rab.hopToX; rab.landSquash=1; rab.earJiggle=1;}   // touchdown → squash + ears bounce
-      else{rab.x=lerp(rab.hopFromX,rab.hopToX,k); rab.hopOff=-Math.sin(k*Math.PI)*46*(Math.min(W,H)/560);}
+      if(k<0){ rab.hopOff=0; rab.x=rab.hopFromX; }                                    // anticipation crouch (holds at takeoff spot)
+      else if(k>=1){rab.hopping=false;rab.hopOff=0;rab.x=rab.hopToX; rab.landSquash=1; rab.earJiggle=1; rab.crouchT=0;}   // touchdown → squash + ears bounce
+      else{rab.x=lerp(rab.hopFromX,rab.hopToX,k); rab.hopOff=-Math.sin(k*Math.PI)*46*(Math.min(W,H)/560); rab.crouchT=0;} // launch → release crouch
     }
     idleBrain(dt,t);
     updateState(t);
