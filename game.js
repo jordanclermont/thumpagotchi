@@ -674,38 +674,6 @@ function drawFloor(){
     }
   }
 }
-
-/* ---- the window light: a warm shaft cast on wall + floor, moving with the sun ---- */
-function drawLightPool(){
-  const l=skyLight(); if(l<=0.03) return;
-  const win=world.win, fy=world.floorY, tone=lightTone();
-  const cx=win.x+win.w/2, off=lightDirX();
-  const topY=win.y+win.h*0.86, drop=fy+(H-fy)*0.64;
-  const shiftTop=-off*win.w*0.5, shiftBot=-off*win.w*1.7;
-  const halfTop=win.w*0.5, halfBot=win.w*0.9;
-  const a=0.045+l*0.085;
-  ctx.save();
-  ctx.globalCompositeOperation='lighter';
-  ctx.filter=`blur(${Math.round(W*0.022)}px)`;    // soft-edged shaft, no hard parallelogram
-  /* the beam itself stays faint — light is barely visible in transit … */
-  const g=ctx.createLinearGradient(0,topY,0,drop);
-  g.addColorStop(0, rgba(tone, a*0.45)); g.addColorStop(0.6, rgba(tone, a*0.7)); g.addColorStop(1, rgba(tone, 0));
-  ctx.fillStyle=g;
-  ctx.beginPath();
-  ctx.moveTo(cx-halfTop+shiftTop, topY);
-  ctx.lineTo(cx+halfTop+shiftTop, topY);
-  ctx.lineTo(cx+halfBot+shiftBot, drop);
-  ctx.lineTo(cx-halfBot+shiftBot, drop);
-  ctx.closePath(); ctx.fill();
-  /* … and POOLS where it lands on the floor — that's where the eye expects it */
-  const px=cx+shiftBot*0.85, py=fy+(H-fy)*0.30;
-  const pg=ctx.createRadialGradient(px,py,4,px,py,win.w*0.8);
-  pg.addColorStop(0,rgba(tone,a*1.5)); pg.addColorStop(1,rgba(tone,0));
-  ctx.fillStyle=pg;
-  ctx.beginPath(); ctx.ellipse(px,py,win.w*0.85,(H-fy)*0.22,0,0,7); ctx.fill();
-  ctx.restore();
-}
-
 /* ---- rug ---- */
 function drawRug(){
   const r=world.rug;
@@ -775,12 +743,11 @@ function cloud(x,y,r){
 function drawWallArt(){ drawFrame(W*0.115, H*0.365, Math.min(74,W*0.072), 'bunny'); }
 
 function drawRoom(){
-  // baseboard + outlet at the wall/floor join, floor, the moving window light, the rug, then the
-  // props — each gets a directional cast shadow via prop(). Ported from props-lab v2.
+  // baseboard + outlet at the wall/floor join, floor, the rug, then the props — each gets a
+  // directional cast shadow via prop() that shifts with the sun (the cast light was removed).
   drawBaseboard();
   drawOutlet();   // permanent wall outlet (the charger plugs in here when the hazard event fires)
   drawFloor();
-  drawLightPool();
   drawRug();
   const w=world;
   if(owns('tower'))  prop(w.tower.x,  w.tower.y+w.tower.r*0.24, w.tower.r*0.95, drawTower);
