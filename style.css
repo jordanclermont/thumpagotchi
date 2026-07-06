@@ -2,8 +2,6 @@
   --cream:#f4ecd8; --sable:#4a3226; --panel:rgba(28,20,16,.72);
   --accent:#e8a13a; --good:#6fbf73; --warn:#e2b23c; --bad:#e0603a;
   --ink:#2a1d15; --carrot:#e8863a;
-  /* ---- theming knobs (overridden by [data-theme]) ---- */
-  --art-filter:none;                                   /* CSS filter applied to the canvas */
   --ui-font:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
   --btn-bg:linear-gradient(180deg,#fbe9c4,#e6c078);
   --btn-fg:#231810;
@@ -17,9 +15,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:#1a1310;overscroll-beh
   font-family:var(--ui-font);color:#f4ecd8;}
 /* 100dvh wins so the layout tracks the *visible* viewport (mobile browser chrome) */
 #game{position:relative;width:100vw;height:100vh;height:100dvh;user-select:none;touch-action:none;}
-/* Two stacked canvases: #c = room/background, #rc = rabbit (art-style filter here only) */
-#c,#rc{position:absolute;inset:0;display:block;width:100%;height:100%;}
-#rc{filter:var(--art-filter,none);transition:filter .3s ease;pointer-events:none;}
+/* The single game canvas */
+#c{position:absolute;inset:0;display:block;width:100%;height:100%;}
 
 /* ---- Top HUD ---- */
 #hud{position:absolute;top:0;left:0;right:0;padding:max(9px, env(safe-area-inset-top)) 12px 9px;
@@ -257,62 +254,6 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
   button.act .emo{font-size:18px;}
   .atab{padding:5px 10px;font-size:10px;}
 }
-
-/* ============================================================ *
- *  ART-STYLE THEMES  (CSS Zen Garden-style skins)
- *  Each swaps the canvas `filter` + a few UI variables.
- *  "cozy" = the defaults above (no overrides needed).
- * ============================================================ */
-
-/* PIXEL — JS pixelation + posterized palette + blocky retro UI */
-:root[data-theme="pixel"]{
-  --art-filter:url(#posterize) contrast(1.06) saturate(1.12);
-  --ui-font:'Courier New',ui-monospace,Menlo,Consolas,monospace;
-  --btn-bg:#e6c078; --btn-fg:#231810; --btn-shadow:3px 3px 0 #7a531f; --btn-radius:0px;
-  --chip-bg:#241a13; --panel-bg:#241a2e;
-}
-:root[data-theme="pixel"] #rc{image-rendering:pixelated;image-rendering:crisp-edges;}
-:root[data-theme="pixel"] .brand h1{background:none;-webkit-text-fill-color:#ffd98a;color:#ffd98a;text-shadow:2px 2px 0 #6e3d16;}
-:root[data-theme="pixel"] button.act,:root[data-theme="pixel"] .atab,:root[data-theme="pixel"] .tbtn{border-radius:0;backdrop-filter:none;}
-:root[data-theme="pixel"] button.act,:root[data-theme="pixel"] .atab{border:2px solid #2a1810;}
-:root[data-theme="pixel"] .track,:root[data-theme="pixel"] .fill,:root[data-theme="pixel"] .chip,
-:root[data-theme="pixel"] #toast,:root[data-theme="pixel"] #panel{border-radius:0;}
-:root[data-theme="pixel"] #toast{backdrop-filter:none;}
-
-/* COMIC — flat cel colours + bold ink UI */
-:root[data-theme="comic"]{
-  --art-filter:url(#posterize) saturate(1.55) contrast(1.14);
-  --btn-bg:#ffd23e; --btn-fg:#1a1200; --btn-shadow:3px 3px 0 #1a1200; --btn-radius:14px;
-  --accent:#ff5a4d; --chip-bg:#ffffff;
-}
-:root[data-theme="comic"] button.act,:root[data-theme="comic"] .atab{border:2.5px solid #1a1200;font-weight:800;}
-:root[data-theme="comic"] .atab.on{background:#ffd23e;}
-:root[data-theme="comic"] .tbtn{border:2.5px solid #1a1200;background:#ffd23e;color:#1a1200;}
-:root[data-theme="comic"] .brand h1{background:none;-webkit-text-fill-color:#fff;color:#fff;text-shadow:2px 2px 0 #1a1200;}
-:root[data-theme="comic"] .chip{border:2px solid #1a1200;color:#1a1200;}
-:root[data-theme="comic"] .chip.carrot{color:#a0521e;}
-
-/* NOIR — high-contrast black & white */
-:root[data-theme="noir"]{
-  --art-filter:grayscale(1) contrast(1.38) brightness(1.05);
-  --btn-bg:#e8e8e8; --btn-fg:#111; --btn-shadow:0 3px 0 #555,0 5px 10px rgba(0,0,0,.6); --btn-radius:8px;
-  --chip-bg:rgba(255,255,255,.1); --panel-bg:linear-gradient(180deg,#1c1c1c,#0e0e0e); --accent:#dddddd;
-}
-:root[data-theme="noir"] .brand h1{background:none;-webkit-text-fill-color:#fff;color:#fff;letter-spacing:2px;}
-:root[data-theme="noir"] .atab.on{background:#e8e8e8;color:#111;}
-:root[data-theme="noir"] .paw.on{filter:drop-shadow(0 0 4px #fff);}
-
-/* SYNTHWAVE — neon dusk */
-:root[data-theme="synthwave"]{
-  --art-filter:saturate(1.55) hue-rotate(250deg) contrast(1.08) brightness(1.05);
-  --btn-bg:linear-gradient(180deg,#ff5ea8,#8a2be2); --btn-fg:#fff;
-  --btn-shadow:0 0 12px #ff5ea8,0 3px 0 #5a1a7a; --btn-radius:10px;
-  --chip-bg:rgba(90,20,120,.5); --panel-bg:linear-gradient(180deg,#241040,#12061f); --accent:#31e8ff;
-}
-:root[data-theme="synthwave"] body{color:#eae0ff;}
-:root[data-theme="synthwave"] .brand h1{background:none;-webkit-text-fill-color:#31e8ff;color:#31e8ff;text-shadow:0 0 8px #31e8ff;}
-:root[data-theme="synthwave"] .atab.on{background:linear-gradient(180deg,#ff5ea8,#8a2be2);color:#fff;}
-:root[data-theme="synthwave"] .tbtn{border-color:#ff5ea8;box-shadow:0 0 8px rgba(255,94,168,.5);}
 
 /* ============================================================ *
  *  MINIGAME OVERLAY  (Bunny Snake)

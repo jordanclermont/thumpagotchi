@@ -9,11 +9,9 @@
  *  The rendering is the original hand-drawn canvas art; systems are layered on.
  * ============================================================================ */
 
-const canvas  = document.getElementById('c');     // background layer (room, props, FX)
-const rcanvas = document.getElementById('rc');    // rabbit layer — art-style filter applies here only
+const canvas  = document.getElementById('c');     // the single game canvas (room, props, rabbit, FX)
 const bgCtx = canvas.getContext('2d');
-const rctx  = rcanvas.getContext('2d');
-let ctx = bgCtx;   // the "active" context; briefly swapped to rctx while drawing the rabbit
+let ctx = bgCtx;   // active drawing context
 let W = 0, H = 0, DPR = 1;
 
 /* ---------------- Utility ---------------- */
@@ -122,17 +120,6 @@ const SHOP = [   // type: feed(instant) · cure(stock) · toy/decor(permanent) �
 ];
 const shopItem = id => SHOP.find(s=>s.id===id);
 
-/* Art-style themes — each swaps the canvas CSS filter + a UI skin (see style.css).
-   "pixel" additionally turns on a JS low-res pixelation pass (see pixelate()). */
-const THEMES = [
-  {id:'cozy',      name:'Cozy (default)', emoji:'🛋️', desc:'The original hand-drawn look.'},
-  {id:'pixel',     name:'Pixel Art',      emoji:'👾', desc:'Crunchy low-res pixels + blocky retro UI.'},
-  {id:'comic',     name:'Comic / Cel',    emoji:'💥', desc:'Flat posterized colours, bold ink UI.'},
-  {id:'noir',      name:'Noir',           emoji:'🎬', desc:'High-contrast black & white.'},
-  {id:'synthwave', name:'Synthwave',      emoji:'🌆', desc:'Neon dusk, hue-shifted everything.'},
-];
-const THEME_KEY = 'thumpagotchi.theme';
-let currentTheme = 'cozy';
 
 /* Daily goal generators — 3 are rolled each new day */
 const GOAL_POOL = [
@@ -166,13 +153,6 @@ function resize(){
   W = canvas.clientWidth; H = canvas.clientHeight;
   canvas.width = Math.floor(W*DPR); canvas.height = Math.floor(H*DPR);
   bgCtx.setTransform(DPR,0,0,DPR,0,0);
-  // The rabbit layer renders at a LOWER resolution for the filter-heavy themes so
-  // the per-frame CSS filter stays cheap (fixes the pixel/comic slowdown). Pixel
-  // renders very low-res and lets CSS upscale it crisply (no JS pixelation needed).
-  const rscale = (currentTheme==='pixel') ? 0.30 : (currentTheme==='comic') ? 1 : DPR;
-  rcanvas.width = Math.max(2, Math.round(W*rscale));
-  rcanvas.height = Math.max(2, Math.round(H*rscale));
-  rctx.setTransform(rscale,0,0,rscale,0,0);
   // Toys/furniture are sized to the rabbit and scale with breed — but only HALFWAY,
   // so a dwarf breed still reads visibly small against its furniture.
   const rawBs = (typeof BREEDS!=='undefined' && BREEDS[rab.breed]) ? BREEDS[rab.breed].scale : 1;
@@ -256,8 +236,6 @@ let pettingMode = false;
 let pointer = {x:-999,y:-999,down:false,moved:0};
 let lastPetGain = 0, lastFeetPet = 0;
 let autosaveT = 0;
-let pixelMode = false, pxBuf = null, pxCtx = null;   // pixel-art post-process buffer
-let flatTheme = false;   // comic/pixel: flatten wall+floor so posterize doesn't band them
 let minigameActive = false;   // freezes the pet sim while a minigame overlay is open
 let dayEvent = null, hazardFlash = 0;   // daily event (hide-and-seek / charger hazard)
 
@@ -496,11 +474,7 @@ function drawSky(){
   const win = world.win;
 
   // --- interior wall ---
-  if(flatTheme){
-    // flat wall for cel/pixel themes: the posterize filter would otherwise band
-    // both the wall gradient and the soft window bloom into fake "light" blotches.
-    ctx.fillStyle='#d2bed4'; ctx.fillRect(0,0,W,world.floorY);
-  } else {
+  {
     const wall=ctx.createLinearGradient(0,0,0,world.floorY);
     wall.addColorStop(0,'#dcc6d8'); wall.addColorStop(1,'#c9b0cf');
     ctx.fillStyle=wall; ctx.fillRect(0,0,W,world.floorY);
@@ -555,9 +529,7 @@ function drawRoom(){
   // wainscot highlight + soft shadow where the wall meets the floor
   ctx.fillStyle='rgba(255,255,255,.16)'; ctx.fillRect(0,world.floorY-14,W,5);
   ctx.fillStyle='rgba(0,0,0,.08)'; ctx.fillRect(0,world.floorY-8,W,8);
-  if(flatTheme){
-    ctx.fillStyle='#bd925f'; ctx.fillRect(0,world.floorY,W,H-world.floorY);   // flat floor for cel/pixel
-  } else {
+  {
     const floor=ctx.createLinearGradient(0,world.floorY,0,H);
     floor.addColorStop(0,'#c99b6a'); floor.addColorStop(1,'#a97a4c');
     ctx.fillStyle=floor; ctx.fillRect(0,world.floorY,W,H-world.floorY);
@@ -1820,56 +1792,6 @@ function updateState(t){
   rab.state='loaf';
 }
 
-/* ============================================================================ *
- *  PIXEL-ART POST-PROCESS
- *  For the "pixel" theme: downscale the finished frame to a small buffer, then
- *  scale it back up with smoothing OFF → genuine chunky pixels (can't be done in
- *  CSS on a full-resolution canvas). No-op for every other theme.
- * ============================================================================ */
-function pixelate(){
-  if(!pixelMode) return;
-  const scale = 5;                                            // device px per art px
-  const pw = Math.max(80, Math.round(rcanvas.width/scale));
-  const ph = Math.max(60, Math.round(rcanvas.height/scale));
-  if(!pxBuf){ pxBuf=document.createElement('canvas'); pxCtx=pxBuf.getContext('2d'); }
-  if(pxBuf.width!==pw || pxBuf.height!==ph){ pxBuf.width=pw; pxBuf.height=ph; }
-  pxCtx.imageSmoothingEnabled=false; pxCtx.clearRect(0,0,pw,ph);
-  pxCtx.drawImage(rcanvas, 0,0,rcanvas.width,rcanvas.height, 0,0,pw,ph);   // downscale rabbit layer
-  rctx.save();
-  rctx.setTransform(1,0,0,1,0,0);                            // work in device pixels
-  rctx.imageSmoothingEnabled=false;
-  rctx.clearRect(0,0,rcanvas.width,rcanvas.height);
-  rctx.drawImage(pxBuf, 0,0,pw,ph, 0,0,rcanvas.width,rcanvas.height);      // upscale (crunchy)
-  rctx.restore();                                           // restores DPR transform + smoothing
-}
-
-/* ============================================================================ *
- *  THEME SWITCHER
- * ============================================================================ */
-function applyTheme(id){
-  if(!THEMES.some(t=>t.id===id)) id='cozy';
-  currentTheme=id;
-  document.documentElement.setAttribute('data-theme', id);
-  pixelMode = false;   // pixel look now comes from the low-res rabbit canvas (cheaper), not a JS pass
-  flatTheme = false;   // background is no longer filtered, so it always uses the cozy gradients
-  try{ localStorage.setItem(THEME_KEY, id); }catch(e){}
-  if(W) resize();      // re-size the rabbit layer for the new theme's resolution
-  if(panelOpen==='themes') renderThemes();
-}
-function renderThemes(){
-  const body=$('panelBody'); body.innerHTML='';
-  const head=document.createElement('div'); head.className='balance';
-  head.innerHTML='Re-skin the whole game — UI <b>and</b> art style. Your choice is saved.';
-  body.appendChild(head);
-  THEMES.forEach(t=>{
-    const row=document.createElement('div'); row.className='srow';
-    row.innerHTML=`<div class="semoji">${t.emoji}</div><div class="sinfo"><div class="sname">${t.name}</div><div class="sdesc">${t.desc}</div></div>`;
-    const btn=document.createElement('button'); btn.className='sbuy';
-    if(currentTheme===t.id){ btn.textContent='Active'; btn.disabled=true; }
-    else { btn.textContent='Use'; btn.onclick=()=>applyTheme(t.id); }
-    row.appendChild(btn); body.appendChild(row);
-  });
-}
 
 /* ============================================================================ *
  *  MAIN LOOP
@@ -1907,7 +1829,7 @@ function frame(){
 
   ctx.clearRect(0,0,W,H);
 
-  if(cutscene){ rctx.clearRect(0,0,W,H); drawNight(dt); requestAnimationFrame(frame); return; }   // clear the rabbit layer so it doesn't linger over the zoomies
+  if(cutscene){ drawNight(dt); requestAnimationFrame(frame); return; }
 
   const stage = stageFor(rab.ageDays);
   rab.curScale = damp(rab.curScale, stage.scale, 1.5, dt);
@@ -1998,13 +1920,13 @@ function frame(){
     const p=parts(); spawnZ(p.head.x+p.head.r*0.6,p.head.y-p.head.r);
   }
 
-  /* render — screen-shake offset shared by both layers */
+  /* render — everything on the single canvas, sharing one screen-shake offset */
   let shx=0, shy=0;
   if(thumpFx>0){ const m=thumpFx*8; shx=rand(-m,m); shy=rand(-m,m); }
 
-  /* ---- background layer (#c): room, props, particles, FX ---- */
   ctx = bgCtx;
   ctx.save(); ctx.translate(shx, shy);
+  // room + props + FX
   drawSky();
   drawRoom();
   drawHazard();
@@ -2014,19 +1936,14 @@ function frame(){
   drawAmbient();
   if(rab.cold){ const a=0.13+0.08*Math.sin(now()*5); ctx.fillStyle=`rgba(205,35,25,${a})`; ctx.fillRect(0,0,W,H); }  // furious red aura
   if(hazardFlash>0){ ctx.fillStyle=`rgba(255,240,180,${hazardFlash})`; ctx.fillRect(-40,-40,W+80,H+80); hazardFlash=Math.max(0,hazardFlash-dt*1.5); }
-  ctx.restore();
-
-  /* ---- rabbit layer (#rc): only this canvas gets the art-style filter ---- */
-  ctx = rctx;
-  ctx.clearRect(0,0,W,H);
-  ctx.save(); ctx.translate(shx, shy);
+  // the rabbit, drawn in front of the room
+  ctx.save();
   ctx.globalAlpha = rab.playAlpha!==undefined?rab.playAlpha:1;
   if(rab.hidden) drawHideHint(t); else drawRabbit(t);
-  if(t < rab.boxT) drawLitterFront();       // box wall in front of the rabbit while it's inside
   ctx.restore();
-  ctx = bgCtx;
+  if(t < rab.boxT) drawLitterFront();         // box wall in front of the rabbit while it's inside
+  ctx.restore();
 
-  pixelate();          // pixel-art post-process on the rabbit layer (no-op otherwise)
   updateHUD();
 
   autosaveT+=dt; if(autosaveT>4){ autosaveT=0; save(); }
@@ -2095,11 +2012,9 @@ let panelOpen=null;
 function openPanel(kind){
   panelOpen=kind;
   $('panelWrap').classList.add('show');
-  $('panelTitle').textContent = kind==='shop'?'🛒 Carrot Shop' : kind==='goals'?'🎯 Daily Goals'
-    : kind==='themes'?'🎨 Art Style' : '⚙️ Menu';
+  $('panelTitle').textContent = kind==='shop'?'🛒 Carrot Shop' : kind==='goals'?'🎯 Daily Goals' : '⚙️ Menu';
   if(kind==='shop') renderShop();
   else if(kind==='goals') renderGoals(true);
-  else if(kind==='themes') renderThemes();
   else renderMenu();
 }
 function closePanel(){ panelOpen=null; $('panelWrap').classList.remove('show'); }
@@ -2310,7 +2225,6 @@ function bind(id,fn){ const el=$(id); if(el) el.addEventListener('click',fn); }
 bind('bHay',giveHay); bind('bPellets',givePellets); bind('bWater',giveWater);
 bind('bBanana',offerBanana); bind('bPet',togglePetting); bind('bTrick',doTrick);
 bind('bClean',cleanLitter); bind('bRest',restRabbit); bind('bPlay',playToy); bind('bVet',callVet);
-bind('tbTheme',()=>openPanel('themes'));
 bind('tbShop',()=>openPanel('shop')); bind('tbGoals',()=>openPanel('goals')); bind('tbMenu',()=>openPanel('menu'));
 
 // Games tab stays hidden until it's revealed (day 2, or immediately for established saves) — item 5
@@ -2752,7 +2666,6 @@ function pnDraw(){
 })();
 
 /* ---------------- Boot ---------------- */
-try{ applyTheme(localStorage.getItem(THEME_KEY) || 'cozy'); }catch(e){ applyTheme('cozy'); }
 loadUnlocks();
 buildStart();
 resize();
