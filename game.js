@@ -808,28 +808,41 @@ function drawLitterFront(){
 }
 function drawTower(){
   const c=world.tower, r=c.r;
-  groundShadow(c.x, c.y+r*0.24, r*0.95);
   ctx.fillStyle='#6f5436';
   ctx.fillRect(c.x-r*0.62, c.y-r*1.5, r*0.13, r*1.7); ctx.fillRect(c.x+r*0.5, c.y-r*1.5, r*0.13, r*1.7);
   for(let i=0;i<3;i++){
     const py=c.y - i*r*0.72;
     ctx.fillStyle= i%2? '#9a7a52':'#87693f';
     roundRect(c.x-r*0.75, py-r*0.14, r*1.5, r*0.28, 4); ctx.fill();
+    ctx.strokeStyle=shade(i%2?'#9a7a52':'#87693f',0.5); ctx.lineWidth=1.5; ctx.stroke();
+    ctx.strokeStyle='rgba(70,45,20,.22)'; ctx.lineWidth=1;   // grain on each platform
+    ctx.beginPath();ctx.moveTo(c.x-r*0.55, py+r*0.02);ctx.lineTo(c.x+r*0.2, py+r*0.02);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(c.x-r*0.1, py+r*0.08);ctx.lineTo(c.x+r*0.6, py+r*0.08);ctx.stroke();
     ctx.fillStyle='#6f9e93'; roundRect(c.x-r*0.7, py-r*0.2, r*1.4, r*0.1, 3); ctx.fill();
   }
+  // celLight removed: an unclipped highlight ellipse overhangs the prop and reads as a halo/bubble
 }
 function drawHutch(){
   const c=world.hutch, r=c.r;
-  const baseY=c.y+r*0.7;                                   // the hutch SITS here
-  groundShadow(c.x, baseY+3, r*1.15);
+  const baseY=c.y+r*0.7;
   ctx.fillStyle='#b58a5a'; roundRect(c.x-r*0.95, c.y-r*0.6, r*1.9, r*1.3, 6); ctx.fill();
-  // plank lines
+  ctx.strokeStyle=shade('#b58a5a',0.45); ctx.lineWidth=2; roundRect(c.x-r*0.95, c.y-r*0.6, r*1.9, r*1.3, 6); ctx.stroke();
   ctx.strokeStyle='rgba(90,60,30,.3)';ctx.lineWidth=1.5;
   for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(c.x-r*0.95,c.y-r*0.6+i*r*0.43);ctx.lineTo(c.x+r*0.95,c.y-r*0.6+i*r*0.43);ctx.stroke();}
-  // pitched roof with a little overhang
+  /* vertical grain ticks between the plank lines */
+  ctx.strokeStyle='rgba(90,60,30,.16)';ctx.lineWidth=1;
+  for(const gx of [-0.62,-0.2,0.33,0.7]){
+    ctx.beginPath();ctx.moveTo(c.x+gx*r, c.y-r*0.56);ctx.lineTo(c.x+gx*r+2, c.y+r*0.66);ctx.stroke();
+  }
   ctx.fillStyle='#8a5f38';
   ctx.beginPath();ctx.moveTo(c.x-r*1.1, c.y-r*0.55);ctx.lineTo(c.x, c.y-r*1.3);ctx.lineTo(c.x+r*1.1, c.y-r*0.55);ctx.closePath();ctx.fill();
-  // a rabbit-sized arched doorway, opening at floor level
+  ctx.strokeStyle=shade('#8a5f38',0.5); ctx.lineWidth=2; ctx.stroke();
+  /* shingle courses on the roof */
+  ctx.strokeStyle='rgba(50,32,16,.28)'; ctx.lineWidth=1.5;
+  for(const t of [0.33,0.66]){
+    const hw=r*1.1*(1-t), yy=c.y-r*0.55-r*0.75*t;
+    ctx.beginPath();ctx.moveTo(c.x-hw,yy);ctx.lineTo(c.x+hw,yy);ctx.stroke();
+  }
   ctx.fillStyle='#2a1f16';
   ctx.beginPath();
   ctx.moveTo(c.x-r*0.42, baseY);
@@ -837,10 +850,10 @@ function drawHutch(){
   ctx.arc(c.x, c.y-r*0.05, r*0.42, Math.PI, 0);
   ctx.lineTo(c.x+r*0.42, baseY);
   ctx.closePath(); ctx.fill();
-  // welcome mat of straw at the door
   ctx.strokeStyle='rgba(200,170,90,.8)'; ctx.lineWidth=2;
   for(let i=0;i<5;i++){const sx=c.x-r*0.3+i*r*0.15;
     ctx.beginPath();ctx.moveTo(sx,baseY+4);ctx.lineTo(sx+4,baseY+9);ctx.stroke();}
+  // celLight removed: an unclipped highlight ellipse overhangs the prop and reads as a halo/bubble
 }
 // The hammock renders in two passes so she can lie INSIDE it: drawHammock() is the
 // stand + the pouch (drawn behind her in the room pass); drawHammockFront() is the
@@ -852,54 +865,67 @@ function hammockGeo(){
   return {hm,w,px,py,sy,low,occupied,legSpread:w*0.15};
 }
 function drawHammock(){
-  const {w,px,py,sy,low,occupied,legSpread}=hammockGeo();
-  groundShadow(px-w/2-legSpread*0.4, py+3, w*0.14); groundShadow(px+w/2+legSpread*0.4, py+3, w*0.14);
-  // wooden A-frame stands (two splayed legs meeting at a hanging peg)
-  ctx.strokeStyle='#7a5a38'; ctx.lineWidth=Math.max(4,w*0.05); ctx.lineCap='round';
+  const {w,px,py,sy,low,occupied}=hammockGeo();
+  const capR=w*0.05, ty=sy-w*0.05;
+  /* stands: solid A-legs with a low crossbar for structure */
+  ctx.strokeStyle='#7a5a38'; ctx.lineCap='round';
   for(const dir of [-1,1]){
-    const topx=px+dir*w/2, ty=sy-w*0.05;
-    ctx.beginPath();ctx.moveTo(topx-legSpread, py);ctx.lineTo(topx, ty);ctx.lineTo(topx+legSpread, py);ctx.stroke();
-    ctx.strokeStyle='#8a6a45'; ctx.lineWidth=Math.max(2,w*0.02);           // rope from peg to rim
-    ctx.beginPath();ctx.moveTo(topx,ty);ctx.lineTo(px+dir*w*0.46, sy);ctx.stroke();
-    ctx.strokeStyle='#7a5a38'; ctx.lineWidth=Math.max(4,w*0.05);
-    ctx.fillStyle='#5f4526';ctx.beginPath();ctx.arc(topx,ty,w*0.045,0,7);ctx.fill();  // hanging peg
+    const topx=px+dir*w/2;
+    ctx.lineWidth=Math.max(5,w*0.055);
+    ctx.beginPath();ctx.moveTo(topx-w*0.13, py);ctx.lineTo(topx, ty);ctx.lineTo(topx+w*0.13, py);ctx.stroke();
+    ctx.lineWidth=Math.max(3,w*0.03);
+    ctx.beginPath();ctx.moveTo(topx-w*0.09, py-w*0.09);ctx.lineTo(topx+w*0.09, py-w*0.09);ctx.stroke();
   }
   ctx.lineCap='butt';
-  // the pouch (full) — the rabbit sits in front of its middle; the near lip is
-  // redrawn over her by drawHammockFront()
-  const grad=ctx.createLinearGradient(0,sy,0,sy+low*1.7);
+  /* cloth: one deep sling anchored AT the caps */
+  const grad=ctx.createLinearGradient(0,ty,0,ty+low*1.7);
   grad.addColorStop(0,'#c86a80'); grad.addColorStop(1,'#a3465c');
   ctx.fillStyle=grad;
   ctx.beginPath();
-  ctx.moveTo(px-w/2, sy);
-  ctx.quadraticCurveTo(px, sy+low*1.8, px+w/2, sy);           // deep underside
-  ctx.quadraticCurveTo(px, sy+low*0.95, px-w/2, sy);          // back rim
+  ctx.moveTo(px-w/2, ty);
+  ctx.quadraticCurveTo(px, ty+low*1.85, px+w/2, ty);
+  ctx.quadraticCurveTo(px, ty+low*0.95, px-w/2, ty);
   ctx.fill();
-  if(!occupied){   // empty: a plush cushion tucked in the pouch
+  /* fabric fold lines */
+  ctx.strokeStyle='rgba(255,255,255,.16)'; ctx.lineWidth=2;
+  for(const k of [0.45,0.75]){
+    ctx.beginPath();
+    ctx.moveTo(px-w*0.33, ty+low*0.5*k);
+    ctx.quadraticCurveTo(px, ty+low*1.55*k, px+w*0.33, ty+low*0.5*k);
+    ctx.stroke();
+  }
+  /* post caps ON TOP of the cloth ends — the cloth visibly wraps them */
+  for(const dir of [-1,1]){
+    const topx=px+dir*w/2;
+    ctx.fillStyle='#5f4526'; ctx.beginPath();ctx.arc(topx,ty,capR,0,7);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.25)'; ctx.beginPath();ctx.arc(topx-capR*0.3,ty-capR*0.3,capR*0.35,0,7);ctx.fill();
+  }
+  if(!occupied){
     ctx.fillStyle='#f2c8d3';
-    ctx.beginPath();ctx.ellipse(px, sy+low*1.05, w*0.30, w*0.12, 0, 0, 7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(px, ty+low*1.08, w*0.30, w*0.12, 0, 0, 7);ctx.fill();
     ctx.fillStyle='rgba(255,255,255,.4)';
-    ctx.beginPath();ctx.ellipse(px-w*0.09, sy+low*0.96, w*0.11, w*0.045, 0, 0, 7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(px-w*0.09, ty+low*0.98, w*0.11, w*0.045, 0, 0, 7);ctx.fill();
   }
 }
 function drawHammockFront(){
   const {w,px,sy,low}=hammockGeo();
-  // near lip of the sling, wrapping up over her lower body
-  const grad=ctx.createLinearGradient(0,sy+low*0.5,0,sy+low*1.9);
+  const ty=sy-w*0.05;
+  const grad=ctx.createLinearGradient(0,ty+low*0.5,0,ty+low*1.9);
   grad.addColorStop(0,'#d67d92'); grad.addColorStop(1,'#a3465c');
   ctx.fillStyle=grad;
   ctx.beginPath();
-  ctx.moveTo(px-w/2, sy);
-  ctx.quadraticCurveTo(px, sy+low*1.9, px+w/2, sy);           // underside
-  ctx.quadraticCurveTo(px, sy+low*1.16, px-w/2, sy);          // near lip (rises over her)
+  ctx.moveTo(px-w/2, ty);
+  ctx.quadraticCurveTo(px, ty+low*1.9, px+w/2, ty);
+  ctx.quadraticCurveTo(px, ty+low*1.16, px-w/2, ty);
   ctx.fill();
-  ctx.strokeStyle='#e493a4'; ctx.lineWidth=Math.max(3,w*0.028);   // rolled highlight on the lip
-  ctx.beginPath();ctx.moveTo(px-w/2, sy);ctx.quadraticCurveTo(px, sy+low*1.16, px+w/2, sy);ctx.stroke();
+  ctx.strokeStyle='#e493a4'; ctx.lineWidth=Math.max(3,w*0.028);
+  ctx.beginPath();ctx.moveTo(px-w/2, ty);ctx.quadraticCurveTo(px, ty+low*1.16, px+w/2, ty);ctx.stroke();
 }
 
 function drawLitter(){
   const L=world.litter;
   ctx.fillStyle='#3f6fae'; roundRect(L.x-L.w/2,L.y-L.h/2,L.w,L.h,10); ctx.fill();
+  ctx.strokeStyle=shade('#3f6fae',0.45); ctx.lineWidth=2; roundRect(L.x-L.w/2,L.y-L.h/2,L.w,L.h,10); ctx.stroke();
   ctx.fillStyle='#5a86c2'; roundRect(L.x-L.w/2+6,L.y-L.h/2+6,L.w-12,L.h-12,7); ctx.fill();
   ctx.fillStyle='#e7dcc4'; roundRect(L.x-L.w/2+10,L.y-L.h/2+10,L.w-20,L.h-20,6); ctx.fill();
   const hx=L.x, hy=L.y-L.h/2+12, bright = hayFresh>0?1:0.75;
@@ -923,6 +949,7 @@ function drawFoodBowl(){
   const b=world.food;
   ctx.fillStyle='#7d5230'; ctx.beginPath();ctx.ellipse(b.x,b.y+b.r*0.35,b.r,b.r*0.5,0,0,7);ctx.fill();
   ctx.fillStyle='#9a6a3e'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.fill();
+  ctx.strokeStyle=shade('#9a6a3e',0.4); ctx.lineWidth=1.5; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.stroke();
   ctx.fillStyle='#6a4527'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r*0.78,b.r*0.42,0,0,7);ctx.fill();
   for(let i=0;i<14;i++){
     const a=i/14*Math.PI*2, rr=b.r*0.5*Math.sqrt(((i*7)%10)/10);
@@ -934,16 +961,20 @@ function drawWaterBowl(){
   const b=world.water;
   ctx.fillStyle='#5a5f6a'; ctx.beginPath();ctx.ellipse(b.x,b.y+b.r*0.32,b.r,b.r*0.5,0,0,7);ctx.fill();
   ctx.fillStyle='#7b818c'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.fill();
+  ctx.strokeStyle=shade('#7b818c',0.4); ctx.lineWidth=1.5; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.stroke();
   const lvl = stats.water/100;
+  const wr=b.r*0.72*Math.max(0.25,lvl), wry=b.r*0.4*Math.max(0.25,lvl);
   ctx.fillStyle='rgba(90,170,220,.9)';
-  ctx.beginPath();ctx.ellipse(b.x,b.y,b.r*0.72*Math.max(0.25,lvl),b.r*0.4*Math.max(0.25,lvl),0,0,7);ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.4)';
+  ctx.beginPath();ctx.ellipse(b.x,b.y,wr,wry,0,0,7);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.4)';           // ambient sheen
   ctx.beginPath();ctx.ellipse(b.x-b.r*0.2,b.y-b.r*0.06,b.r*0.22,b.r*0.09,0,0,7);ctx.fill();
+  const sp=0.35+0.6*skyLight();                    // specular glint that tracks the light
+  ctx.fillStyle=`rgba(255,255,255,${sp})`;
+  ctx.beginPath();ctx.arc(b.x+lightDirX()*wr*0.4, b.y-wry*0.35, b.r*0.08, 0,7);ctx.fill();
 }
 function drawBed(){
   const b=world.bed;
   if(rab.decor && rab.decor.bed==='cloud'){
-    // plush cloud bed (upgraded)
     ctx.fillStyle='#dfe6f2';
     for(const o of [[-0.7,0.05,0.5],[0.7,0.05,0.5],[-0.35,-0.18,0.55],[0.35,-0.18,0.55],[0,0.06,0.7]])
       { ctx.beginPath();ctx.ellipse(b.x+b.r*o[0], b.y+b.r*o[1], b.r*o[2], b.r*o[2]*0.62, 0,0,7); ctx.fill(); }
@@ -951,11 +982,28 @@ function drawBed(){
     ctx.fillStyle='#eef3fb'; ctx.beginPath();ctx.ellipse(b.x-b.r*0.18,b.y-b.r*0.02,b.r*0.3,b.r*0.14,0,0,7);ctx.fill();
     return;
   }
-  ctx.fillStyle='#b5546a'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.fill();
-  ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.28;
-  ctx.beginPath();ctx.ellipse(b.x,b.y,b.r*0.86,b.r*0.46,0,0,7);ctx.stroke();
-  ctx.fillStyle='#e79fae'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r*0.6,b.r*0.32,0,0,7);ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.ellipse(b.x-b.r*0.2,b.y-b.r*0.06,b.r*0.28,b.r*0.12,0,0,7);ctx.fill();
+  /* basket bed with real depth: tall BACK rim, sunken cushion, low FRONT rim.
+     (In-game, the front rim is re-drawn over the rabbit while she naps in it.) */
+  ctx.fillStyle='#a34a5f'; ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.06, b.r, b.r*0.5, 0,0,7);ctx.fill();
+  ctx.strokeStyle=shade('#a34a5f',0.4); ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.06, b.r, b.r*0.5, 0,0,7);ctx.stroke();
+  /* back rim — thicker and higher than the front */
+  ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.30; ctx.lineCap='round';
+  ctx.beginPath();ctx.ellipse(b.x, b.y-b.r*0.02, b.r*0.80, b.r*0.42, 0, Math.PI, 0);ctx.stroke();
+  ctx.lineCap='butt';
+  /* sunken cushion, shadowed where the back rim overhangs it */
+  ctx.fillStyle='#e79fae'; ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.10, b.r*0.62, b.r*0.30, 0,0,7);ctx.fill();
+  ctx.fillStyle='rgba(90,30,45,.22)';
+  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.02, b.r*0.60, b.r*0.16, 0, Math.PI, 0);ctx.fill();
+  /* quilt stitches */
+  ctx.strokeStyle='rgba(160,70,90,.35)'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.10, b.r*0.40, b.r*0.18, 0,0,7);ctx.stroke();
+  /* front rim — lower, drawn last so it overlaps the cushion */
+  ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.22; ctx.lineCap='round';
+  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.10, b.r*0.80, b.r*0.38, 0, 0.06*Math.PI, 0.94*Math.PI);ctx.stroke();
+  ctx.lineCap='butt';
+  ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.07, b.r*0.80, b.r*0.36, 0, 0.15*Math.PI, 0.85*Math.PI);ctx.stroke();
 }
 /* the bed's near rim, redrawn over the rabbit while she naps in it (cf. drawHammockFront) */
 function drawBedFront(){
@@ -966,38 +1014,43 @@ function drawBedFront(){
       { ctx.beginPath();ctx.ellipse(b.x+b.r*o[0], b.y+b.r*(o[1]+0.18), b.r*o[2], b.r*o[2]*0.34, 0,0,7); ctx.fill(); }
     return;
   }
-  ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.28; ctx.lineCap='round';
-  ctx.beginPath();ctx.ellipse(b.x, b.y, b.r*0.86, b.r*0.46, 0, 0.06*Math.PI, 0.94*Math.PI);ctx.stroke();
+  // must match the ported drawBed's FRONT rim exactly (b.y+b.r*0.10, b.r*0.80 x b.r*0.38) so the
+  // near lip redrawn over the napping rabbit lines up with the bed she's sitting in
+  ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.22; ctx.lineCap='round';
+  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.10, b.r*0.80, b.r*0.38, 0, 0.06*Math.PI, 0.94*Math.PI);ctx.stroke();
   ctx.lineCap='butt';
 }
 function drawTube(){
   const tb=world.tube;
-  groundShadow(tb.x, tb.y+tb.h*0.52, tb.w*0.48);
   const g=ctx.createLinearGradient(0,tb.y-tb.h/2,0,tb.y+tb.h/2);
   g.addColorStop(0,'#7ea9d6'); g.addColorStop(0.5,'#5b83b4'); g.addColorStop(1,'#3f5f8c');
   ctx.fillStyle=g; roundRect(tb.x-tb.w/2,tb.y-tb.h/2,tb.w,tb.h,tb.h*0.5); ctx.fill();
-  // fabric ribs — subtle, matching the end-cap curvature
+  ctx.strokeStyle=shade('#3f5f8c',0.35); ctx.lineWidth=2; roundRect(tb.x-tb.w/2,tb.y-tb.h/2,tb.w,tb.h,tb.h*0.5); ctx.stroke();
   ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=3;
   for(let i=1;i<4;i++){const x=tb.x-tb.w/2+i*tb.w/4;
     ctx.beginPath();ctx.ellipse(x,tb.y,tb.h*0.22,tb.h*0.48,0,-1.35,1.35);ctx.stroke();}
-  // end openings: full-height mouths that match the capsule ends, with a rim
   for(const dir of [-1,1]){
     const ex=tb.x+dir*(tb.w/2-tb.h*0.30);
-    ctx.fillStyle='#31517e';                                // rim ring
+    ctx.fillStyle='#31517e';
     ctx.beginPath();ctx.ellipse(ex,tb.y,tb.h*0.30,tb.h*0.485,0,0,7);ctx.fill();
-    ctx.fillStyle='#1c1426';                                // dark interior
+    ctx.fillStyle='#1c1426';
     ctx.beginPath();ctx.ellipse(ex,tb.y,tb.h*0.24,tb.h*0.42,0,0,7);ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.10)';                  // faint inner curve
+    ctx.fillStyle='rgba(255,255,255,.10)';
     ctx.beginPath();ctx.ellipse(ex-dir*tb.h*0.05,tb.y-tb.h*0.10,tb.h*0.10,tb.h*0.22,0,0,7);ctx.fill();
   }
+  // celLight removed: an unclipped highlight ellipse overhangs the prop and reads as a halo/bubble
 }
 function drawCastle(){
   const c=world.castle, r=c.r;
-  groundShadow(c.x, c.y+r*0.24, r*1.05);
   ctx.fillStyle='#c79a5e'; roundRect(c.x-r,c.y-r*1.1,r*2,r*1.3,6); ctx.fill();
+  ctx.strokeStyle=shade('#c79a5e',0.4); ctx.lineWidth=2; roundRect(c.x-r,c.y-r*1.1,r*2,r*1.3,6); ctx.stroke();
+  /* corrugated-cardboard fluting — says "cardboard", not "sandstone block" */
+  ctx.strokeStyle='rgba(120,85,40,.16)'; ctx.lineWidth=2;
+  for(let i=1;i<10;i++){const fx=c.x-r+i*r*0.2;
+    ctx.beginPath();ctx.moveTo(fx, c.y-r*1.05);ctx.lineTo(fx, c.y+r*0.15);ctx.stroke();}
   ctx.fillStyle='#b0824a'; for(let i=0;i<4;i++){ctx.fillRect(c.x-r+i*r*0.55, c.y-r*1.3, r*0.32, r*0.28);}
   ctx.fillStyle='#3a2a1c'; ctx.beginPath();ctx.ellipse(c.x,c.y-r*0.2,r*0.42,r*0.5,0,0,7);ctx.fill();
-  ctx.strokeStyle='rgba(90,60,30,.4)';ctx.lineWidth=2;ctx.strokeRect(c.x-r,c.y-r*1.1,r*2,r*1.3);
+  // celLight removed: an unclipped highlight ellipse overhangs the prop and reads as a halo/bubble
 }
 function drawBall(){
   const b={x:(ballAnim?ballAnim.x:world.ball.x), y:(ballAnim?ballAnim.y:world.ball.y), r:world.ball.r};
