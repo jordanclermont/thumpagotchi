@@ -491,6 +491,7 @@ function drawSky(){
     bloom.addColorStop(1,'rgba(255,244,214,0)');
     ctx.fillStyle=bloom; ctx.fillRect(0,0,W,world.floorY);
   }
+  drawWallArt();
 
   // --- sky gradient + sun, CLIPPED to the window opening ---
   ctx.save();
@@ -531,6 +532,24 @@ function cloud(x,y,r){
   ctx.arc(x-r,y+5,r*0.7,0,7); ctx.arc(x+r*0.4,y-r*0.5,r*0.7,0,7);
   ctx.fill();
 }
+// a little framed portrait on the wall — a cosy touch of home
+function drawWallArt(){
+  const w=Math.min(74,W*0.072), h=w*1.16, x=W*0.11, y=H*0.34;
+  ctx.fillStyle='rgba(60,40,30,.14)'; roundRect(x-w/2+3,y-h/2+5,w,h,4); ctx.fill();  // cast shadow
+  ctx.fillStyle='#b3854f'; roundRect(x-w/2,y-h/2,w,h,4); ctx.fill();                  // wood frame
+  ctx.fillStyle='#8f6a3d'; roundRect(x-w/2+3,y-h/2+3,w-6,h-6,3); ctx.fill();
+  const sky=ctx.createLinearGradient(0,y-h/2+6,0,y+h/2-6);                            // little sky mat
+  sky.addColorStop(0,'#cfe3f0'); sky.addColorStop(1,'#eef3e6');
+  ctx.fillStyle=sky; roundRect(x-w/2+6,y-h/2+6,w-12,h-12,2); ctx.fill();
+  // a simple bunny silhouette in the picture
+  ctx.fillStyle='#9a7a52';
+  ctx.beginPath();ctx.ellipse(x,y+h*0.12,w*0.19,w*0.17,0,0,7);ctx.fill();             // body
+  ctx.beginPath();ctx.ellipse(x,y-h*0.02,w*0.12,w*0.12,0,0,7);ctx.fill();             // head
+  ctx.beginPath();ctx.ellipse(x-w*0.07,y-h*0.20,w*0.045,w*0.13,-0.15,0,7);ctx.fill(); // ears
+  ctx.beginPath();ctx.ellipse(x+w*0.07,y-h*0.20,w*0.045,w*0.13, 0.15,0,7);ctx.fill();
+  ctx.fillStyle='#d9c4a0';
+  ctx.beginPath();ctx.arc(x+w*0.14,y+h*0.14,w*0.05,0,7);ctx.fill();                   // tail
+}
 
 function drawRoom(){
   // wainscot highlight + soft shadow where the wall meets the floor
@@ -538,12 +557,29 @@ function drawRoom(){
   ctx.fillStyle='rgba(0,0,0,.08)'; ctx.fillRect(0,world.floorY-8,W,8);
   {
     const floor=ctx.createLinearGradient(0,world.floorY,0,H);
-    floor.addColorStop(0,'#c99b6a'); floor.addColorStop(1,'#a97a4c');
+    floor.addColorStop(0,'#cea06d'); floor.addColorStop(0.6,'#b6844f'); floor.addColorStop(1,'#9c6f3c');
     ctx.fillStyle=floor; ctx.fillRect(0,world.floorY,W,H-world.floorY);
   }
-  ctx.strokeStyle='rgba(90,55,25,.22)'; ctx.lineWidth=2;
+  // receding floorboard seams
+  ctx.strokeStyle='rgba(88,52,22,.20)'; ctx.lineWidth=2;
   for(let i=1;i<7;i++){const y=world.floorY+(H-world.floorY)*i/7;
     ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // sparse plank joins (staggered per row) for a wood-plank read
+  ctx.strokeStyle='rgba(88,52,22,.12)'; ctx.lineWidth=1.5;
+  for(let i=0;i<6;i++){
+    const y0=world.floorY+(H-world.floorY)*i/7, y1=world.floorY+(H-world.floorY)*(i+1)/7;
+    const cols=5, off=(i%2)*0.5;
+    for(let j=0;j<cols;j++){ const x=((j+off)/cols)*W;
+      ctx.beginPath();ctx.moveTo(x,y0+1);ctx.lineTo(x,y1-1);ctx.stroke(); }
+  }
+  // warm light pooling on the floor beneath the window (fades toward night)
+  const lp = skyLight();
+  if(lp>0.04){
+    const wx=world.win.x+world.win.w/2, py=world.floorY+(H-world.floorY)*0.34;
+    const pool=ctx.createRadialGradient(wx,py,8,wx,py,world.win.w*1.35);
+    pool.addColorStop(0,`rgba(255,241,205,${0.17*lp})`); pool.addColorStop(1,'rgba(255,241,205,0)');
+    ctx.fillStyle=pool; ctx.fillRect(0,world.floorY,W,H-world.floorY);
+  }
 
   const r=world.rug;
   const rc = (rab.decor && rab.decor.rug==='rose') ? ['#e6afbf','#cd8599','#ad5f77'] : ['#7bb0a4','#5f958c','#4d7d75'];
@@ -772,6 +808,11 @@ function drawAmbient(){
     ctx.fillStyle=`rgba(38,30,74,${a})`;
     ctx.fillRect(0,0,W,H);
   }
+  // soft edge vignette — gently darkens the corners so the scene has depth & focus
+  const vig=ctx.createRadialGradient(W*0.5,H*0.52,H*0.32,W*0.5,H*0.52,H*0.82);
+  vig.addColorStop(0,'rgba(20,10,20,0)');
+  vig.addColorStop(1,`rgba(18,8,16,${0.16+edge*0.12})`);
+  ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
 }
 
 /* ============================================================================ *
@@ -1249,20 +1290,33 @@ function spawnZ(x,y){particles.push({type:'z',x,y,vy:-22,vx:8,life:2,t:0});}
 function spawnStars(x,y){for(let i=0;i<5;i++)particles.push({type:'star',x,y,vx:rand(-50,50),vy:rand(-60,-10),life:.9,t:0});}
 function spawnCarrot(x,y,n){particles.push({type:'carrot',x:x??rab.x,y:y??rab.baseY-60,vy:-34,vx:rand(-8,8),life:1.4,t:0,n});}
 
+function twinkle(x,y,r,col){                       // a 4-point sparkle with a bright core
+  ctx.fillStyle=col;
+  ctx.beginPath();
+  for(let i=0;i<8;i++){const a=i/8*Math.PI*2, rr=(i%2? r*0.38:r);
+    const px=x+Math.cos(a)*rr, py=y+Math.sin(a)*rr; i?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+  ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.92)'; ctx.beginPath();ctx.arc(x,y,r*0.3,0,7);ctx.fill();
+}
 function drawParticles(dt){
+  ctx.textAlign='center';
   for(const pl of particles){
     pl.t+=dt; pl.x+=pl.vx*dt; pl.y+=pl.vy*dt; pl.vy+=20*dt;
     const a=Math.max(0,1-pl.t/pl.life);
     ctx.globalAlpha=a;
-    if(pl.type==='heart'){ctx.font='20px system-ui';ctx.fillText('💗',pl.x,pl.y);}
-    else if(pl.type==='spark'){ctx.fillStyle='#ffe9a8';ctx.beginPath();ctx.arc(pl.x,pl.y,3,0,7);ctx.fill();}
-    else if(pl.type==='drop'){ctx.fillStyle='#8fd0f0';ctx.beginPath();ctx.arc(pl.x,pl.y,3,0,7);ctx.fill();}
+    if(pl.type==='heart'){ const sc=1+Math.sin(pl.t*8)*0.13; ctx.font=`${Math.round(20*sc)}px system-ui`;ctx.fillText('💗',pl.x,pl.y);}
+    else if(pl.type==='spark'){ twinkle(pl.x,pl.y, 4+Math.sin(pl.t*18)*1.4, '#ffe9a8'); }
+    else if(pl.type==='drop'){ctx.fillStyle='#8fd0f0';ctx.beginPath();ctx.ellipse(pl.x,pl.y,2.6,3.6,0,0,7);ctx.fill();}
     else if(pl.type==='star'){ctx.font='16px system-ui';ctx.fillText('⭐',pl.x,pl.y);}
-    else if(pl.type==='z'){ctx.fillStyle='#fff';ctx.font='18px system-ui';ctx.fillText('z',pl.x,pl.y);}
+    else if(pl.type==='z'){ const sz=Math.round(15+pl.t*7); ctx.font=`700 ${sz}px system-ui`;
+      const zx=pl.x+Math.sin(pl.t*3)*5;
+      ctx.strokeStyle='rgba(120,110,150,.5)'; ctx.lineWidth=2.5; ctx.strokeText('Z',zx,pl.y);
+      ctx.fillStyle='rgba(255,255,255,.92)'; ctx.fillText('Z',zx,pl.y); }
     else if(pl.type==='carrot'){ctx.font='bold 16px system-ui';ctx.fillStyle='#e8863a';
       ctx.fillText(`+${pl.n}🥕`,pl.x,pl.y);}
     ctx.globalAlpha=1;
   }
+  ctx.textAlign='left';
   for(let i=particles.length-1;i>=0;i--) if(particles[i].t>=particles[i].life) particles.splice(i,1);
 
   for(const b of bananas){
@@ -1662,15 +1716,15 @@ function updatePlay(dt){
     const tb=world.tube;
     const leftX=tb.x-tb.w*0.30, rightX=tb.x+tb.w*0.30;
     const tunOff=world.tube.y-rab.baseY;                        // lift her up to tube height
-    rab.playYOff=lerp(rab.playYOff, (k<0.82?tunOff:0), Math.min(1,dt*5));
-    const tx = k<0.30?leftX : k<0.64?rightX : world.rug.x;
+    rab.playYOff=lerp(rab.playYOff, (k>=0.16&&k<0.84?tunOff:0), Math.min(1,dt*5));  // run in on the floor, then rise
+    const tx = k<0.30?leftX : k<0.80?rightX : world.rug.x;      // duck in the near end, pop out the FAR end, then home
     rab.x=lerp(rab.x, tx, Math.min(1,dt*5));
     let a=1;
     if(k>=0.30&&k<0.46) a=1-(k-0.30)/0.16;      // vanish into the near opening
     else if(k>=0.46&&k<0.64) a=0;               // travelling through, hidden
     else if(k>=0.64&&k<0.80) a=(k-0.64)/0.16;   // reappear at the far opening
     rab.playAlpha=clamp(a,0,1);
-    rab.hopOff = (k<0.30||k>=0.64)? -Math.abs(Math.sin(pl.t*10))*15*sc : 0;
+    rab.hopOff = (k<0.24||k>=0.80)? -Math.abs(Math.sin(pl.t*10))*15*sc : 0;
     if(k>=0.46&&k<0.64 && Math.random()<dt*4) spawnSparkle(k<0.55?leftX:rightX, tb.y);
     if(k>=0.66 && !pl.binked){ pl.binked=true; startBinky(); }   // triumphant pop-out
     if(k>=1) endPlay();
