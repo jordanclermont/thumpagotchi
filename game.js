@@ -169,7 +169,11 @@ function resize(){
   // base must land on the floor (y >= floorY), and back-row props must not overlap.
   // Centre lane (x ~0.42–0.60) is kept clear for the rabbit; big furniture flanks it
   // so nothing sits dead-behind her and her hop-to-nap / hop-to-den reads as real motion.
-  world.floorY = H*0.56;
+  // On a portrait (mobile) frame the wall is shortened and the window enlarged so the room
+  // fills more of the screen; landscape (desktop) keeps the original proportions.
+  const mobile = (H/W > 1.15);
+  world.mobile = mobile;
+  world.floorY = H*(mobile? 0.50 : 0.56);
   world.rug   = {x:W*0.5,  y:H*0.76, rx:W*0.45, ry:H*0.15};
   world.litter= {x:W*0.14, y:H*0.66, w:Math.min(230,W*0.30)*bs, h:Math.min(118,H*0.19)*bs};
   world.food  = {x:W*0.27, y:H*0.79, r:Math.min(32,W*0.05)};
@@ -184,7 +188,9 @@ function resize(){
   world.bed   = {x:W*0.585,y:H*0.795,r:Math.min(84,W*0.125)*bs};  // front, right of centre
   world.castle= {x:W*0.875,y:H*0.835,r:Math.min(80,W*0.12)*bs};   // front-far-right, below the tunnel mouth
   world.ball  = {x:W*0.305,y:H*0.815,r:Math.min(27,W*0.042)*bs};
-  world.win   = {x:W*0.5-W*0.11, y:H*0.06, w:W*0.22, h:H*0.28};
+  world.win   = mobile
+    ? {x:W*0.5-W*0.165, y:H*0.045, w:W*0.33, h:H*0.31}   // bigger window fills the shorter wall
+    : {x:W*0.5-W*0.11,  y:H*0.06,  w:W*0.22, h:H*0.28};
   rab.baseY = world.rug.y - 6;
   // Re-clamp her — and any in-flight hop — to the new floor bounds. A device rotation mid-hop
   // changes W, so hopFromX/hopToX (absolute pixels for the OLD width) can point off the new rug
