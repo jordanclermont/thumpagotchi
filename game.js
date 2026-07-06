@@ -133,6 +133,7 @@ const GOAL_POOL = [
   () => ({track:'water',  target:1,  reward:5,  text:'Refill the water bowl'}),
   () => ({track:'pet',    target:10, reward:7,  text:'Give ×10 head pets'}),
   () => ({track:'binky',  target:2,  reward:9,  text:'Spark ×2 binkies'}),
+  () => ({track:'groom',  target:3,  reward:7,  text:'Groom her coat ×3'}),
   () => ({track:'play',   target:2,  reward:8,  text:'Play together ×2',            avail:()=>owns('ball')||owns('tunnel')||owns('tower')}),
   () => ({track:'g_snake',target:1,  reward:10, text:`Score ${SNAKE_GOAL}+ in Bunny Snake`, avail:()=>gameUnlocked('snake')}),
   () => ({track:'g_guess',target:1,  reward:10, text:'Win at Guess My Number',      avail:()=>gameUnlocked('guess')}),
@@ -246,8 +247,9 @@ let hayFresh = 0;
 let thumpFx = 0, thumpRipples = [], thumpTextT = 0;
 
 let pettingMode = false;
+let groomMode = false;                 // comb-drag mode: restores Hygiene (mutually exclusive with petting)
 let pointer = {x:-999,y:-999,down:false,moved:0};
-let lastPetGain = 0, lastFeetPet = 0;
+let lastPetGain = 0, lastFeetPet = 0, lastGroomGain = 0, groomGoalAt = 0;
 let autosaveT = 0;
 let minigameActive = false;   // freezes the pet sim while a minigame overlay is open
 let dayEvent = null, hazardFlash = 0;   // daily event (hide-and-seek / charger hazard)
@@ -1701,13 +1703,66 @@ function cleanLitter(){
 }
 function togglePetting(){
   pettingMode=!pettingMode;
+  if(pettingMode && groomMode) setGroom(false);   // the two drag modes are mutually exclusive
   $('bPet').classList.toggle('armed',pettingMode);
+  $('game').classList.remove('grooming');
   $('game').style.cursor = pettingMode ? 'grab' : 'default';   // hand cursor while petting
   toast(pettingMode? 'Petting ON — drag over the HEAD (never the feet!).' : 'Petting off.');
   // Day-1 bait: once she's been armed for petting, arm one scripted feet-out flop (item 3a)
   if(pettingMode && !rab.petArmedOnce){
     rab.petArmedOnce=true;
     if(rab.day===1 && !rab.baitDone) rab.baitAt = now()+rand(5,8);
+  }
+}
+// Grooming: drag a comb over her coat to restore Hygiene. Extra effective with the Grooming Kit.
+function setGroom(on){
+  groomMode=on;
+  $('bGroom').classList.toggle('armed',on);
+  $('game').classList.toggle('grooming',on);          // custom comb cursor (CSS)
+  if(on){ $('bPet').classList.remove('armed'); }      // caller cleared pettingMode
+  else if(!pettingMode){ $('game').style.cursor='default'; }
+}
+function toggleGrooming(){
+  if(!groomMode && pettingMode){ pettingMode=false; $('bPet').classList.remove('armed'); $('game').style.cursor=''; }
+  setGroom(!groomMode);
+  toast(groomMode
+    ? (owns('groom') ? 'Grooming ON — drag the comb over her coat. The Grooming Kit makes it extra soothing. 🪮'
+                     : 'Grooming ON — drag over her coat to tidy her fur and lift Hygiene. 🪮')
+    : 'Grooming off.');
+}
+function handleGroom(px,py){
+  if(!groomMode || rab.cold || rab.state==='tummy') return;
+  const p=parts();
+  const dFeet=Math.hypot(px-p.feet.x, py-p.feet.y);
+  const dTail=Math.hypot(px-p.tail.x, py-p.tail.y);
+  const tnow=now();
+  // the feet stay sacred even with a comb in hand
+  if((dFeet<p.feet.r && py>p.head.y+p.head.r*0.6) || dTail<p.tail.r*1.3){
+    if(tnow-lastFeetPet>0.8){
+      lastFeetPet=tnow;
+      const dmg = rab.bondLevel>=8? 0.9 : 1.4;
+      rab.thumps=clamp(rab.thumps+dmg,0,5); stats.happy=clamp(stats.happy-8);
+      triggerThump(); toast('You combed the SACRED back feet! 😾 *THUMP*'); checkThreshold();
+      fireFact('feet');
+    }
+    return;
+  }
+  // grooming the coat: the point is inside the body ellipse (or over the head/mane)
+  const inBody = ((px-p.body.x)**2)/(p.body.rx*p.body.rx) + ((py-p.body.y)**2)/(p.body.ry*p.body.ry) <= 1.15;
+  const inHead = Math.hypot(px-p.head.x, py-p.head.y) < p.head.r*1.2;
+  if(inBody || inHead){
+    if(tnow-lastGroomGain>0.12){
+      lastGroomGain=tnow; wake();
+      const kit=owns('groom');
+      stats.hygiene=clamp(stats.hygiene + (kit?4:2.6));
+      stats.happy=clamp(stats.happy + (kit?1.4:0.8));
+      rab.thumps=clamp(rab.thumps-0.05,0,5);
+      rab.groomUntil = tnow + 0.5;                 // she settles into the being-groomed pose
+      rab.petReact=0.4;
+      if(kit && Math.random()<0.03) addXP(2);       // the kit deepens the bond over time
+      if(tnow>=groomGoalAt){ groomGoalAt=tnow+8; incGoal('groom'); }   // goal counts grooming bouts, not ticks
+      spawnSparkle(p.body.x+rand(-p.body.rx*0.5,p.body.rx*0.5), p.body.y-rand(0,p.body.ry*0.4));
+    }
   }
 }
 function restRabbit(){
@@ -2390,8 +2445,8 @@ function onDown(e){pointer.down=true;const p=canvasPos(e);pointer.x=p.x;pointer.
   if(pettingMode) $('game').style.cursor='grabbing';
   if(findRabbit(p.x,p.y)) return;
   if(tapCord(p.x,p.y)) return;
-  handlePet(p.x,p.y);}
-function onMove(e){const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;if(pointer.down)handlePet(p.x,p.y);}
+  handlePet(p.x,p.y); handleGroom(p.x,p.y);}
+function onMove(e){const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;if(pointer.down){handlePet(p.x,p.y); handleGroom(p.x,p.y);}}
 function onUp(){pointer.down=false; if(pettingMode) $('game').style.cursor='grab';}
 // Register pointer handlers exactly once. Reset/import reload the page today, but guarding here
 // means a future reload-free reset can't stack duplicate handlers (every pet would fire twice).
@@ -2411,7 +2466,7 @@ bindInput();
 function bind(id,fn){ const el=$(id); if(el) el.addEventListener('click',fn); }
 bind('bHay',giveHay); bind('bPellets',givePellets); bind('bWater',giveWater);
 bind('bBanana',offerBanana); bind('bPet',togglePetting); bind('bTrick',doTrick);
-bind('bClean',cleanLitter); bind('bRest',restRabbit); bind('bPlay',playToy); bind('bVet',callVet);
+bind('bClean',cleanLitter); bind('bGroom',toggleGrooming); bind('bRest',restRabbit); bind('bPlay',playToy); bind('bVet',callVet);
 bind('tbShop',()=>openPanel('shop')); bind('tbGoals',()=>openPanel('goals')); bind('tbMenu',()=>openPanel('menu'));
 
 // Games tab stays hidden until it's revealed (day 2, or immediately for established saves) — item 5.
