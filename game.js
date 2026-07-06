@@ -167,10 +167,11 @@ function resize(){
   world.litter= {x:W*0.14, y:H*0.66, w:Math.min(230,W*0.30)*bs, h:Math.min(118,H*0.19)*bs};
   world.food  = {x:W*0.27, y:H*0.79, r:Math.min(32,W*0.05)};
   world.water = {x:W*0.365,y:H*0.80, r:Math.min(30,W*0.045)};
-  world.hammock={x:W*0.185,y:H*0.70, w:Math.min(190,W*0.26)*bs};  // back-left, low cosy sling
-  world.hammock.postH = world.hammock.w*0.42;                     // short stands — don't tower over her
-  world.hammock.sy = world.hammock.y - world.hammock.postH*0.85;  // top of the sling
-  world.tower = {x:W*0.375,y:H*0.63, r:Math.min(78,W*0.115)*bs};  // left-of-centre, back
+  world.hammock={x:W*0.355,y:H*0.725,w:Math.min(232,W*0.31)*bs}; // left-of-centre, in the open; cradles her
+  world.hammock.postH = world.hammock.w*0.46;
+  world.hammock.sy  = world.hammock.y - world.hammock.postH;      // back rim of the sling (behind her)
+  world.hammock.nap = world.hammock.sy + world.hammock.w*0.215;   // where she settles into the pouch
+  world.tower = {x:W*0.145,y:H*0.63, r:Math.min(72,W*0.108)*bs};  // far-left corner (thin, clears the litter)
   world.hutch = {x:W*0.665,y:H*0.605,r:Math.min(80,W*0.12)*bs};   // right-of-centre — she hops here to den
   world.tube  = {x:W*0.86, y:H*0.65, w:Math.min(230,W*0.30)*bs, h:Math.min(116,H*0.19)*bs};
   world.bed   = {x:W*0.585,y:H*0.795,r:Math.min(84,W*0.125)*bs};  // front, right of centre
@@ -606,37 +607,59 @@ function drawHutch(){
   for(let i=0;i<5;i++){const sx=c.x-r*0.3+i*r*0.15;
     ctx.beginPath();ctx.moveTo(sx,baseY+4);ctx.lineTo(sx+4,baseY+9);ctx.stroke();}
 }
-function drawHammock(){
+// The hammock renders in two passes so she can lie INSIDE it: drawHammock() is the
+// stand + the pouch (drawn behind her in the room pass); drawHammockFront() is the
+// near lip, drawn over her lower body after the rabbit so she reads as tucked in.
+function hammockGeo(){
   const hm=world.hammock, w=hm.w, px=hm.x, py=hm.y, sy=hm.sy;
-  // the sling dips a little deeper while she's napping beside it
-  const occupied = rab.state==='rest' && Math.abs(rab.x-px)<w*0.6;
-  const low = w*0.26 + (occupied? w*0.05 : 0);          // depth of the pouch below its top edge
-  const legSpread=w*0.15;                               // A-frame feet splay out for stability
-  groundShadow(px-w/2-legSpread*0.4, py+3, w*0.13); groundShadow(px+w/2+legSpread*0.4, py+3, w*0.13);
+  const occupied = !!rab.inHammock;
+  const low = w*0.30 + (occupied? w*0.05 : 0);          // pouch depth below the back rim
+  return {hm,w,px,py,sy,low,occupied,legSpread:w*0.15};
+}
+function drawHammock(){
+  const {w,px,py,sy,low,occupied,legSpread}=hammockGeo();
+  groundShadow(px-w/2-legSpread*0.4, py+3, w*0.14); groundShadow(px+w/2+legSpread*0.4, py+3, w*0.14);
   // wooden A-frame stands (two splayed legs meeting at a hanging peg)
   ctx.strokeStyle='#7a5a38'; ctx.lineWidth=Math.max(4,w*0.05); ctx.lineCap='round';
-  for(const s of [-1,1]){
-    const topx=px+s*w/2, ty=sy-w*0.04;
+  for(const dir of [-1,1]){
+    const topx=px+dir*w/2, ty=sy-w*0.05;
     ctx.beginPath();ctx.moveTo(topx-legSpread, py);ctx.lineTo(topx, ty);ctx.lineTo(topx+legSpread, py);ctx.stroke();
+    ctx.strokeStyle='#8a6a45'; ctx.lineWidth=Math.max(2,w*0.02);           // rope from peg to rim
+    ctx.beginPath();ctx.moveTo(topx,ty);ctx.lineTo(px+dir*w*0.46, sy);ctx.stroke();
+    ctx.strokeStyle='#7a5a38'; ctx.lineWidth=Math.max(4,w*0.05);
     ctx.fillStyle='#5f4526';ctx.beginPath();ctx.arc(topx,ty,w*0.045,0,7);ctx.fill();  // hanging peg
   }
   ctx.lineCap='butt';
-  // the slung fabric — a deep pouch with a rolled top lip
-  const grad=ctx.createLinearGradient(0,sy,0,sy+low*1.6);
-  grad.addColorStop(0,'#d67d92'); grad.addColorStop(1,'#a84a60');
+  // the pouch (full) — the rabbit sits in front of its middle; the near lip is
+  // redrawn over her by drawHammockFront()
+  const grad=ctx.createLinearGradient(0,sy,0,sy+low*1.7);
+  grad.addColorStop(0,'#c86a80'); grad.addColorStop(1,'#a3465c');
   ctx.fillStyle=grad;
   ctx.beginPath();
   ctx.moveTo(px-w/2, sy);
-  ctx.quadraticCurveTo(px, sy+low*1.9, px+w/2, sy);           // deep underside
-  ctx.quadraticCurveTo(px, sy+low*1.05, px-w/2, sy);          // top scoop (open mouth)
+  ctx.quadraticCurveTo(px, sy+low*1.8, px+w/2, sy);           // deep underside
+  ctx.quadraticCurveTo(px, sy+low*0.95, px-w/2, sy);          // back rim
   ctx.fill();
-  ctx.strokeStyle='#8f3f54'; ctx.lineWidth=Math.max(3,w*0.025);
-  ctx.beginPath();ctx.moveTo(px-w/2, sy);ctx.quadraticCurveTo(px, sy+low*1.05, px+w/2, sy);ctx.stroke();
-  // a plush cushion nestled in the low point
-  ctx.fillStyle='#f2c8d3';
-  ctx.beginPath();ctx.ellipse(px, sy+low*1.15, w*0.28, w*0.11, 0, 0, 7);ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.4)';
-  ctx.beginPath();ctx.ellipse(px-w*0.08, sy+low*1.08, w*0.10, w*0.04, 0, 0, 7);ctx.fill();
+  if(!occupied){   // empty: a plush cushion tucked in the pouch
+    ctx.fillStyle='#f2c8d3';
+    ctx.beginPath();ctx.ellipse(px, sy+low*1.05, w*0.30, w*0.12, 0, 0, 7);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.4)';
+    ctx.beginPath();ctx.ellipse(px-w*0.09, sy+low*0.96, w*0.11, w*0.045, 0, 0, 7);ctx.fill();
+  }
+}
+function drawHammockFront(){
+  const {w,px,sy,low}=hammockGeo();
+  // near lip of the sling, wrapping up over her lower body
+  const grad=ctx.createLinearGradient(0,sy+low*0.5,0,sy+low*1.9);
+  grad.addColorStop(0,'#d67d92'); grad.addColorStop(1,'#a3465c');
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.moveTo(px-w/2, sy);
+  ctx.quadraticCurveTo(px, sy+low*1.9, px+w/2, sy);           // underside
+  ctx.quadraticCurveTo(px, sy+low*1.16, px-w/2, sy);          // near lip (rises over her)
+  ctx.fill();
+  ctx.strokeStyle='#e493a4'; ctx.lineWidth=Math.max(3,w*0.028);   // rolled highlight on the lip
+  ctx.beginPath();ctx.moveTo(px-w/2, sy);ctx.quadraticCurveTo(px, sy+low*1.16, px+w/2, sy);ctx.stroke();
 }
 
 function drawLitter(){
@@ -819,13 +842,20 @@ function hazardShock(){
 }
 function drawBegBubble(){
   if(now() >= rab.begUntil || rab.hidden || rab.play || rab.cold) return;
-  const p=parts(); const bx=p.head.x, by=p.head.y - p.head.r*2.0;
-  ctx.fillStyle='rgba(255,255,255,.95)'; ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1.5;
-  roundRect(bx-24, by-20, 48, 34, 11); ctx.fill(); ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,.95)';
-  ctx.beginPath();ctx.moveTo(bx-7,by+12);ctx.lineTo(bx+7,by+12);ctx.lineTo(bx, by+24);ctx.closePath();ctx.fill();
-  ctx.font='22px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(rab.begWant||'🍌', bx, by-2); ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  const p=parts();
+  const bob = Math.sin(now()*2.6)*2.2;                       // gentle idle float
+  const bx=p.head.x, by=p.head.y - p.head.r*1.45 + bob;      // snug above the head
+  const grow = clamp((rab.begUntil - now())/0.22, 0, 1);     // little pop-in
+  const sc = 0.6 + 0.4*(rab.begUntil-now()>4? 1 : grow);
+  ctx.save(); ctx.translate(bx,by); ctx.scale(sc,sc); ctx.translate(-bx,-by);
+  // connecting tail first (so the bubble body caps it)
+  ctx.fillStyle='rgba(255,255,255,.97)';
+  ctx.beginPath();ctx.moveTo(bx-7,by+10);ctx.lineTo(bx+7,by+10);ctx.lineTo(bx-1, by+24);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1.5;
+  roundRect(bx-24, by-19, 48, 33, 12); ctx.fill(); ctx.stroke();
+  ctx.font='23px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(rab.begWant||'🍌', bx, by-1); ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.restore();
 }
 function tickEvent(dt,t){
   if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return;
@@ -892,9 +922,9 @@ function drawRabbit(t){
 
   const air = (rab.hopOff+rab.binkyHop);
   const shSc = clamp(1 + air/220, 0.55, 1);
-  if(!(t < rab.boxT)){   // no ground shadow while sitting up in the litter box
+  if(!(t < rab.boxT) && !rab.inHammock){   // no ground shadow in the litter box or hammock
     ctx.fillStyle=`rgba(0,0,0,${0.22*shSc})`;
-    ctx.beginPath();ctx.ellipse(p.cx, rab.baseY+(rab.playYOff||0)+6, p.body.rx*0.95*shSc, 15*s*shSc, 0,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(p.cx, rab.baseY+6, p.body.rx*0.95*shSc, 15*s*shSc, 0,0,7);ctx.fill();
   }
 
   let rot=0;
@@ -1448,6 +1478,8 @@ function takenAway(reason){
  * ============================================================================ */
 function toast(msg){
   const el=$('toast');
+  const hud=$('hud');                                  // sit just under the live HUD height,
+  if(hud) el.style.top=(hud.offsetHeight+10)+'px';     // so it clears the stat bars on any screen
   el.textContent=msg; el.classList.add('show');
   clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),3000);
 }
@@ -1556,7 +1588,7 @@ function restRabbit(){
   if(owns('hammock')) hopTo(world.hammock.x);   // she settles by her hammock for the cushier nap
   rab.restUntil=now()+4.5; rab.state='rest'; rab.trick=null;
   spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r);
-  toast(owns('hammock') ? `${rab.name} snuggles down by the hammock for a deluxe nap. 😴🛏️`
+  toast(owns('hammock') ? `${rab.name} settles into the hammock for a deluxe nap. 😴🛏️`
                         : `${rab.name} curls into a cozy nap. 😴`);
 }
 function playToy(){
@@ -1905,9 +1937,12 @@ function frame(){
   tickEvent(dt,t);
   tickScript(t);
 
-  /* owned-furniture interaction: she fades into the hutch doorway when she pops in
-     for a den visit (the hammock is a cosy nap spot she settles beside) */
+  /* owned-furniture interactions: she settles INTO the hammock for a nap, and fades
+     into the hutch doorway when she pops in for a den visit */
   if(!rab.play){
+    const hm=world.hammock;
+    rab.inHammock = rab.state==='rest' && owns('hammock') && !rab.hopping && Math.abs(rab.x-hm.x)<hm.w*0.5;
+    rab.playYOff = damp(rab.playYOff||0, rab.inHammock? (hm.nap - rab.baseY) : 0, 5, dt);
     const inDen = t<rab.denUntil && owns('hutch') && !rab.hopping && Math.abs(rab.x-world.hutch.x)<world.hutch.r*0.5;
     rab.playAlpha = damp(rab.playAlpha!==undefined?rab.playAlpha:1, inDen? 0.12 : 1, 5, dt);
   }
@@ -1932,7 +1967,6 @@ function frame(){
   drawHazard();
   drawParticles(dt);
   drawThumpFx(dt);
-  drawBegBubble();
   drawAmbient();
   if(rab.cold){ const a=0.13+0.08*Math.sin(now()*5); ctx.fillStyle=`rgba(205,35,25,${a})`; ctx.fillRect(0,0,W,H); }  // furious red aura
   if(hazardFlash>0){ ctx.fillStyle=`rgba(255,240,180,${hazardFlash})`; ctx.fillRect(-40,-40,W+80,H+80); hazardFlash=Math.max(0,hazardFlash-dt*1.5); }
@@ -1941,7 +1975,9 @@ function frame(){
   ctx.globalAlpha = rab.playAlpha!==undefined?rab.playAlpha:1;
   if(rab.hidden) drawHideHint(t); else drawRabbit(t);
   ctx.restore();
+  if(rab.inHammock && !rab.hidden) drawHammockFront();   // the sling's near lip wraps over her
   if(t < rab.boxT) drawLitterFront();         // box wall in front of the rabbit while it's inside
+  drawBegBubble();                            // speech bubble on top of everything
   ctx.restore();
 
   updateHUD();
@@ -1997,6 +2033,9 @@ function updateHUD(){
   // contextual action enabling
   $('bVet').classList.toggle('urgent', rab.sick);
   const bc=$('banCount'); if(bc){ bc.textContent=rab.bananasToday+'/2'; bc.classList.toggle('warn', rab.bananasToday>=2); }
+  // the tip line teaches on day 1, then fades away once she's established (keeps the scene clean)
+  const hintEl=$('hint');
+  if(hintEl){ const show = rab.day<2; if(hintEl._shown!==show){ hintEl._shown=show; hintEl.style.opacity=show?'':'0'; } }
 }
 
 /* Buttons that appear/disable based on ownership & state */
