@@ -453,13 +453,13 @@ function parts(){
   const land = rab.landSquash||0;
   const sqX = 1 - stretch*0.5 + land*0.15;
   const sqY = 1 + stretch*0.9 - land*0.17;
-  const bodyRx = 96*s*(1+0.06*loaf)*sqX, bodyRy = 74*s*(1-0.10*loaf)*sqY;
+  const bodyRx = 92*s*(1+0.06*loaf)*sqX, bodyRy = 72*s*(1-0.10*loaf)*sqY;
   const bodyCy = cy - bodyRy*0.82;
-  const headR  = 52*s*(B.headScale||1);
+  const headR  = 60*s*(B.headScale||1);   // big head on a compact body — chibi proportions
   const beg = rab.trick && rab.trick.name==='beg';
   const alert = rab.state==='alert';
   const headCx = cx + (alert? 6*s:0);
-  const headCy = bodyCy - bodyRy*0.55 - headR*0.35 + (alert? -8*s:4*s) + (beg? -34*s:0) + loaf*headR*0.18;
+  const headCy = bodyCy - bodyRy*0.55 - headR*0.22 + (alert? -8*s:4*s) + (beg? -34*s:0) + loaf*headR*0.18;   // nestled low into the body
   return {
     s, cx, cy, loaf,
     body:{x:cx, y:bodyCy, rx:bodyRx, ry:bodyRy},
@@ -1007,6 +1007,11 @@ function drawRabbit(t){
   ctx.beginPath();ctx.ellipse(p.body.x,p.body.y+breath,p.body.rx,p.body.ry-breath*0.4,0,0,7);ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.26)';
   ctx.beginPath();ctx.ellipse(p.body.x-p.body.rx*0.18,p.body.y-p.body.ry*0.25,p.body.rx*0.5,p.body.ry*0.4,0,0,7);ctx.fill();
+  // a soft round haunch on the rear so the body reads bunny-shaped, not egg-shaped
+  ctx.strokeStyle='rgba(60,45,32,.16)'; ctx.lineWidth=3*s;
+  ctx.beginPath();ctx.ellipse(p.cx-p.body.rx*0.42, p.body.y+p.body.ry*0.22, p.body.rx*0.40, p.body.ry*0.52, -0.12, -1.5, 1.35);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.10)';
+  ctx.beginPath();ctx.ellipse(p.cx-p.body.rx*0.46, p.body.y+p.body.ry*0.05, p.body.rx*0.26, p.body.ry*0.30, -0.12, 0, 7);ctx.fill();
 
   // Black & tan: a white underside — a low, flat sliver along the belly line (Elvis
   // has white on his belly, not a big chest patch; a large oval + dark paws reads as a skull)
@@ -1084,6 +1089,10 @@ function drawHead(p,t,tummy,closedEyes){
   ctx.beginPath();ctx.ellipse(hx,hy,r,r*0.94,0,0,7);ctx.fill();
   ctx.beginPath();ctx.arc(hx-r*0.7,hy+r*0.3,r*0.42,0,7);ctx.fill();
   ctx.beginPath();ctx.arc(hx+r*0.7,hy+r*0.3,r*0.42,0,7);ctx.fill();
+  // a scruffy little fur tuft on the crown
+  ctx.beginPath();ctx.arc(hx-r*0.17, hy-r*0.86, r*0.14, 0, 7);ctx.fill();
+  ctx.beginPath();ctx.arc(hx+r*0.02, hy-r*0.95, r*0.17, 0, 7);ctx.fill();
+  ctx.beginPath();ctx.arc(hx+r*0.20, hy-r*0.84, r*0.12, 0, 7);ctx.fill();
 
   const nmx=hx+look.x, nmy=hy+r*0.32;
   if(coat.sable){
@@ -1101,8 +1110,8 @@ function drawHead(p,t,tummy,closedEyes){
     const eyeWhite = coat.belly || '#f2ece0';
     ctx.strokeStyle=eyeWhite; ctx.lineWidth=2.6*s; ctx.lineCap='round';
     for(const dir of [-1,1]){
-      const ex=hx+dir*r*0.46+look.x*0.6, ey=hy-r*0.02+look.y*0.6;
-      ctx.beginPath();ctx.arc(ex,ey, 9.5*s, 0.22*Math.PI, 0.78*Math.PI);ctx.stroke();   // lower-lid crescent
+      const ex=hx+dir*r*0.44+look.x*0.6, ey=hy-r*0.02+look.y*0.6;
+      ctx.beginPath();ctx.arc(ex,ey, 11.8*s, 0.22*Math.PI, 0.78*Math.PI);ctx.stroke();   // lower-lid crescent (peeks below the bigger eye)
     }
     ctx.lineCap='butt';
     ctx.fillStyle=coat.tanCol;                            // tan highlights (muzzle + cheeks)
@@ -1116,36 +1125,44 @@ function drawHead(p,t,tummy,closedEyes){
   // Mane front tufts (Lionhead) — chin/neck fluff over the lower face
   if(B.mane) drawMane(hx,hy,r,'front');
 
-  const eyeY=hy-r*0.02, eyeDX=r*0.46;
-  ctx.lineWidth=3*s;
+  const eyeY=hy-r*0.02, eyeDX=r*0.44;
+  ctx.lineWidth=3.4*s;
   for(const dir of [-1,1]){
     const ex=hx+dir*eyeDX+look.x*0.6, ey=eyeY+look.y*0.6;
     if(tummy){
       ctx.strokeStyle='#140f0b';
-      ctx.beginPath();ctx.moveTo(ex-5*s,ey-5*s);ctx.lineTo(ex+5*s,ey+5*s);
-      ctx.moveTo(ex+5*s,ey-5*s);ctx.lineTo(ex-5*s,ey+5*s);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(ex-6*s,ey-6*s);ctx.lineTo(ex+6*s,ey+6*s);
+      ctx.moveTo(ex+6*s,ey-6*s);ctx.lineTo(ex-6*s,ey+6*s);ctx.stroke();
     } else if(rab.petReact>0){          // happy squint ^^ while being petted
       ctx.strokeStyle='#140f0b';
-      ctx.beginPath();ctx.arc(ex,ey+3*s,6*s, 1.12*Math.PI, 1.88*Math.PI);ctx.stroke();
+      ctx.beginPath();ctx.arc(ex,ey+3*s,7.4*s, 1.12*Math.PI, 1.88*Math.PI);ctx.stroke();
     } else if(closedEyes || rab.blink>0){
       ctx.strokeStyle='#140f0b';
-      ctx.beginPath();ctx.arc(ex,ey,6*s,0.15*Math.PI,0.85*Math.PI);ctx.stroke();
+      ctx.beginPath();ctx.arc(ex,ey,7.4*s,0.15*Math.PI,0.85*Math.PI);ctx.stroke();
     } else {
       const joy = clamp((stats.happy-70)/30,0,1);          // rounder & brighter when content
+      // big glossy anime eyes — the single biggest cuteness lever
       ctx.fillStyle=eyeCol;
-      ctx.beginPath();ctx.ellipse(ex,ey,(6.5+joy*0.6)*s,(7.5+joy*0.8)*s,0,0,7);ctx.fill();
-      // two catchlights for a livelier, glossier eye
-      ctx.fillStyle='rgba(255,255,255,.9)';
-      ctx.beginPath();ctx.arc(ex-2*s,ey-3*s,2.3*s,0,7);ctx.fill();
-      ctx.fillStyle='rgba(255,255,255,.5)';
-      ctx.beginPath();ctx.arc(ex+2.2*s,ey+1.8*s,1.1*s,0,7);ctx.fill();
-      // a lowered brow when her patience is thin (annoyed)
+      ctx.beginPath();ctx.ellipse(ex,ey,(8.6+joy*0.7)*s,(9.9+joy*0.9)*s,0,0,7);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.95)';                        // primary catchlight
+      ctx.beginPath();ctx.arc(ex-2.6*s,ey-3.6*s,3.1*s,0,7);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.55)';                        // secondary sparkle
+      ctx.beginPath();ctx.arc(ex+2.8*s,ey+2.6*s,1.5*s,0,7);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.30)';                        // soft lower-iris glow
+      ctx.beginPath();ctx.ellipse(ex,ey+4.6*s,4.4*s,2.1*s,0,0,7);ctx.fill();
+      // a lowered brow when patience is thin (annoyed)
       if(rab.thumps>=2){
-        ctx.strokeStyle=coat.bodySh||'#3a2a20'; ctx.lineWidth=2.6*s; ctx.lineCap='round';
-        ctx.beginPath();ctx.moveTo(ex+dir*6.5*s, ey-9*s);ctx.lineTo(ex-dir*6*s, ey-5*s);ctx.stroke();
+        ctx.strokeStyle=coat.bodySh||'#3a2a20'; ctx.lineWidth=2.8*s; ctx.lineCap='round';
+        ctx.beginPath();ctx.moveTo(ex+dir*8*s, ey-11.5*s);ctx.lineTo(ex-dir*7*s, ey-7*s);ctx.stroke();
         ctx.lineCap='butt';
       }
     }
+  }
+  // rosy blush under the eyes — instant charm (skipped while sick/upset tummy)
+  if(!tummy){
+    ctx.fillStyle='rgba(248,148,158,.38)';
+    ctx.beginPath();ctx.ellipse(hx-r*0.60+look.x*0.5, hy+r*0.26+look.y*0.5, r*0.155, r*0.095, -0.1, 0, 7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(hx+r*0.60+look.x*0.5, hy+r*0.26+look.y*0.5, r*0.155, r*0.095,  0.1, 0, 7);ctx.fill();
   }
 
   const tw = Math.sin(rab.noseTwitch)*(rab.state==='alert'?2.2:1)*s;
@@ -1173,9 +1190,9 @@ function drawHead(p,t,tummy,closedEyes){
   }
 
   ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=1.4*s;
-  for(let i=-1;i<=1;i++){
-    ctx.beginPath();ctx.moveTo(nx-6*s,ny+tw*0.4+i*3*s);ctx.lineTo(nx-40*s,ny-4*s+i*7*s+tw);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(nx+6*s,ny+tw*0.4+i*3*s);ctx.lineTo(nx+40*s,ny-4*s+i*7*s+tw);ctx.stroke();
+  for(let i=-1;i<=1;i++){   // whiskers reach past the cheeks so they read against the room
+    ctx.beginPath();ctx.moveTo(nx-6*s,ny+tw*0.4+i*3*s);ctx.lineTo(nx-r*1.04,ny-4*s+i*8*s+tw);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(nx+6*s,ny+tw*0.4+i*3*s);ctx.lineTo(nx+r*1.04,ny-4*s+i*8*s+tw);ctx.stroke();
   }
 }
 
