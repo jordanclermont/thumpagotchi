@@ -709,9 +709,19 @@ function drawRug(){
 
 /* soft directional cast shadow, offset away from the sun (used per-prop in drawRoom) */
 function castShadow(x,y,rx,ry){
-  const dx=-lightDirX()*rx*0.55, a=0.06+0.14*skyLight();
-  ctx.fillStyle=`rgba(28,18,10,${a})`;
-  ctx.beginPath(); ctx.ellipse(x+dx, y, rx, ry||rx*0.24, 0,0,7); ctx.fill();
+  // A soft, GROUNDED shadow (radial falloff = darker at the contact core, fading at the edges) that
+  // leans only slightly with the sun, so it stays connected under the prop instead of detaching.
+  ry = ry || rx*0.26;
+  const dir=lightDirX();                       // −1 morning … +1 evening
+  const lean=-dir*rx*0.20;                      // gentle lean away from the sun; base stays under the item
+  const w=rx*(1+Math.abs(dir)*0.16);
+  const a=0.15+0.07*skyLight();
+  const g=ctx.createRadialGradient(x+lean*0.4, y, ry*0.18, x+lean, y, w);
+  g.addColorStop(0, `rgba(22,14,7,${a})`);
+  g.addColorStop(0.6, `rgba(22,14,7,${a*0.72})`);
+  g.addColorStop(1, 'rgba(22,14,7,0)');
+  ctx.fillStyle=g;
+  ctx.beginPath(); ctx.ellipse(x+lean, y, w, ry, 0,0,7); ctx.fill();
 }
 
 /* ---- night mood: blue multiply + warm shelf-lamp glow (NOT the zoomies drawNight) ---- */
