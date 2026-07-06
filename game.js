@@ -780,6 +780,19 @@ function drawBed(){
   ctx.fillStyle='#e79fae'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r*0.6,b.r*0.32,0,0,7);ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.ellipse(b.x-b.r*0.2,b.y-b.r*0.06,b.r*0.28,b.r*0.12,0,0,7);ctx.fill();
 }
+/* the bed's near rim, redrawn over the rabbit while she naps in it (cf. drawHammockFront) */
+function drawBedFront(){
+  const b=world.bed;
+  if(rab.decor && rab.decor.bed==='cloud'){
+    ctx.fillStyle='#dfe6f2';
+    for(const o of [[-0.7,0.05,0.5],[0,0.06,0.7],[0.7,0.05,0.5]])
+      { ctx.beginPath();ctx.ellipse(b.x+b.r*o[0], b.y+b.r*(o[1]+0.18), b.r*o[2], b.r*o[2]*0.34, 0,0,7); ctx.fill(); }
+    return;
+  }
+  ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.28; ctx.lineCap='round';
+  ctx.beginPath();ctx.ellipse(b.x, b.y, b.r*0.86, b.r*0.46, 0, 0.06*Math.PI, 0.94*Math.PI);ctx.stroke();
+  ctx.lineCap='butt';
+}
 function drawTube(){
   const tb=world.tube;
   groundShadow(tb.x, tb.y+tb.h*0.52, tb.w*0.48);
@@ -990,7 +1003,7 @@ function drawRabbit(t){
 
   const air = (rab.hopOff+rab.binkyHop);
   const shSc = clamp(1 + air/220, 0.55, 1);
-  if(!(t < rab.boxT) && !rab.inHammock){   // no ground shadow in the litter box or hammock
+  if(!(t < rab.boxT) && !rab.inHammock && !rab.inBed){   // no ground shadow in the litter box, hammock, or bed
     ctx.fillStyle=`rgba(0,0,0,${0.22*shSc})`;
     ctx.beginPath();ctx.ellipse(p.cx, rab.baseY+6, p.body.rx*0.95*shSc, 15*s*shSc, 0,0,7);ctx.fill();
   }
@@ -2008,7 +2021,7 @@ function idleBrain(dt,t){
     else if(roll<0.62){ rab.groomUntil=t+rand(1.4,2.6); }
     else if(roll<0.74 && stats.happy>75 && stats.energy>30){ startBinky(); }
     else if(roll<0.82 && owns('hutch')){ hopTo(world.hutch.x); rab.denUntil=now()+rand(3.5,5.5); }  // pops into her hutch
-    else if(roll<0.9){ hopTo(world.bed.x); }
+    else if(roll<0.9){ hopTo(world.bed.x); rab.bedNapAt=now()+0.9; }   // wander to bed → maybe curl up
     else { rab.groomUntil=0; }
   }
 }
@@ -2158,7 +2171,16 @@ function frame(){
   if(!rab.play){
     const hm=world.hammock;
     rab.inHammock = rab.state==='rest' && owns('hammock') && !rab.hopping && Math.abs(rab.x-hm.x)<hm.w*0.5;
-    rab.playYOff = damp(rab.playYOff||0, rab.inHammock? (hm.nap - rab.baseY) : 0, 5, dt);
+    // she sometimes curls up in her bed after wandering to it (short nap, interruptible)
+    if(rab.bedNapAt && t>rab.bedNapAt){
+      rab.bedNapAt=0;
+      if(!rab.hopping && !rab.cold && rab.state!=='tummy' && !rab.trick
+         && Math.abs(rab.x-world.bed.x)<world.bed.r*0.6 && Math.random()<0.65)
+        rab.restUntil = t + rand(5,9);
+    }
+    rab.inBed = rab.state==='rest' && !rab.inHammock && !rab.hopping && Math.abs(rab.x-world.bed.x)<world.bed.r*0.6;
+    rab.playYOff = damp(rab.playYOff||0,
+      rab.inHammock? (hm.nap - rab.baseY) : rab.inBed? (world.bed.y - rab.baseY)*0.55 : 0, 5, dt);
     const inDen = t<rab.denUntil && owns('hutch') && !rab.hopping && Math.abs(rab.x-world.hutch.x)<world.hutch.r*0.5;
     rab.playAlpha = damp(rab.playAlpha!==undefined?rab.playAlpha:1, inDen? 0.12 : 1, 5, dt);
   }
@@ -2196,6 +2218,7 @@ function frame(){
   if(rab.hidden) drawHideHint(t); else drawRabbit(t);
   ctx.restore();
   if(rab.inHammock && !rab.hidden) drawHammockFront();   // the sling's near lip wraps over her
+  if(rab.inBed && !rab.hidden && !rab.play) drawBedFront();   // the bed's near rim tucks her in
   if(t < rab.boxT) drawLitterFront();         // box wall in front of the rabbit while it's inside
   drawBegBubble();                            // speech bubble on top of everything
   ctx.restore();
