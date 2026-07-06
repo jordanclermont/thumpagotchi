@@ -222,7 +222,7 @@ const rab = {
   petArmedOnce:false, baitAt:0, fallbackThumpBy:0,
   // progression
   bondLevel:1, bondXP:0, carrots:12,
-  weight:100, health:100, sick:false, sickAt:0,
+  weight:100, health:100, sick:false, sickAt:0, nextCheckupDay:5,
   items:{}, mastery:{}, achievements:{},
   goals:[], goalDay:0, goalCounters:{},
   lifetimePets:0,
@@ -267,7 +267,7 @@ function save(){
       thumps:rab.thumps, cold:rab.cold, bananasToday:rab.bananasToday,
       day:rab.day, ageDays:rab.ageDays, timeOfDay,
       bondLevel:rab.bondLevel, bondXP:rab.bondXP, carrots:rab.carrots,
-      weight:rab.weight, health:rab.health, sick:rab.sick,
+      weight:rab.weight, health:rab.health, sick:rab.sick, nextCheckupDay:rab.nextCheckupDay,
       items:rab.items, mastery:rab.mastery, achievements:rab.achievements,
       goals:rab.goals, goalDay:rab.goalDay, goalCounters:rab.goalCounters,
       lifetimePets:rab.lifetimePets, decor:rab.decor,
@@ -299,6 +299,8 @@ function applySave(d){
   rab.bondLevel=Math.max(1,Math.round(num(d.bondLevel,1))); rab.bondXP=Math.max(0,num(d.bondXP,0));
   rab.carrots=Math.max(0,Math.round(num(d.carrots,12)));
   rab.weight=clamp(num(d.weight,100),45,175); rab.health=clamp(num(d.health,100)); rab.sick=!!d.sick;
+  // scheduled checkups: default an established save to the next day-5 boundary so it isn't retro-overdue
+  rab.nextCheckupDay = Math.max(5, Math.round(num(d.nextCheckupDay, Math.floor(rab.day/5)*5 + 5)));
   rab.items=d.items||{}; rab.mastery=d.mastery||{}; rab.achievements=d.achievements||{};
   rab.goals=Array.isArray(d.goals)?d.goals:[]; rab.goalDay=num(d.goalDay,0); rab.goalCounters=d.goalCounters||{};
   rab.lifetimePets=num(d.lifetimePets,0);
@@ -1417,6 +1419,13 @@ function endNight(){
   const tttNew   = rab.gamesRevealed && rab.day===3;
   const catchNew = rab.gamesRevealed && rab.day===4;
   applyGamesTab();
+  // Scheduled vet checkup: due day 5 and every 5 days. If overdue, her health slips and illness
+  // risk climbs each morning until the (free) checkup is done — see callVet/completeCheckup.
+  const checkupOverdue = rab.day - rab.nextCheckupDay;   // <0 not due · 0 due today · ≥1 overdue
+  if(checkupOverdue>=1 && !rab.sick){
+    rab.health = clamp(rab.health - (10 + checkupOverdue*5));
+    if(Math.random() < Math.min(0.7, 0.18 + checkupOverdue*0.18)) getSick();
+  }
   addCarrots(6);
   const ev = rollDailyEvent();
   if(ev==='hide'){
@@ -1443,6 +1452,10 @@ function endNight(){
     setTimeout(()=>toast('⭕ New game unlocked: Bunny Tic-Tac-Toe! Find it in the 🎮 Games tab — beat her to earn 🥕.'), followT); followT+=3200; }
   if(catchNew){
     setTimeout(()=>toast('🥕 New game unlocked: Carrot Catch! Slide the bunny to catch falling carrots (dodge the wilted lettuce). In 🎮 Games.'), followT); followT+=3200; }
+  if(checkupOverdue===0){
+    setTimeout(()=>toast(`🩺 ${rab.name} is due for a wellness checkup today — it's free. Tap 🩺 Vet in the Health tab.`), followT); followT+=3200; }
+  else if(checkupOverdue>=1 && !rab.sick){
+    setTimeout(()=>toast(`⚠️ Checkup overdue (${checkupOverdue}d late)! ${cap(P().p)} health is slipping — see the 🩺 Vet (free) before ${P().s} falls ill.`), followT); followT+=3200; }
   // Growth-moment exit beat: one quiet line right after the day-3 Kit→Junior growth (item 10)
   if(grewTo && grewTo.key==='junior' && !rab.exitBeatShown){
     rab.exitBeatShown=true;
@@ -1510,6 +1523,7 @@ function getSick(){
 }
 function cureSick(free){
   rab.sick=false; rab.health=clamp(Math.max(rab.health,68));
+  if(checkupDueNow()) rab.nextCheckupDay=rab.day+5;   // the emergency visit doubles as the due checkup
   stats.hunger=clamp(stats.hunger-10);
   const p=parts(); for(let i=0;i<5;i++) spawnHeart(p.head.x+rand(-20,20),p.head.y);
   unlockAch('nurse');
@@ -1851,6 +1865,17 @@ function updatePlay(dt){
     if(k>=1) endPlay();
   }
 }
+// Scheduled wellness checkups: due on day 5 and every 5 days after. A due checkup is FREE
+// (it's required care); skipping it slips her health and risks illness until it's done (see endNight).
+function checkupDueNow(){ return rab.day >= rab.nextCheckupDay; }
+function completeCheckup(){
+  rab.nextCheckupDay = rab.day + 5;                 // next one in 5 days
+  rab.health=clamp(rab.health+15); stats.happy=clamp(stats.happy+4);
+  addXP(8);                                         // responsible care deepens the bond
+  const ws=weightStatus();
+  toast(`🩺 Checkup done — all clear! Next one on day ${rab.nextCheckupDay}. (${cap(P().s)}'s ${ws.lbs} lb — ${ws.txt}.)`);
+  save();
+}
 function callVet(){
   if(rab.sick){
     if(owns('medicine')){ rab.items.medicine=Math.max(0,(rab.items.medicine|0)-1);
@@ -1860,7 +1885,9 @@ function callVet(){
     toast(`An emergency vet visit is 45🥕 (you have ${rab.carrots})! Cheaper to keep Gut Medicine 💊 stocked.`);
     return;
   }
-  // wellness checkup
+  // the required scheduled checkup is free when it's due/overdue
+  if(checkupDueNow()){ completeCheckup(); return; }
+  // an optional off-schedule wellness checkup still costs 10🥕
   if(spendCarrots(10)){
     rab.health=clamp(rab.health+20); stats.happy=clamp(stats.happy+4);
     const ws=weightStatus();
@@ -2222,9 +2249,10 @@ function updateHUD(){
   const hc=$('healthChip');
   if(rab.sick){ hc.style.display='inline-flex'; hc.textContent='🤒 Sick'; hc.className='chip warn blink'; }
   else if(rab.health<45){ hc.style.display='inline-flex'; hc.textContent='❤ '+Math.round(rab.health); hc.className='chip warn'; }
+  else if(checkupDueNow()){ hc.style.display='inline-flex'; hc.textContent='🩺 Checkup'; hc.className='chip warn'; }
   else { hc.style.display='none'; }
   // contextual action enabling
-  $('bVet').classList.toggle('urgent', rab.sick);
+  $('bVet').classList.toggle('urgent', rab.sick || checkupDueNow());
   const _ft=now();   // feed cooldown: grey the button out until she's done with the last serving
   const bh=$('bHay');     if(bh) bh.disabled = _ft<feedLock.hay;
   const bp=$('bPellets'); if(bp) bp.disabled = _ft<feedLock.pellets;
