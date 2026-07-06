@@ -1,1 +1,6 @@
 .DS_Store
+
+# Local dev workbenches (art scratch tools) and private devlog — not part of the shipped game
+rabbit-lab.html
+props-lab.html
+thumpagotchi-devlog/
