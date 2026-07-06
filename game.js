@@ -122,6 +122,10 @@ const shopItem = id => SHOP.find(s=>s.id===id);
 
 
 /* Daily goal generators — 3 are rolled each new day */
+// Each generator may carry an `avail()` predicate; a goal is only rollable when it returns
+// true (e.g. Play needs a toy; minigame goals need the game unlocked). The 90%-Happiness goal
+// was removed from rotation for being too easy — the happy90Armed logic stays but is now inert.
+const SNAKE_GOAL = 6;   // score threshold for the Bunny Snake daily goal
 const GOAL_POOL = [
   () => ({track:'hay',    target:2,  reward:7,  text:'Serve fresh hay ×2'}),
   () => ({track:'trick',  target:3,  reward:9,  text:'Perform ×3 tricks'}),
@@ -129,8 +133,10 @@ const GOAL_POOL = [
   () => ({track:'water',  target:1,  reward:5,  text:'Refill the water bowl'}),
   () => ({track:'pet',    target:10, reward:7,  text:'Give ×10 head pets'}),
   () => ({track:'binky',  target:2,  reward:9,  text:'Spark ×2 binkies'}),
-  () => ({track:'happy90',target:1,  reward:9,  text:'Reach 90% Happiness'}),
-  () => ({track:'play',   target:2,  reward:8,  text:'Play together ×2'}),
+  () => ({track:'play',   target:2,  reward:8,  text:'Play together ×2',            avail:()=>owns('ball')||owns('tunnel')||owns('tower')}),
+  () => ({track:'g_snake',target:1,  reward:10, text:`Score ${SNAKE_GOAL}+ in Bunny Snake`, avail:()=>gameUnlocked('snake')}),
+  () => ({track:'g_guess',target:1,  reward:10, text:'Win at Guess My Number',      avail:()=>gameUnlocked('guess')}),
+  () => ({track:'g_ttt',  target:1,  reward:12, text:'Beat me at Bunny Tic-Tac-Toe',avail:()=>gameUnlocked('ttt')}),
 ];
 
 const ACHS = {   // one-time milestones (id → {name, carrots})
@@ -356,9 +362,8 @@ function unlockAch(id){
  *  DAILY GOALS
  * ============================================================================ */
 function rollGoals(){
-  // the Play goal is only rollable once a toy is owned (otherwise it can't be completed)
-  const hasToy = owns('ball')||owns('tunnel')||owns('tower');
-  const pool = GOAL_POOL.map(f=>f()).filter(g=>g.track!=='play' || hasToy);
+  // a goal is only rollable when its avail() predicate passes (toy owned, game unlocked, …)
+  const pool = GOAL_POOL.map(f=>f()).filter(g=> !g.avail || g.avail());
   const chosen=[];
   for(let i=0;i<3 && pool.length;i++){
     const idx=Math.floor(Math.random()*pool.length);
@@ -561,6 +566,7 @@ function drawRoom(){
   // wainscot highlight + soft shadow where the wall meets the floor
   ctx.fillStyle='rgba(255,255,255,.16)'; ctx.fillRect(0,world.floorY-14,W,5);
   ctx.fillStyle='rgba(0,0,0,.08)'; ctx.fillRect(0,world.floorY-8,W,8);
+  drawOutlet();   // permanent wall outlet on the baseboard (the charger plugs in here when the hazard fires)
   {
     const floor=ctx.createLinearGradient(0,world.floorY,0,H);
     floor.addColorStop(0,'#cea06d'); floor.addColorStop(0.6,'#b6844f'); floor.addColorStop(1,'#9c6f3c');
@@ -871,8 +877,18 @@ function drawHideHint(t){
   if(Math.random()<0.02) spawnSparkle(sx+rand(-10,10), sy-6);
 }
 /* --- Phone-charger hazard --- */
+// The wall outlet is a PERMANENT fixture of the room (drawn on the baseboard in drawRoom); only
+// the charger cord + phone appear when the hazard fires, plugged into that fixed outlet.
+function outletPos(){ return {x: Math.max(24, W*0.085), y: world.floorY - 18}; }
+function drawOutlet(){
+  const o=outletPos();
+  ctx.fillStyle='#efe6d4'; roundRect(o.x-9, o.y-13, 18, 26, 3); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.22)'; ctx.lineWidth=1.5; roundRect(o.x-9, o.y-13, 18, 26, 3); ctx.stroke();
+  ctx.fillStyle='#4a4a4a'; ctx.fillRect(o.x-3.5, o.y-7, 2.5, 6); ctx.fillRect(o.x+1, o.y-7, 2.5, 6);
+}
 function startHazardEvent(){
-  dayEvent={type:'hazard', cord:{x:Math.max(80, W*0.12), y:H*0.80}, secured:false, chewed:false, nearT:0, nextTemptt:now()+rand(4,8)};
+  const o=outletPos();
+  dayEvent={type:'hazard', cord:{x:o.x+78, y:H*0.80}, secured:false, chewed:false, nearT:0, nextTemptt:now()+rand(4,8)};
 }
 function tapCord(px,py){
   if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return false;
@@ -933,20 +949,15 @@ function drawHazard(){
     if(el>2.5){ dayEvent=null; return; }
     fade=clamp(1-el/2.5, 0, 1);
   }
-  const c=dayEvent.cord;
+  const c=dayEvent.cord, o=outletPos();
   ctx.save(); ctx.globalAlpha=fade;
-  // the wall outlet the charger is actually plugged into (on the baseboard)
-  const ox=Math.max(14, c.x-70), oy=world.floorY+14;
-  ctx.fillStyle='#efe6d4'; roundRect(ox-9, oy-13, 18, 26, 3); ctx.fill();
-  ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1.5; roundRect(ox-9, oy-13, 18, 26, 3); ctx.stroke();
-  ctx.fillStyle='#4a4a4a'; ctx.fillRect(ox-3.5, oy-7, 2.5, 6); ctx.fillRect(ox+1, oy-7, 2.5, 6);
-  // the cord: plug at the outlet, drooping down the wall, snaking along the floor to the phone
+  // the cord: plug at the (permanent) outlet, drooping down the wall, snaking along the floor to the phone
   ctx.strokeStyle = dayEvent.chewed? '#a8452f' : '#242424';
   ctx.lineWidth=3; ctx.lineCap='round';
   if(!dayEvent.secured){
-    ctx.fillStyle='#242424'; roundRect(ox-5, oy+1, 10, 9, 2); ctx.fill();              // plug body
-    ctx.beginPath(); ctx.moveTo(ox, oy+9);
-    ctx.bezierCurveTo(ox, c.y-6, c.x-46, c.y+10, c.x-2, c.y+2);                        // wall droop → floor snake
+    ctx.fillStyle='#242424'; roundRect(o.x-5, o.y+1, 10, 9, 2); ctx.fill();            // plug body at the outlet
+    ctx.beginPath(); ctx.moveTo(o.x, o.y+9);
+    ctx.bezierCurveTo(o.x, c.y-6, c.x-46, c.y+10, c.x-2, c.y+2);                        // wall droop → floor snake
     ctx.stroke();
   }
   ctx.lineCap='butt';
@@ -1396,9 +1407,14 @@ function endNight(){
   const grewTo = (st.key!=='kit' && stageFor(rab.ageDays-1).key!==st.key) ? st : null;
   if(grewTo && grewTo.key==='senior') unlockAch('senior');
   if(rab.ageDays>=7) unlockAch('week');
-  // Progressive disclosure: the Games tab appears on the morning of day 2 (item 5)
+  // Progressive disclosure: the Games tab appears on the morning of day 2 (item 5); individual
+  // games then unlock on later days, so re-apply visibility every rollover (Tic-Tac-Toe day 3,
+  // Carrot Catch day 4).
   const revealGames = !rab.gamesRevealed && rab.day>=2;
-  if(revealGames){ rab.gamesRevealed=true; applyGamesTab(); }
+  if(revealGames) rab.gamesRevealed=true;
+  const tttNew   = rab.gamesRevealed && rab.day===3;
+  const catchNew = rab.gamesRevealed && rab.day===4;
+  applyGamesTab();
   addCarrots(6);
   const ev = rollDailyEvent();
   if(ev==='hide'){
@@ -1414,12 +1430,17 @@ function endNight(){
   // the 90%-happiness goal starts the day partially complete for free.
   rollGoals();
   happy90Armed=false;
+  hayCreditAt=0;   // drop any feeding credit still pending across the rollover
   // Staggered morning follow-ups so each beat is actually read (the toast is single-slot).
   let followT = 3200;
   if(grewTo){ const g=grewTo;
     setTimeout(()=>toast(`🎂 ${rab.name} grew up — now a ${g.name}! ${g.label}`), followT); followT+=3200; }
   if(revealGames){
     setTimeout(()=>toast('🎮 New! The Games tab just opened in the bottom bar — tap 🎮 Games for arcade minigames and extra 🥕.'), followT); followT+=3200; }
+  if(tttNew){
+    setTimeout(()=>toast('⭕ New game unlocked: Bunny Tic-Tac-Toe! Find it in the 🎮 Games tab — beat her to earn 🥕.'), followT); followT+=3200; }
+  if(catchNew){
+    setTimeout(()=>toast('🥕 New game unlocked: Carrot Catch! Slide the bunny to catch falling carrots (dodge the wilted lettuce). In 🎮 Games.'), followT); followT+=3200; }
   // Growth-moment exit beat: one quiet line right after the day-3 Kit→Junior growth (item 10)
   if(grewTo && grewTo.key==='junior' && !rab.exitBeatShown){
     rab.exitBeatShown=true;
@@ -1555,9 +1576,9 @@ function takenAway(reason){
   started=false; wipeSave();
   // tidy up any open minigame (losing Guess can trigger this mid-overlay)
   if(SN.timer){ clearInterval(SN.timer); SN.timer=null; } SN.on=false;
-  if(PN.raf){ cancelAnimationFrame(PN.raf); PN.raf=null; } PN.on=false; GS.on=false;
+  GS.on=false;
   minigameActive=false;
-  ['snake','pong','guess'].forEach(id=>{ const el=$(id); if(el) el.classList.remove('show'); });
+  ['snake','guess','ttt','catch'].forEach(id=>{ const el=$(id); if(el) el.classList.remove('show'); });
   const o=$('rps');
   if(reason==='anger'){
     $('rpsIcon').textContent='🚔'; $('rpsTitle').textContent='Rabbit Protective Services';
@@ -1595,21 +1616,32 @@ function hopTo(x){
 }
 function wake(){ if(rab.state==='rest'){ rab.restUntil=0; } }
 
+// Feeding anti-spam: a short cooldown per food button (the button is visibly disabled in
+// updateHUD while it's live), and the hay goal is credited only once she's actually hopped over
+// and started eating — not per click. Together these kill the double-click-hay goal exploit.
+const FEED_CD = 5;                          // seconds; covers the hop-over + first munch
+const feedLock = {hay:0, pellets:0};
+let hayCreditAt = 0;                        // when the pending hay-goal credit resolves (0 = none)
+
 function giveHay(){
   if(rab.cold){ coldRefuse(); return; }
+  if(now()<feedLock.hay) return;            // still munching the last serving — ignore
+  feedLock.hay = now()+FEED_CD;
   wake();
   stats.hunger=clamp(stats.hunger-40);
   stats.happy=clamp(stats.happy+4);
   rab.thumps=clamp(rab.thumps-0.4,0,5);
   addWeight(-1.6);                          // hay is the healthy staple — trims weight
   hayFresh=6; addXP(3); addCarrots(1, rab.x, rab.baseY-70);
-  incGoal('hay');
+  hayCreditAt = now()+0.8;                  // goal counts only once she's hopped over & eating
   hopTo(world.litter.x);
   rab.boxT = now() + 8;                     // hops over and climbs into the box to munch
   toast(`Fresh Timothy hay in the box! ${rab.name} climbs in to munch. 🌾`);
 }
 function givePellets(){
   if(rab.cold){ coldRefuse(); return; }
+  if(now()<feedLock.pellets) return;        // one scoop per cooldown
+  feedLock.pellets = now()+FEED_CD;
   wake();
   stats.hunger=clamp(stats.hunger-26);
   stats.happy=clamp(stats.happy+6);
@@ -2035,6 +2067,8 @@ function frame(){
   }
   tickEvent(dt,t);
   tickScript(t);
+  // state-gated feeding credit: the hay goal ticks only once she's actually eating
+  if(hayCreditAt && t>=hayCreditAt){ hayCreditAt=0; incGoal('hay'); }
 
   /* owned-furniture interactions: she settles INTO the hammock for a nap, and fades
      into the hutch doorway when she pops in for a den visit */
@@ -2135,6 +2169,9 @@ function updateHUD(){
   else { hc.style.display='none'; }
   // contextual action enabling
   $('bVet').classList.toggle('urgent', rab.sick);
+  const _ft=now();   // feed cooldown: grey the button out until she's done with the last serving
+  const bh=$('bHay');     if(bh) bh.disabled = _ft<feedLock.hay;
+  const bp=$('bPellets'); if(bp) bp.disabled = _ft<feedLock.pellets;
   const bc=$('banCount'); if(bc){ bc.textContent=rab.bananasToday+'/2'; bc.classList.toggle('warn', rab.bananasToday>=2); }
   // the tip line teaches on day 1, then fades away once she's established (keeps the scene clean)
   const hintEl=$('hint');
@@ -2377,8 +2414,20 @@ bind('bBanana',offerBanana); bind('bPet',togglePetting); bind('bTrick',doTrick);
 bind('bClean',cleanLitter); bind('bRest',restRabbit); bind('bPlay',playToy); bind('bVet',callVet);
 bind('tbShop',()=>openPanel('shop')); bind('tbGoals',()=>openPanel('goals')); bind('tbMenu',()=>openPanel('menu'));
 
-// Games tab stays hidden until it's revealed (day 2, or immediately for established saves) — item 5
-function applyGamesTab(){ const t=$('tabGames'); if(t) t.style.display = rab.gamesRevealed ? '' : 'none'; }
+// Games tab stays hidden until it's revealed (day 2, or immediately for established saves) — item 5.
+// Individual games unlock on a schedule after that: Snake/Guess with the tab, Tic-Tac-Toe on day 3,
+// Carrot Catch on day 4. Single source of truth for both goal availability and button visibility.
+function gameUnlocked(id){
+  if(!rab.gamesRevealed) return false;
+  if(id==='ttt')   return rab.day>=3;
+  if(id==='catch') return rab.day>=4;
+  return true;   // snake, guess
+}
+function applyGamesTab(){
+  const t=$('tabGames'); if(t) t.style.display = rab.gamesRevealed ? '' : 'none';
+  const bt=$('bTtt');   if(bt) bt.style.display   = gameUnlocked('ttt')   ? 'flex' : 'none';
+  const bct=$('bCatch');if(bct) bct.style.display = gameUnlocked('catch') ? 'flex' : 'none';
+}
 
 // bottom-dock sub-tabs (Care / Play / Health)
 function setTab(name){
@@ -2603,6 +2652,7 @@ function snGameOver(){
   if(SN.timer){ clearInterval(SN.timer); SN.timer=null; }
   const reward = SN.score;
   if(reward>0){ addCarrots(reward); addXP(Math.min(15, SN.score)); }   // via addCarrots so 🏆 Tycoon can trigger
+  if(SN.score>=SNAKE_GOAL) incGoal('g_snake');                          // daily goal: score N in a run
   const isBest = SN.score>SN.best && SN.score>0;
   if(isBest){ SN.best=SN.score; try{ localStorage.setItem(SNAKE_BEST_KEY, SN.best); }catch(e){} }
   $('snBest').textContent=SN.best;
@@ -2721,6 +2771,7 @@ function guessEndCard(html){ const m=$('gMsg'); m.innerHTML=html+`<div class="mg
 function guessWin(){
   GS.done=true; GS.on=false;
   addCarrots(50, rab.x, rab.baseY-60); addXP(15); stats.happy=clamp(stats.happy+14); rab.thumps=clamp(rab.thumps-1,0,5);
+  incGoal('g_guess');   // daily goal: win Guess My Number
   startBinky();
   $('gFace').textContent='😻'; $('gBubble').textContent=`It WAS ${GS.secret}! You read my mind! 🥕`;
   guessEndCard(`<h3>Correct! +50🥕</h3>`); save();
@@ -2734,108 +2785,6 @@ function guessLose(){
 bind('bGuess', openGuess);
 bind('guessClose', closeGuess);
 bind('rpsBtn', ()=>location.reload());
-
-/* ============================================================================ *
- *  BUNNY PONG — the ball is a little rabbit head; first to 5 wins carrots
- * ============================================================================ */
-const PN = { on:false, over:false, you:0, cpu:0, W:320, H:400, pad:76, px:160, ax:160,
-             ball:{x:0,y:0,vx:0,vy:0}, raf:null, lastT:0 };
-let pnCanvas=null, pnCtx=null;
-function openPong(){
-  if(rab.cold){ coldRefuse(); return; }
-  pnCanvas=$('pongCanvas'); pnCtx=pnCanvas.getContext('2d');
-  minigameActive=true; $('pong').classList.add('show'); $('pongOverlayMsg').className='mgmsg';
-  PN.you=0; PN.cpu=0; $('pnYou').textContent=0; $('pnCpu').textContent=0;
-  pnResize(); pnServe(true); PN.on=true; PN.over=false;
-  PN.lastT=now(); PN.raf=requestAnimationFrame(pnFrame);
-}
-function closePong(){ PN.on=false; minigameActive=false; if(PN.raf) cancelAnimationFrame(PN.raf); $('pong').classList.remove('show'); last=now(); }
-function pnResize(){
-  const wCss=Math.min((window.innerWidth||360)*0.84, 330);
-  PN.W=Math.round(wCss); PN.H=Math.round(wCss*1.28);
-  const dpr=Math.min(window.devicePixelRatio||1,2);
-  pnCanvas.style.width=PN.W+'px'; pnCanvas.style.height=PN.H+'px';
-  pnCanvas.width=Math.round(PN.W*dpr); pnCanvas.height=Math.round(PN.H*dpr);
-  pnCtx.setTransform(dpr,0,0,dpr,0,0);
-  PN.pad=Math.round(PN.W*0.26); PN.px=PN.W/2; PN.ax=PN.W/2;
-}
-function pnServe(down){
-  const b=PN.ball, sp=PN.H*0.62, ang=rand(-0.5,0.5);
-  b.x=PN.W/2; b.y=PN.H/2; b.vx=Math.sin(ang)*sp; b.vy=(down?1:-1)*Math.cos(ang)*sp;
-}
-function pnScore(who){
-  if(who==='you'){ PN.you++; } else { PN.cpu++; }
-  $('pnYou').textContent=PN.you; $('pnCpu').textContent=PN.cpu;
-  if(PN.you>=5 || PN.cpu>=5){ pnEnd(); return; }
-  pnServe(who==='you');   // serve toward whoever just conceded
-}
-function pnEnd(){
-  PN.over=true; PN.on=false;
-  const won=PN.you>PN.cpu;
-  if(won){ addCarrots(30, rab.x, rab.baseY-60); addXP(12); stats.happy=clamp(stats.happy+10); startBinky(); }
-  else { rab.thumps=clamp(rab.thumps+0.8,0,5); }
-  save();
-  const m=$('pongOverlayMsg');
-  m.innerHTML=`<div class="mgover"><h3>${won?'You win! +30🥕':`${rab.name} wins! 🐰`}</h3>
-    <div class="mgbtns"><button id="pnAgain">Play again</button><button id="pnDone">Done</button></div></div>`;
-  m.className='mgmsg show';
-  $('pnAgain').onclick=()=>{ PN.you=0;PN.cpu=0;$('pnYou').textContent=0;$('pnCpu').textContent=0;
-    $('pongOverlayMsg').className='mgmsg'; pnServe(true); PN.on=true; PN.over=false; PN.lastT=now(); PN.raf=requestAnimationFrame(pnFrame); };
-  $('pnDone').onclick=closePong;
-}
-function pnFrame(){
-  if(!PN.on) return;
-  const t=now(); let dt=t-PN.lastT; PN.lastT=t; dt=Math.min(dt,0.033);
-  const b=PN.ball, r=PN.W*0.05;
-  // CPU paddle chases the ball (capped speed)
-  const aiStep=PN.W*1.25*dt;
-  PN.ax += clamp(b.x-PN.ax, -aiStep, aiStep);
-  PN.ax = clamp(PN.ax, PN.pad/2, PN.W-PN.pad/2);
-  // ball
-  b.x+=b.vx*dt; b.y+=b.vy*dt;
-  if(b.x<r){ b.x=r; b.vx=Math.abs(b.vx); }
-  if(b.x>PN.W-r){ b.x=PN.W-r; b.vx=-Math.abs(b.vx); }
-  const yYou=PN.H-24, yCpu=24;
-  if(b.vy>0 && b.y>yYou-r && b.y<yYou+10 && Math.abs(b.x-PN.px)<PN.pad/2+r){
-    b.y=yYou-r; b.vy=-Math.abs(b.vy)*1.03; b.vx += (b.x-PN.px)/(PN.pad/2)*PN.W*0.6; }
-  if(b.vy<0 && b.y<yCpu+r && b.y>yCpu-10 && Math.abs(b.x-PN.ax)<PN.pad/2+r){
-    b.y=yCpu+r; b.vy=Math.abs(b.vy)*1.03; b.vx += (b.x-PN.ax)/(PN.pad/2)*PN.W*0.6; }
-  b.vx=clamp(b.vx,-PN.H*0.75,PN.H*0.75); b.vy=clamp(b.vy,-PN.H*0.9,PN.H*0.9);
-  if(b.y>PN.H+r){ pnScore('cpu'); }
-  else if(b.y<-r){ pnScore('you'); }
-  pnDraw();
-  if(PN.on) PN.raf=requestAnimationFrame(pnFrame);
-}
-function pnDraw(){
-  const c=pnCtx, r=PN.W*0.05, b=PN.ball;
-  c.fillStyle='#3a4a6a'; c.fillRect(0,0,PN.W,PN.H);
-  c.strokeStyle='rgba(255,255,255,.2)'; c.setLineDash([6,8]); c.lineWidth=2;
-  c.beginPath();c.moveTo(0,PN.H/2);c.lineTo(PN.W,PN.H/2);c.stroke(); c.setLineDash([]);
-  c.fillStyle='#e6c078'; roundRectCtx(c, PN.px-PN.pad/2, PN.H-28, PN.pad, 11, 5); c.fill();
-  c.fillStyle='#c98fb0'; roundRectCtx(c, PN.ax-PN.pad/2, 17, PN.pad, 11, 5); c.fill();
-  // ball = rabbit head (ears, face, eyes, nose)
-  c.fillStyle=coat.body;
-  c.beginPath();c.ellipse(b.x-r*0.5, b.y-r*1.0, r*0.3, r*0.66, -0.2,0,7);c.fill();
-  c.beginPath();c.ellipse(b.x+r*0.5, b.y-r*1.0, r*0.3, r*0.66,  0.2,0,7);c.fill();
-  c.beginPath();c.arc(b.x, b.y, r, 0,7);c.fill();
-  c.fillStyle='#140f0b';
-  c.beginPath();c.arc(b.x-r*0.35, b.y-r*0.1, r*0.15,0,7);c.fill();
-  c.beginPath();c.arc(b.x+r*0.35, b.y-r*0.1, r*0.15,0,7);c.fill();
-  c.fillStyle='#c86a72'; c.beginPath();c.ellipse(b.x, b.y+r*0.28, r*0.13, r*0.1, 0,0,7);c.fill();
-}
-(function wirePong(){
-  const cv=$('pongCanvas');
-  const move=(clientX)=>{ if(!PN.on) return; const rct=cv.getBoundingClientRect();
-    PN.px=clamp((clientX-rct.left)*(PN.W/rct.width), PN.pad/2, PN.W-PN.pad/2); };
-  cv.addEventListener('mousemove',e=>move(e.clientX));
-  cv.addEventListener('touchmove',e=>{ e.preventDefault(); move(e.touches[0].clientX); },{passive:false});
-  window.addEventListener('keydown',e=>{ if(!PN.on) return;
-    if(e.key==='ArrowLeft'){ PN.px=clamp(PN.px-PN.W*0.09,PN.pad/2,PN.W-PN.pad/2); e.preventDefault(); }
-    else if(e.key==='ArrowRight'){ PN.px=clamp(PN.px+PN.W*0.09,PN.pad/2,PN.W-PN.pad/2); e.preventDefault(); } });
-  window.addEventListener('resize',()=>{ if(pnCanvas && $('pong').classList.contains('show')){
-    pnResize(); if(PN.on) pnServe(true); pnDraw(); } });   // re-fit the board; re-serve mid-rally
-  bind('bPong', openPong); bind('pongClose', closePong);
-})();
 
 /* ---------------- Boot ---------------- */
 loadUnlocks();
