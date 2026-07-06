@@ -2384,13 +2384,28 @@ function renderSwatches(breed){
   chosenCoat = BREED_DEFAULT_COAT[breed] || keys[0];
   keys.forEach(key=>{
     const co=COATS[key];
-    const d=document.createElement('div');
+    // Two-tone swatch (body + the point colour that defines the coat), drawn on a
+    // small canvas with the circle clipped IN the bitmap — CSS border-radius over a
+    // gradient leaks square corners in some browsers, so we never rely on it.
+    const d=document.createElement('canvas');
+    const px=46, dpr=Math.min(window.devicePixelRatio||1, 3);
+    d.width=px*dpr; d.height=px*dpr;
+    const c=d.getContext('2d'); c.scale(dpr,dpr);
+    c.beginPath(); c.arc(px/2, px/2, px/2, 0, Math.PI*2); c.clip();
+    const g=c.createLinearGradient(0,0,px,px);
+    if(co.tan){
+      g.addColorStop(0,co.body);    g.addColorStop(0.50,co.body);
+      g.addColorStop(0.50,co.tanCol); g.addColorStop(0.72,co.tanCol);
+      g.addColorStop(0.72,co.point);  g.addColorStop(1,co.point);
+    } else {
+      g.addColorStop(0,co.body);       g.addColorStop(0.55,co.body);
+      g.addColorStop(0.55,co.pointMid); g.addColorStop(0.78,co.pointMid);
+      g.addColorStop(0.78,co.point);    g.addColorStop(1,co.point);
+    }
+    c.fillStyle=g; c.fillRect(0,0,px,px);
+    c.strokeStyle='rgba(0,0,0,.14)'; c.lineWidth=1.6;          // soft inner rim
+    c.beginPath(); c.arc(px/2, px/2, px/2-0.9, 0, Math.PI*2); c.stroke();
     d.className='swatch'+(key===chosenCoat?' on':'');
-    // two-tone swatch: body colour + the point/marking colour that actually defines
-    // the coat (so "Sable Point (Grey)" shows grey, "Black & Tan" shows its tan)
-    d.style.background = co.tan
-      ? `linear-gradient(135deg, ${co.body} 0 50%, ${co.tanCol} 50% 72%, ${co.point} 72% 100%)`
-      : `linear-gradient(135deg, ${co.body} 0 55%, ${co.pointMid} 55% 78%, ${co.point} 78% 100%)`;
     d.title=co.name; d.dataset.key=key;
     d.addEventListener('click',()=>{
       chosenCoat=key;
