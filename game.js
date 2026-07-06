@@ -47,7 +47,7 @@ const COATS = {
   blue:       {name:'Blue (Grey)',         body:'#909196', bodySh:'#727379', hi:'#bcbdc3', point:'#4d4e53', pointMid:'#6b6c71', sable:false},
   fawn:       {name:'Fawn / Orange',       body:'#e2ab61', bodySh:'#c98f47', hi:'#f4cb88', point:'#c07f3d', pointMid:'#dba25a', sable:false},
   // ---- Netherland Dwarf coats ----
-  ndBlackTan: {name:'Black & Tan (Elvis)', body:'#2c2825', bodySh:'#1a1613', hi:'#463d36', point:'#100d0b', pointMid:'#2b2622', sable:false, tan:true, tanCol:'#c68a3e', belly:'#f2ece0'},
+  ndBlackTan: {name:'Black & Tan',         body:'#2c2825', bodySh:'#1a1613', hi:'#463d36', point:'#100d0b', pointMid:'#2b2622', sable:false, tan:true, tanCol:'#c68a3e', belly:'#f2ece0'},
   ndBlueOtter:{name:'Blue Otter',          body:'#8f9096', bodySh:'#6f7076', hi:'#b6b7bd', point:'#4a4b50', pointMid:'#67686d', sable:false, tan:true, tanCol:'#ddd2be'},
   ndChestnut: {name:'Chestnut Agouti',     body:'#9a6b3c', bodySh:'#79512b', hi:'#c08c52', point:'#4a2f18', pointMid:'#6b4526', sable:false},
   ndTort:     {name:'Tortoise',            body:'#cd925a', bodySh:'#a06f3d', hi:'#e6ad72', point:'#3c2416', pointMid:'#6e4526', sable:false},
@@ -2360,6 +2360,7 @@ window.addEventListener('beforeunload',save);
  *  START / ADOPTION SCREEN
  * ============================================================================ */
 let chosenCoat='sableGrey', chosenSex='doe', chosenBreed='holland';
+const EXAMPLE_NAMES = { holland:'Mowgli', netherland:'Elvis', lionhead:'Lionel' };
 function renderSwatches(breed){
   const sw=$('swatches'); sw.innerHTML='';
   const keys = BREED_COATS[breed] || BREED_COATS.holland;
@@ -2368,7 +2369,11 @@ function renderSwatches(breed){
     const co=COATS[key];
     const d=document.createElement('div');
     d.className='swatch'+(key===chosenCoat?' on':'');
-    d.style.background=co.body;   // solid coat colour
+    // two-tone swatch: body colour + the point/marking colour that actually defines
+    // the coat (so "Sable Point (Grey)" shows grey, "Black & Tan" shows its tan)
+    d.style.background = co.tan
+      ? `linear-gradient(135deg, ${co.body} 0 50%, ${co.tanCol} 50% 72%, ${co.point} 72% 100%)`
+      : `linear-gradient(135deg, ${co.body} 0 55%, ${co.pointMid} 55% 78%, ${co.point} 78% 100%)`;
     d.title=co.name; d.dataset.key=key;
     d.addEventListener('click',()=>{
       chosenCoat=key;
@@ -2394,9 +2399,11 @@ function buildStart(){
       document.querySelectorAll('#breedSeg button').forEach(x=>x.classList.remove('on'));
       b.classList.add('on');
       renderSwatches(chosenBreed);
+      $('nameInput').placeholder='e.g. '+(EXAMPLE_NAMES[chosenBreed]||'Mowgli');
     });
   });
   renderSwatches(chosenBreed);
+  $('nameInput').placeholder='e.g. '+(EXAMPLE_NAMES[chosenBreed]||'Mowgli');
 
   document.querySelectorAll('#sexSeg button').forEach(b=>{
     b.addEventListener('click',()=>{
