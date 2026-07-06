@@ -447,7 +447,13 @@ function parts(){
   const cx = rab.x;
   const cy = rab.baseY + rab.hopOff + rab.binkyHop + (rab.playYOff||0) + (rab.boxYOff||0);
   const loaf = rab.loaf;
-  const bodyRx = 96*s*(1+0.06*loaf), bodyRy = 74*s*(1-0.10*loaf);
+  // squash & stretch: she stretches tall at the peak of a hop and squashes wide on impact
+  const air = Math.max(0, -(rab.hopOff+rab.binkyHop));
+  const stretch = clamp(air/70, 0, 0.22);
+  const land = rab.landSquash||0;
+  const sqX = 1 - stretch*0.5 + land*0.15;
+  const sqY = 1 + stretch*0.9 - land*0.17;
+  const bodyRx = 96*s*(1+0.06*loaf)*sqX, bodyRy = 74*s*(1-0.10*loaf)*sqY;
   const bodyCy = cy - bodyRy*0.82;
   const headR  = 52*s*(B.headScale||1);
   const beg = rab.trick && rab.trick.name==='beg';
@@ -1084,10 +1090,20 @@ function drawHead(p,t,tummy,closedEyes){
       ctx.strokeStyle='#140f0b';
       ctx.beginPath();ctx.arc(ex,ey,6*s,0.15*Math.PI,0.85*Math.PI);ctx.stroke();
     } else {
+      const joy = clamp((stats.happy-70)/30,0,1);          // rounder & brighter when content
       ctx.fillStyle=eyeCol;
-      ctx.beginPath();ctx.ellipse(ex,ey,6.5*s,7.5*s,0,0,7);ctx.fill();
-      ctx.fillStyle='rgba(255,255,255,.85)';
-      ctx.beginPath();ctx.arc(ex-2*s,ey-3*s,2.2*s,0,7);ctx.fill();
+      ctx.beginPath();ctx.ellipse(ex,ey,(6.5+joy*0.6)*s,(7.5+joy*0.8)*s,0,0,7);ctx.fill();
+      // two catchlights for a livelier, glossier eye
+      ctx.fillStyle='rgba(255,255,255,.9)';
+      ctx.beginPath();ctx.arc(ex-2*s,ey-3*s,2.3*s,0,7);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.5)';
+      ctx.beginPath();ctx.arc(ex+2.2*s,ey+1.8*s,1.1*s,0,7);ctx.fill();
+      // a lowered brow when her patience is thin (annoyed)
+      if(rab.thumps>=2){
+        ctx.strokeStyle=coat.bodySh||'#3a2a20'; ctx.lineWidth=2.6*s; ctx.lineCap='round';
+        ctx.beginPath();ctx.moveTo(ex+dir*6.5*s, ey-9*s);ctx.lineTo(ex-dir*6*s, ey-5*s);ctx.stroke();
+        ctx.lineCap='butt';
+      }
     }
   }
 
@@ -1123,7 +1139,8 @@ function drawHead(p,t,tummy,closedEyes){
 }
 
 function drawLopEar(hx,hy,r,s,dir,t){
-  const sway = Math.sin(t*1.4 + dir)*3*s + (rab.state==='alert'? -6*s:0);
+  const jiggle = Math.sin(t*26 + dir)*(rab.earJiggle||0)*9*s;     // floppy bounce on landing
+  const sway = Math.sin(t*1.4 + dir)*3*s + (rab.state==='alert'? -6*s:0) + jiggle;
   const baseY = hy - r*0.55;
   const tipX  = hx + dir*r*1.15 + sway;
   const tipY  = hy + r*1.05;
@@ -1149,7 +1166,8 @@ function drawLopEar(hx,hy,r,s,dir,t){
    slightly outward, with a soft inner ear (tan on black-&-tan coats). */
 function drawUprightEar(hx,hy,r,s,dir,t,B){
   const alert = rab.state==='alert';
-  const sway = Math.sin(t*1.5 + dir)*0.05 + (alert? -0.06 : 0);
+  const jiggle = Math.sin(t*24 + dir)*(rab.earJiggle||0)*0.10;    // ears wobble on landing
+  const sway = Math.sin(t*1.5 + dir)*0.05 + (alert? -0.06 : 0) + jiggle;
   const baseX = hx + dir*r*0.42, baseY = hy - r*0.42;
   const len = r*(B.earLen||1.15);
   ctx.save();
@@ -1928,7 +1946,7 @@ function frame(){
     rab.boxYOff = damp(rab.boxYOff||0, 0, 6, dt);
     if(rab.hopping){
       const k=(t-rab.hopT0)/rab.hopDur;
-      if(k>=1){rab.hopping=false;rab.hopOff=0;rab.x=rab.hopToX;}
+      if(k>=1){rab.hopping=false;rab.hopOff=0;rab.x=rab.hopToX; rab.landSquash=1; rab.earJiggle=1;}   // touchdown → squash + ears bounce
       else{rab.x=lerp(rab.hopFromX,rab.hopToX,k); rab.hopOff=-Math.sin(k*Math.PI)*46*(Math.min(W,H)/560);}
     }
     idleBrain(dt,t);
@@ -1946,6 +1964,10 @@ function frame(){
     const inDen = t<rab.denUntil && owns('hutch') && !rab.hopping && Math.abs(rab.x-world.hutch.x)<world.hutch.r*0.5;
     rab.playAlpha = damp(rab.playAlpha!==undefined?rab.playAlpha:1, inDen? 0.12 : 1, 5, dt);
   }
+
+  /* squash/stretch impact + ear bounce settle back to rest */
+  rab.landSquash = damp(rab.landSquash||0, 0, 11, dt);
+  rab.earJiggle  = damp(rab.earJiggle||0, 0, 6, dt);
 
   /* loaf pose: content, fed, calm */
   const wantsLoaf = rab.state==='loaf' && !rab.hopping && stats.happy>60 && stats.hunger<55;
