@@ -321,6 +321,18 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 .gmsg.show{display:block;}
 .gmsg h3{margin:6px 0 8px;font-size:18px;color:#ffd98a;}
 
+/* ---- Bunny Tic-Tac-Toe ---- */
+.tttboard{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:288px;margin:2px 0;}
+.tttcell{appearance:none;border:none;cursor:pointer;aspect-ratio:1;font-size:34px;line-height:1;
+  border-radius:12px;background:linear-gradient(180deg,#5f958c,#4d7d75);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.10),0 2px 6px rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;transition:transform .08s,filter .1s;}
+.tttcell:not(:disabled):active{transform:translateY(2px);}
+.tttcell:disabled{cursor:default;}
+
+/* ---- Carrot Catch ---- */
+#catchCanvas{border-radius:12px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.12),0 6px 16px rgba(0,0,0,.4);touch-action:none;display:block;}
+
 /* guess input (replaces the number pad for large ranges) */
 .ginput{display:flex !important;grid-template-columns:none !important;gap:8px;width:100%;max-width:300px;}
 .ginput input{flex:1;min-width:0;padding:11px 12px;border-radius:10px;border:2px solid #5a4636;

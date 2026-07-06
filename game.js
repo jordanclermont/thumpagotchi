@@ -1578,7 +1578,8 @@ function takenAway(reason){
   started=false; wipeSave();
   // tidy up any open minigame (losing Guess can trigger this mid-overlay)
   if(SN.timer){ clearInterval(SN.timer); SN.timer=null; } SN.on=false;
-  GS.on=false;
+  if(CC.raf){ cancelAnimationFrame(CC.raf); CC.raf=null; } CC.on=false;
+  GS.on=false; TTT.on=false;
   minigameActive=false;
   ['snake','guess','ttt','catch'].forEach(id=>{ const el=$(id); if(el) el.classList.remove('show'); });
   const o=$('rps');
@@ -2840,6 +2841,274 @@ function guessLose(){
 bind('bGuess', openGuess);
 bind('guessClose', closeGuess);
 bind('rpsBtn', ()=>location.reload());
+
+/* ============================================================================ *
+ *  BUNNY TIC-TAC-TOE — you're 🥕, she's 🌾 (day-3 unlock).
+ *  The AI is DELIBERATELY imperfect: ~70% of her moves are optimal (minimax),
+ *  the rest a random legal move — so a win is earnable, never free, never denied.
+ * ============================================================================ */
+const TTT_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const TTT = { board:[], over:false, on:false, busy:false };
+function tttWinner(b){
+  for(const [a,c,d] of TTT_LINES){ if(b[a] && b[a]===b[c] && b[a]===b[d]) return b[a]; }
+  return b.every(x=>x) ? 'draw' : null;
+}
+function tttCanWin(b,who){
+  for(let i=0;i<9;i++){ if(b[i]) continue; b[i]=who; const win=tttWinner(b)===who; b[i]=''; if(win) return true; }
+  return false;
+}
+// minimax from the bunny's ('h') perspective — she maximises, the player ('c') minimises
+function tttMinimax(b, turn){
+  const w=tttWinner(b);
+  if(w==='h') return {score:10};
+  if(w==='c') return {score:-10};
+  if(w==='draw') return {score:0};
+  let best = turn==='h' ? {score:-Infinity, move:-1} : {score:Infinity, move:-1};
+  for(let i=0;i<9;i++){
+    if(b[i]) continue;
+    b[i]=turn;
+    const s=tttMinimax(b, turn==='h'?'c':'h').score;
+    b[i]='';
+    if(turn==='h' ? s>best.score : s<best.score) best={score:s, move:i};
+  }
+  return best;
+}
+function tttAIMove(){
+  const empties=[]; for(let i=0;i<9;i++) if(!TTT.board[i]) empties.push(i);
+  if(!empties.length) return;
+  let move;
+  if(Math.random()<0.70){ const r=tttMinimax(TTT.board.slice(),'h'); if(r.move>=0) move=r.move; }
+  if(move===undefined) move = pick(empties);   // the 30% slip (or a fallback)
+  TTT.board[move]='h';
+}
+function openTtt(){
+  if(rab.cold){ coldRefuse(); return; }
+  TTT.board=Array(9).fill(''); TTT.over=false; TTT.on=true; TTT.busy=false;
+  minigameActive=true;
+  $('tttMsg').className='gmsg'; $('tttMsg').innerHTML='';
+  $('tttFace').textContent='🐰';
+  $('tttBubble').textContent="You're 🥕, I'm 🌾 — three in a row wins!";
+  renderTtt();
+  $('ttt').classList.add('show');
+}
+function closeTtt(){ TTT.on=false; TTT.busy=false; minigameActive=false; $('ttt').classList.remove('show'); last=now(); }
+function renderTtt(){
+  const bd=$('tttBoard'); bd.innerHTML='';
+  for(let i=0;i<9;i++){
+    const cell=document.createElement('button');
+    cell.className='tttcell';
+    cell.textContent = TTT.board[i]==='c'?'🥕' : TTT.board[i]==='h'?'🌾' : '';
+    cell.disabled = !!TTT.board[i] || TTT.over || TTT.busy;
+    cell.onclick=()=>tttPlay(i);
+    bd.appendChild(cell);
+  }
+}
+function tttReact(){
+  const b=TTT.board;
+  if(tttCanWin(b,'h')){ $('tttFace').textContent='😼'; $('tttBubble').textContent='Hehe… three little hays coming up. 🌾'; }
+  else if(tttCanWin(b,'c')){ $('tttFace').textContent='😧'; $('tttBubble').textContent="Hey — don't you dare line those up!"; }
+  else { $('tttFace').textContent='🐰'; $('tttBubble').textContent='Your move, friend. 🥕'; }
+}
+function tttPlay(i){
+  if(TTT.over || TTT.busy || !TTT.on || TTT.board[i]) return;
+  TTT.board[i]='c';
+  let w=tttWinner(TTT.board);
+  if(w){ renderTtt(); tttEndGame(w); return; }
+  // her turn: brief think, block input meanwhile
+  TTT.busy=true; renderTtt();
+  setTimeout(()=>{
+    if(!$('ttt').classList.contains('show') || TTT.over) return;   // closed mid-think
+    tttAIMove();
+    const w2=tttWinner(TTT.board);
+    TTT.busy=false; renderTtt();
+    if(w2){ tttEndGame(w2); return; }
+    tttReact();
+  }, 460);
+}
+function tttEndGame(w){
+  TTT.over=true; TTT.on=false; TTT.busy=false; renderTtt();
+  let title;
+  if(w==='c'){
+    addCarrots(20, rab.x, rab.baseY-60); addXP(12); incGoal('g_ttt');
+    stats.happy=clamp(stats.happy+6);
+    $('tttFace').textContent='😿'; $('tttBubble').textContent='Nooo, you got three! 🥕';
+    title='You win! +20🥕';
+  } else if(w==='h'){
+    stats.happy=clamp(stats.happy+8); startBinky();
+    $('tttFace').textContent='😼'; $('tttBubble').textContent='Three hays in a row — I win! 🌾';
+    title=`${rab.name} wins! 🌾`;
+  } else {
+    addCarrots(5);
+    $('tttFace').textContent='😐'; $('tttBubble').textContent='A tie! Good game. 🤝';
+    title='Draw · +5🥕';
+  }
+  save();
+  const m=$('tttMsg');
+  m.innerHTML=`<h3>${title}</h3><div class="mgbtns"><button id="tttAgain">Play again</button><button id="tttDone">Done</button></div>`;
+  m.className='gmsg show';
+  $('tttAgain').onclick=openTtt; $('tttDone').onclick=closeTtt;
+}
+bind('bTtt', openTtt);
+bind('tttClose', closeTtt);
+
+/* ============================================================================ *
+ *  CARROT CATCH — slide the bunny to catch falling 🥕, dodge wilted 🥬 (day-4).
+ *  A reflex game to balance the cerebral roster; speed + spawn rate ramp with score.
+ * ============================================================================ */
+const CATCH_BEST_KEY = 'thumpagotchi.catchBest';
+const CC = { on:false, over:false, score:0, best:0, lives:3, items:[], pops:[],
+             bx:0, vx:0, spawnT:0, speed:1, W:320, H:416, bw:64, raf:null, lastT:0 };
+let ccCanvas=null, ccCtx=null;
+
+function openCatch(){
+  if(rab.cold){ coldRefuse(); return; }
+  ccCanvas=$('catchCanvas'); ccCtx=ccCanvas.getContext('2d');
+  try{ CC.best=parseInt(localStorage.getItem(CATCH_BEST_KEY))||0; }catch(e){ CC.best=0; }
+  $('ccBest').textContent=CC.best;
+  minigameActive=true; $('catch').classList.add('show'); $('catchOverlayMsg').className='mgmsg';
+  ccResize(); ccReset();
+}
+function closeCatch(){
+  CC.on=false; if(CC.raf){ cancelAnimationFrame(CC.raf); CC.raf=null; }
+  minigameActive=false; $('catch').classList.remove('show'); last=now();
+}
+function ccResize(){
+  const wCss=Math.min((window.innerWidth||360)*0.86, 360);
+  CC.W=Math.round(wCss); CC.H=Math.round(wCss*1.3);
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  ccCanvas.style.width=CC.W+'px'; ccCanvas.style.height=CC.H+'px';
+  ccCanvas.width=Math.round(CC.W*dpr); ccCanvas.height=Math.round(CC.H*dpr);
+  ccCtx.setTransform(dpr,0,0,dpr,0,0);
+  CC.bw=Math.round(CC.W*0.20);
+  CC.bx=clamp(CC.bx||CC.W/2, CC.bw/2, CC.W-CC.bw/2);
+}
+function ccLivesUI(){ $('ccLives').textContent='❤'.repeat(CC.lives)+'🖤'.repeat(Math.max(0,3-CC.lives)); }
+function ccReset(){
+  CC.score=0; CC.lives=3; CC.items=[]; CC.pops=[]; CC.speed=1; CC.spawnT=0; CC.vx=0;
+  CC.bx=CC.W/2; CC.over=false; CC.on=true;
+  $('ccScore').textContent=0; ccLivesUI(); $('catchOverlayMsg').className='mgmsg';
+  CC.lastT=now(); if(CC.raf) cancelAnimationFrame(CC.raf); CC.raf=requestAnimationFrame(ccFrame);
+}
+function ccSpawn(){
+  const badChance = clamp(0.15 + CC.score*0.006, 0.15, 0.42);   // more wilted lettuce as you climb
+  const bad = Math.random()<badChance;
+  const r = CC.W*0.052;
+  CC.items.push({ x:rand(CC.W*0.10, CC.W*0.90), y:-r, r, bad,
+                  vy: CC.H*(0.30+CC.speed*0.11)*rand(0.9,1.12) });   // px/sec
+}
+function ccHit(){ CC.lives--; ccLivesUI(); if(CC.lives<=0) ccEnd(); }
+function ccFrame(){
+  if(!CC.on) return;
+  const t=now(); let dt=t-CC.lastT; CC.lastT=t; dt=Math.min(dt,0.033);
+  // difficulty ramp
+  CC.speed = 1 + CC.score*0.06;
+  const spawnEvery = Math.max(0.42, 0.9 - CC.score*0.02);
+  CC.spawnT += dt;
+  if(CC.spawnT>=spawnEvery){ CC.spawnT=0; ccSpawn(); }
+  // keyboard glide
+  if(CC.vx) CC.bx = clamp(CC.bx + CC.vx*dt, CC.bw/2, CC.W-CC.bw/2);
+  // advance + resolve items
+  const catchY = CC.H-40;
+  const keep=[];
+  for(const it of CC.items){
+    it.y += it.vy*dt;
+    const inBand = it.y>=catchY-it.r && it.y<=catchY+16;
+    const overBunny = Math.abs(it.x-CC.bx) < CC.bw/2 + it.r*0.6;
+    if(inBand && overBunny){
+      if(it.bad){ ccHit(); }
+      else { CC.score++; $('ccScore').textContent=CC.score; CC.pops.push({x:it.x,y:catchY,t:0}); }
+      continue;   // consumed
+    }
+    if(it.y > CC.H+22){ if(!it.bad) ccHit(); continue; }   // a dropped carrot costs a life; lettuce is safe
+    keep.push(it);
+  }
+  CC.items=keep;
+  for(const p of CC.pops) p.t+=dt;
+  CC.pops=CC.pops.filter(p=>p.t<0.4);
+  ccDraw();
+  if(CC.on) CC.raf=requestAnimationFrame(ccFrame);
+}
+function ccEnd(){
+  CC.over=true; CC.on=false;
+  if(CC.raf){ cancelAnimationFrame(CC.raf); CC.raf=null; }
+  const reward=CC.score;
+  if(reward>0){ addCarrots(reward); addXP(Math.min(15,CC.score)); }   // 1🥕 per carrot caught
+  const isBest = CC.score>CC.best && CC.score>0;
+  if(isBest){ CC.best=CC.score; try{ localStorage.setItem(CATCH_BEST_KEY,CC.best); }catch(e){} }
+  $('ccBest').textContent=CC.best;
+  if(CC.score>=10){ stats.happy=clamp(stats.happy+5); startBinky(); }
+  save();
+  const m=$('catchOverlayMsg');
+  m.innerHTML=`<div class="mgover"><h3>${CC.score>0?'Nice catching!':'Butterfingers!'}</h3>
+    <p>Caught ${CC.score}${reward>0?` &middot; +${reward}🥕`:''}${isBest?' &middot; 🏆 new best!':''}</p>
+    <div class="mgbtns"><button id="ccRetry">Play again</button><button id="ccDone">Done</button></div></div>`;
+  m.className='mgmsg show';
+  $('ccRetry').onclick=ccReset; $('ccDone').onclick=closeCatch;
+}
+function ccCarrot(c,x,y,r){
+  c.fillStyle='#5aa64b';                                   // leafy top
+  c.beginPath(); c.moveTo(x,y-r*1.35); c.lineTo(x-r*0.5,y-r*0.45); c.lineTo(x+r*0.5,y-r*0.45); c.closePath(); c.fill();
+  c.fillStyle='#e8892b';                                   // body
+  c.beginPath(); c.moveTo(x-r*0.6,y-r*0.42); c.lineTo(x+r*0.6,y-r*0.42); c.lineTo(x,y+r*1.15); c.closePath(); c.fill();
+  c.strokeStyle='rgba(255,255,255,.4)'; c.lineWidth=1.4;   // ridges
+  c.beginPath(); c.moveTo(x-r*0.24,y-r*0.12); c.lineTo(x-r*0.08,y+r*0.24);
+  c.moveTo(x+r*0.2,y-r*0.12); c.lineTo(x+r*0.06,y+r*0.24); c.stroke();
+}
+function ccLettuce(c,x,y,r){
+  c.fillStyle='#8a9a5b';
+  c.beginPath(); c.ellipse(x,y,r*0.98,r*0.82,0,0,7); c.fill();
+  c.fillStyle='#727f45';
+  c.beginPath(); c.ellipse(x-r*0.22,y+r*0.1,r*0.5,r*0.42,0,0,7); c.fill();
+  c.beginPath(); c.ellipse(x+r*0.28,y-r*0.08,r*0.34,r*0.3,0,0,7); c.fill();
+  c.strokeStyle='rgba(50,60,30,.5)'; c.lineWidth=1.4;      // droopy wilt veins
+  c.beginPath(); c.moveTo(x-r*0.45,y-r*0.15); c.lineTo(x+r*0.45,y-r*0.05);
+  c.moveTo(x-r*0.3,y+r*0.25); c.lineTo(x+r*0.35,y+r*0.2); c.stroke();
+}
+function ccDraw(){
+  const c=ccCtx, W=CC.W, H=CC.H;
+  const bg=c.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#bfe0ea'); bg.addColorStop(0.62,'#e5d9bf'); bg.addColorStop(1,'#d4b48a');
+  c.fillStyle=bg; c.fillRect(0,0,W,H);
+  c.fillStyle='rgba(120,80,40,.16)'; c.fillRect(0,H-26,W,26);   // floor strip the bunny stands on
+  for(const it of CC.items){ it.bad ? ccLettuce(c,it.x,it.y,it.r) : ccCarrot(c,it.x,it.y,it.r); }
+  // catch pops
+  for(const p of CC.pops){ const a=1-p.t/0.4, rr=CC.W*0.05*(1+p.t*4);
+    c.strokeStyle=`rgba(255,220,120,${a})`; c.lineWidth=2; c.beginPath(); c.arc(p.x,p.y,rr,0,7); c.stroke(); }
+  ccBunny(c, CC.bx, H-30, CC.bw);
+}
+function ccBunny(c,x,yBase,w){
+  const r=w*0.44, cx=x, cy=yBase;
+  c.fillStyle='#b3854f'; roundRectCtx(c, x-w/2, cy+r*0.25, w, r*0.85, 6); c.fill();   // little basket
+  c.strokeStyle='rgba(80,50,25,.5)'; c.lineWidth=1.4;
+  for(let i=1;i<4;i++){ const bx=x-w/2+w*i/4; c.beginPath(); c.moveTo(bx,cy+r*0.28); c.lineTo(bx,cy+r*1.05); c.stroke(); }
+  c.fillStyle=coat.body;                                    // ears
+  c.beginPath();c.ellipse(cx-r*0.42,cy-r*0.92,r*0.18,r*0.5,-0.12,0,7);c.fill();
+  c.beginPath();c.ellipse(cx+r*0.42,cy-r*0.92,r*0.18,r*0.5, 0.12,0,7);c.fill();
+  c.fillStyle=coat.pointMid;
+  c.beginPath();c.ellipse(cx-r*0.42,cy-r*0.92,r*0.08,r*0.3,-0.12,0,7);c.fill();
+  c.beginPath();c.ellipse(cx+r*0.42,cy-r*0.92,r*0.08,r*0.3, 0.12,0,7);c.fill();
+  c.fillStyle=coat.body;                                    // head
+  c.beginPath();c.arc(cx,cy-r*0.05,r*0.72,0,7);c.fill();
+  c.fillStyle='#140f0b';                                    // eyes
+  c.beginPath();c.arc(cx-r*0.26,cy-r*0.08,r*0.1,0,7);c.fill();
+  c.beginPath();c.arc(cx+r*0.26,cy-r*0.08,r*0.1,0,7);c.fill();
+  c.fillStyle='#c86a72';                                    // nose
+  c.beginPath();c.ellipse(cx,cy+r*0.16,r*0.1,r*0.075,0,0,7);c.fill();
+}
+(function wireCatch(){
+  const cv=$('catchCanvas');
+  const move=(clientX)=>{ if(!CC.on) return; const rct=cv.getBoundingClientRect();
+    CC.bx=clamp((clientX-rct.left)*(CC.W/rct.width), CC.bw/2, CC.W-CC.bw/2); };
+  cv.addEventListener('mousemove',e=>move(e.clientX));
+  cv.addEventListener('touchstart',e=>{ e.preventDefault(); move(e.touches[0].clientX); },{passive:false});
+  cv.addEventListener('touchmove', e=>{ e.preventDefault(); move(e.touches[0].clientX); },{passive:false});
+  window.addEventListener('keydown',e=>{ if(!CC.on) return;
+    if(e.key==='ArrowLeft'){ CC.vx=-CC.W*1.8; e.preventDefault(); }
+    else if(e.key==='ArrowRight'){ CC.vx=CC.W*1.8; e.preventDefault(); } });
+  window.addEventListener('keyup',e=>{ if(e.key==='ArrowLeft'||e.key==='ArrowRight') CC.vx=0; });
+  window.addEventListener('resize',()=>{ if(ccCanvas && $('catch').classList.contains('show')){ ccResize(); ccDraw(); } });
+  bind('bCatch', openCatch); bind('catchClose', closeCatch);
+})();
 
 /* ---------------- Boot ---------------- */
 loadUnlocks();

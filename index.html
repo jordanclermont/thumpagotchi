@@ -123,6 +123,28 @@
     </div>
   </div>
 
+  <!-- ---------- Bunny Tic-Tac-Toe minigame (day 3) ---------- -->
+  <div id="ttt" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>⭕ Bunny Tic-Tac-Toe</span><button id="tttClose">✕</button></div>
+      <div class="gbunny"><div class="gface" id="tttFace">🐰</div>
+        <div class="gbubble" id="tttBubble">You're 🥕, I'm 🌾 — three in a row wins!</div></div>
+      <div class="tttboard" id="tttBoard"></div>
+      <div class="gmsg" id="tttMsg"></div>
+      <div class="mghint">Tap a square to place your 🥕. Line up three before she lines up her 🌾 — she plays smart, but not <i>perfectly</i>.</div>
+    </div>
+  </div>
+
+  <!-- ---------- Carrot Catch minigame (day 4) ---------- -->
+  <div id="catch" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>🥕 Carrot Catch</span><button id="catchClose">✕</button></div>
+      <div class="mgscore">Caught <b id="ccScore">0</b> &nbsp;·&nbsp; Best <b id="ccBest">0</b> &nbsp;·&nbsp; <span id="ccLives">❤❤❤</span></div>
+      <div class="mgstage"><canvas id="catchCanvas"></canvas><div id="catchOverlayMsg" class="mgmsg"></div></div>
+      <div class="mghint">Slide the bunny (drag, or ← →) to catch falling 🥕. Dodge the wilted 🥬 — three misses or three bad leaves and it's over. It speeds up!</div>
+    </div>
+  </div>
+
   <!-- ---------- Fact card (real rabbit fact at a moment of consequence) ---------- -->
   <div id="factCard" role="button" tabindex="0">
     <div class="fc-icon" id="fcIcon">🐰</div>
