@@ -901,34 +901,36 @@ function drawHammockFront(){
 }
 
 function drawLitter(){
-  // an OPEN litter tray you look down into: box walls + a lit top rim (wall thickness) around a
-  // sunken hay well — reads as a 3D container instead of a flat billboard. Footprint unchanged so
-  // drawLitterFront (the near wall over the napping rabbit) still lines up.
+  // The box is ALWAYS shown from the front — the same 3/4 view you get when she
+  // sits in it — instead of flipping to a top-down tray when empty. This draws
+  // the interior (back wall + hay); drawLitterFront() supplies the near wall,
+  // called at the end here when she's OUTSIDE, or over her when she's inside.
   const L=world.litter, x=L.x, w=L.w, h=L.h, top=L.y-L.h/2;
-  const rim=Math.min(11, w*0.05);
-  ctx.fillStyle='#3f6fae'; roundRect(x-w/2, top, w, h, 11); ctx.fill();
-  ctx.strokeStyle=shade('#3f6fae',0.5); ctx.lineWidth=2; roundRect(x-w/2, top, w, h, 11); ctx.stroke();
-  ctx.fillStyle='#6f9bd0'; roundRect(x-w/2+3, top+3, w-6, rim, 6); ctx.fill();          // lit top rim = wall thickness
-  const wx=x-w/2+rim, wy=top+rim, ww=w-rim*2, wh=h-rim*2;
-  ctx.fillStyle='#2c4a7c'; roundRect(wx, wy, ww, wh, 7); ctx.fill();                     // sunken interior (dark)
+  // interior back wall, with a lit top rim
+  ctx.fillStyle='#2c4a7c'; roundRect(x-w/2, top, w, h*0.64, 8); ctx.fill();
+  ctx.strokeStyle=shade('#3f6fae',0.5); ctx.lineWidth=2; roundRect(x-w/2, top, w, h*0.64, 8); ctx.stroke();
+  ctx.fillStyle='#5a86c2'; roundRect(x-w/2+3, top+2, w-6, h*0.07, 5); ctx.fill();
+  // hay bed rising against the back wall
   const bright=hayFresh>0?1:0.75;
-  ctx.fillStyle='#e7dcc4'; roundRect(wx+3, wy+4, ww-6, wh-7, 5); ctx.fill();             // hay bed in the well
-  ctx.fillStyle='rgba(18,32,58,.20)'; roundRect(wx+3, wy+3, ww-6, 7, 5); ctx.fill();     // back-wall shadow (recedes)
-  const bx0=wx+6, byTop=wy+9, bw=Math.max(6,ww-12), bh=Math.max(6,wh-16);
-  for(let i=0;i<32;i++){
-    const bx=bx0+((i*29)%bw), by=byTop+((i*13)%bh);
+  ctx.fillStyle='#e7dcc4'; roundRect(x-w/2+5, top+h*0.16, w-10, h*0.5, 6); ctx.fill();
+  ctx.fillStyle='rgba(18,32,58,.16)'; roundRect(x-w/2+5, top+h*0.16, w-10, 6, 5); ctx.fill();
+  // hay sprigs standing up out of the bed
+  for(let i=0;i<26;i++){
+    const bx=x-w/2+9+((i*29)%Math.max(6,w-18));
+    const by=top+h*0.24+((i*13)%(h*0.3));
     ctx.strokeStyle=`hsl(${72+((i*11)%26)},58%,${(46+((i*7)%15))*bright}%)`;
     ctx.lineWidth=2;
     const ang=((i%5)-2)*0.3;
-    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+Math.sin(ang)*12,by-12);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+Math.sin(ang)*11,by-13);ctx.stroke();
   }
   const mess = Math.round((100-stats.hygiene)/13);
   for(let i=0;i<mess;i++){
-    const mx=wx+8+((i*37)%Math.max(6,ww-16));
-    const my=wy+8+((i*23)%Math.max(6,wh-14));
+    const mx=x-w/2+10+((i*37)%Math.max(6,w-20));
+    const my=top+h*0.22+((i*23)%(h*0.3));
     ctx.fillStyle= i%3? 'rgba(110,80,45,.85)':'rgba(140,112,66,.7)';
     ctx.beginPath();ctx.ellipse(mx,my,5,3.4,0.5,0,7);ctx.fill();
   }
+  if(!(now() < rab.boxT)) drawLitterFront();   // near wall — unless she's inside (drawn over her instead)
 }
 function drawFoodBowl(){
   const b=world.food;
