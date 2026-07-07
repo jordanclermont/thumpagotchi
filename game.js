@@ -26,6 +26,9 @@ const ord=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%
 const mix=(a,b,t)=>[Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1],b[1],t)),Math.round(lerp(a[2],b[2],t))];
 const rgb=a=>`rgb(${a[0]},${a[1]},${a[2]})`;
 const $=id=>document.getElementById(id);
+// Escape any user- or save-controlled string before it reaches innerHTML — a hostile
+// save code could otherwise smuggle markup (e.g. a rabbit named "<b>test</b>").
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function roundRect(x,y,w,h,r){
   r=Math.min(r, w/2, h/2);
@@ -62,7 +65,7 @@ let coatKey = 'sableGrey';
 
 /* ---------------- Breeds ----------------
    Each breed has its own silhouette: lop vs. upright ears, an optional mane,
-   and body/head proportions. Lionhead unlocks account-wide at Bond level 10. */
+   and body/head proportions. Lionhead unlocks account-wide at Bond level 5. */
 const BREEDS = {
   holland:    {name:'Holland Lop',      ears:'lop', mane:false, scale:1.0,  headScale:1.0,               idealLbs:3.5, emoji:'🐰', desc:'Floppy lop ears, cobby & chill.'},
   netherland: {name:'Netherland Dwarf', ears:'up',  mane:false, scale:0.72, headScale:1.16, earLen:0.95, idealLbs:2.2, emoji:'🐇', desc:'Tiny body, big head, upright ears.'},   // a dwarf stays visibly small, even grown
@@ -133,7 +136,7 @@ const GOAL_POOL = [
   () => ({track:'water',  target:1,  reward:5,  text:'Refill the water bowl'}),
   () => ({track:'pet',    target:10, reward:7,  text:'Give ×10 head pets'}),
   () => ({track:'binky',  target:2,  reward:9,  text:'Spark ×2 binkies'}),
-  () => ({track:'groom',  target:3,  reward:7,  text:'Groom her coat ×3'}),
+  () => ({track:'groom',  target:3,  reward:7,  text:'Groom {name}’s coat ×3'}),
   () => ({track:'play',   target:2,  reward:8,  text:'Play together ×2',            avail:()=>owns('ball')||owns('tunnel')||owns('tower')}),
   () => ({track:'g_snake',target:1,  reward:10, text:`Score ${SNAKE_GOAL}+ in Bunny Snake`, avail:()=>gameUnlocked('snake')}),
   () => ({track:'g_guess',target:1,  reward:10, text:'Win at Guess My Number',      avail:()=>gameUnlocked('guess')}),
@@ -199,6 +202,9 @@ function resize(){
   const rugLo = world.rug.x-world.rug.rx*0.6, rugHi = world.rug.x+world.rug.rx*0.6;
   rab.x = clamp(rab.x||world.rug.x, rugLo, rugHi);
   if(rab.hopping){ rab.hopFromX = clamp(rab.hopFromX, rugLo, rugHi); rab.hopToX = clamp(rab.hopToX, rugLo, rugHi); }
+  // The charger cord bakes absolute pixels (outlet + H-fraction); a rotation would strand its
+  // tap target off-screen. Re-derive it from the fresh layout, same as the rabbit re-clamp above.
+  if(dayEvent && dayEvent.type==='hazard'){ const o=outletPos(); dayEvent.cord.x=o.x+78; dayEvent.cord.y=H*0.80; }
 }
 window.addEventListener('resize', resize);
 
@@ -221,14 +227,14 @@ const rab = {
   restUntil:0,
   play:null, playAlpha:1, playYOff:0, hidden:false,
   boxT:0, boxYOff:0, hammockSag:0, decor:{rug:null,bed:null}, petReact:0,
-  begUntil:0, begCooldown:0, begWant:'🍌', denUntil:0,
+  begUntil:0, begAt:0, begCooldown:0, begWant:'🍌', denUntil:0,
   maxAngerCount:0, weightStrikes:0, pelletsToday:0, _obeseT:0, _obeseWarned:false,
   // v2 "first ten minutes" state — persisted flags + runtime-only scripting timers
   firedCards:{}, gamesRevealed:false, baitDone:false, thumpSeen:false, exitBeatShown:false, lastSeen:0,
   petArmedOnce:false, baitAt:0, fallbackThumpBy:0,
   // progression
   bondLevel:1, bondXP:0, carrots:12,
-  weight:100, health:100, sick:false, sickAt:0, nextCheckupDay:5,
+  weight:100, health:100, sick:false, nextCheckupDay:5,
   items:{}, mastery:{}, achievements:{},
   goals:[], goalDay:0, goalCounters:{},
   lifetimePets:0,
@@ -254,7 +260,7 @@ let thumpFx = 0, thumpRipples = [], thumpTextT = 0;
 
 let pettingMode = false;
 let groomMode = false;                 // comb-drag mode: restores Hygiene (mutually exclusive with petting)
-let pointer = {x:-999,y:-999,down:false,moved:0};
+let pointer = {x:-999,y:-999,down:false};
 let lastPetGain = 0, lastFeetPet = 0, lastGroomGain = 0, groomGoalAt = 0;
 let autosaveT = 0;
 let minigameActive = false;   // freezes the pet sim while a minigame overlay is open
@@ -293,7 +299,7 @@ function loadRaw(){
 // NaN-poison a stat (clamp(NaN) stays NaN forever) — non-finite values fall back
 const num=(v,f)=>{ v=+v; return Number.isFinite(v)?v:f; };
 function applySave(d){
-  rab.name=d.name||'Mowgli'; rab.sex=d.sex||'doe';
+  rab.name=String(d.name||'Mowgli').slice(0,12); rab.sex=d.sex||'doe';   // match the name input's maxlength
   rab.breed = d.breed && BREEDS[d.breed] ? d.breed : 'holland';
   coatKey = d.coatKey && COATS[d.coatKey] ? d.coatKey : (BREED_DEFAULT_COAT[rab.breed]||'sableGrey');
   coat = COATS[coatKey];
@@ -302,13 +308,21 @@ function applySave(d){
   rab.thumps=clamp(num(d.thumps,0),0,5); rab.cold=!!d.cold; rab.bananasToday=num(d.bananasToday,0);
   rab.day=Math.max(1,Math.round(num(d.day,1))); rab.ageDays=Math.max(0,Math.round(num(d.ageDays,0)));
   timeOfDay=clamp(num(d.timeOfDay,0.05),0,1);
-  rab.bondLevel=Math.max(1,Math.round(num(d.bondLevel,1))); rab.bondXP=Math.max(0,num(d.bondXP,0));
+  rab.bondLevel=Math.max(1,Math.round(num(d.bondLevel,1)));
+  rab.bondXP=Math.min(10000,Math.max(0,num(d.bondXP,0)));   // cap so a hostile save can't level-loop addXP() forever
   rab.carrots=Math.max(0,Math.round(num(d.carrots,12)));
   rab.weight=clamp(num(d.weight,100),45,175); rab.health=clamp(num(d.health,100)); rab.sick=!!d.sick;
   // scheduled checkups: default an established save to the next day-5 boundary so it isn't retro-overdue
   rab.nextCheckupDay = Math.max(5, Math.round(num(d.nextCheckupDay, Math.floor(rab.day/5)*5 + 5)));
   rab.items=d.items||{}; rab.mastery=d.mastery||{}; rab.achievements=d.achievements||{};
-  rab.goals=Array.isArray(d.goals)?d.goals:[]; rab.goalDay=num(d.goalDay,0); rab.goalCounters=d.goalCounters||{};
+  // coerce each saved goal's fields so a corrupt/hostile save can't inject markup (text)
+  // or NaN-poison the progress bars (prog/target/reward all pass through num())
+  rab.goals = Array.isArray(d.goals) ? d.goals.map(g=>{
+    g = g && typeof g==='object' ? g : {};
+    return {...g, text:String(g.text||''), track:String(g.track||''),
+            prog:num(g.prog,0), target:Math.max(1,num(g.target,1)), reward:num(g.reward,0), done:!!g.done};
+  }) : [];
+  rab.goalDay=num(d.goalDay,0); rab.goalCounters=d.goalCounters||{};
   rab.lifetimePets=num(d.lifetimePets,0);
   rab.decor=d.decor||{rug:null,bed:null};
   rab.maxAngerCount=num(d.maxAngerCount,0); rab.weightStrikes=num(d.weightStrikes,0); rab.pelletsToday=num(d.pelletsToday,0);
@@ -1206,8 +1220,8 @@ function drawBegBubble(){
   const p=parts();
   const bob = Math.sin(now()*2.6)*2.2;                       // gentle idle float
   const bx=p.head.x, by=p.head.y - p.head.r*1.45 + bob;      // snug above the head
-  const grow = clamp((rab.begUntil - now())/0.22, 0, 1);     // little pop-in
-  const sc = 0.6 + 0.4*(rab.begUntil-now()>4? 1 : grow);
+  const grow = clamp((now() - rab.begAt)/0.22, 0, 1);        // pop-in: grows from when the bubble appeared
+  const sc = 0.6 + 0.4*grow;
   ctx.save(); ctx.translate(bx,by); ctx.scale(sc,sc); ctx.translate(-bx,-by);
   // connecting tail first (so the bubble body caps it)
   ctx.fillStyle='rgba(255,255,255,.97)';
@@ -1763,7 +1777,7 @@ function endNight(){
   if(revealGames){
     setTimeout(()=>toast('🎮 New! The Games tab just opened in the bottom bar — tap 🎮 Games for arcade minigames and extra 🥕.'), followT); followT+=3200; }
   if(tttNew){
-    setTimeout(()=>toast('⭕ New game unlocked: Bunny Tic-Tac-Toe! Find it in the 🎮 Games tab — beat her to earn 🥕.'), followT); followT+=3200; }
+    setTimeout(()=>toast(`⭕ New game unlocked: Bunny Tic-Tac-Toe! Find it in the 🎮 Games tab — beat ${P().o} to earn 🥕.`), followT); followT+=3200; }
   if(catchNew){
     setTimeout(()=>toast('🥕 New game unlocked: Carrot Catch! Slide the bunny to catch falling carrots (dodge the wilted lettuce). In 🎮 Games.'), followT); followT+=3200; }
   if(checkupOverdue===0){
@@ -1829,7 +1843,7 @@ function addWeight(n){ rab.weight = clamp(rab.weight+n, 45, 175); }
 
 function getSick(){
   if(rab.sick) return;
-  rab.sick=true; rab.sickAt=now();
+  rab.sick=true;
   rab.thumps=clamp(rab.thumps+0.5,0,5);
   toast(`🤒 ${rab.name} has gone into GI stasis! ${cap(P().s)} needs the Vet — fast.`);
   fireFact('stasis');
@@ -1953,10 +1967,14 @@ function wake(){ if(rab.state==='rest'){ rab.restUntil=0; } }
 // updateHUD while it's live), and the hay goal is credited only once she's actually hopped over
 // and started eating — not per click. Together these kill the double-click-hay goal exploit.
 const FEED_CD = 5;                          // seconds; covers the hop-over + first munch
-const feedLock = {hay:0, pellets:0};
+const feedLock = {hay:0, pellets:0, clean:0, water:0};
 let hayCreditAt = 0;                        // when the pending hay-goal credit resolves (0 = none)
 
+// During a hide-and-seek morning she's invisible — block care actions (a stray hay credit,
+// a litter box that renders occupied, a queued hop that lands after the reveal) until she's found.
+function hiddenBlock(){ if(rab.hidden){ toast(`🔍 Find ${rab.name} first!`); return true; } return false; }
 function giveHay(){
+  if(hiddenBlock()) return;
   if(rab.cold){ coldRefuse(); return; }
   if(now()<feedLock.hay) return;            // still munching the last serving — ignore
   feedLock.hay = now()+FEED_CD;
@@ -1972,6 +1990,7 @@ function giveHay(){
   toast(`Fresh Timothy hay in the box! ${rab.name} climbs in to munch. 🌾`);
 }
 function givePellets(){
+  if(hiddenBlock()) return;
   if(rab.cold){ coldRefuse(); return; }
   if(now()<feedLock.pellets) return;        // one scoop per cooldown
   feedLock.pellets = now()+FEED_CD;
@@ -1988,6 +2007,8 @@ function givePellets(){
   if(rab.pelletsToday<=2) toast(`A scoop of dry pellets (${rab.pelletsToday}/2 today). ${cap(P().s)} nose-dives into the bowl. 🥣`);
 }
 function giveWater(){
+  if(now()<feedLock.water) return;          // one refill per cooldown — no XP/happy farming on a held button
+  feedLock.water = now()+FEED_CD;
   wake();
   stats.water=100;
   rab.thumps=clamp(rab.thumps-0.2,0,5);
@@ -1996,6 +2017,7 @@ function giveWater(){
   toast('Fresh, clean water. 💧');
 }
 function offerBanana(){
+  if(hiddenBlock()) return;
   wake(); rab.begUntil=0;
   const p=parts();
   bananas.push({x:rab.x+rand(-10,10), y:rab.baseY-10, life:3});
@@ -2022,6 +2044,8 @@ function offerBanana(){
   toast(`Banana! A full-body binky of joy. (${rab.bananasToday}/2 today)`);
 }
 function cleanLitter(){
+  if(now()<feedLock.clean) return;          // one scoop per cooldown — no XP/happy farming on a held button
+  feedLock.clean = now()+FEED_CD;
   wake();
   stats.hygiene=100; rab.thumps=clamp(rab.thumps-0.6,0,5);
   let bonus = owns('groom')? 10 : 4;
@@ -2057,8 +2081,8 @@ function toggleGrooming(){
   if(!groomMode && pettingMode){ pettingMode=false; $('bPet').classList.remove('armed'); $('game').style.cursor=''; }
   setGroom(!groomMode);
   toast(groomMode
-    ? (owns('groom') ? 'Grooming ON — drag the comb over her coat. The Grooming Kit makes it extra soothing. 🪮'
-                     : 'Grooming ON — drag over her coat to tidy her fur and lift Hygiene. 🪮')
+    ? (owns('groom') ? `Grooming ON — drag the comb over ${P().p} coat. The Grooming Kit makes it extra soothing. 🪮`
+                     : `Grooming ON — drag over ${P().p} coat to tidy ${P().p} fur and lift Hygiene. 🪮`)
     : 'Grooming off.');
 }
 function handleGroom(px,py){
@@ -2097,6 +2121,7 @@ function handleGroom(px,py){
   }
 }
 function restRabbit(){
+  if(hiddenBlock()) return;
   if(rab.cold){ coldRefuse(); return; }
   if(stats.energy>85){ toast(`${rab.name} isn't sleepy — plenty of energy right now.`); return; }
   if(owns('hammock')) hopTo(world.hammock.x);   // she settles by her hammock for the cushier nap
@@ -2106,6 +2131,7 @@ function restRabbit(){
                         : `${rab.name} curls into a cozy nap. 😴`);
 }
 function playToy(){
+  if(hiddenBlock()) return;
   if(rab.cold){ coldRefuse(); return; }
   if(rab.play) return;                       // already playing
   if(!(owns('ball')||owns('tunnel')||owns('tower'))){ toast('Buy a toy from the Shop 🛒 first, then Play!'); return; }
@@ -2213,6 +2239,7 @@ function callVet(){
   }
 }
 function doTrick(){
+  if(hiddenBlock()) return;
   if(rab.cold){ coldRefuse(); return; }
   if(rab.sick){ toast(`${rab.name} feels too poorly for tricks. See the Vet. 🩺`); return; }
   wake();
@@ -2312,7 +2339,7 @@ function idleBrain(dt,t){
     }
     if(wants.length){
       rab.begWant=pick(wants);
-      rab.begUntil=now()+rand(4,6);
+      rab.begAt=now(); rab.begUntil=now()+rand(4,6);
       rab.begCooldown=now()+rand(22,40);                        // quiet time between asks
     }
   }
@@ -2604,6 +2631,8 @@ function updateHUD(){
   const _ft=now();   // feed cooldown: grey the button out until she's done with the last serving
   const bh=$('bHay');     if(bh) bh.disabled = _ft<feedLock.hay;
   const bp=$('bPellets'); if(bp) bp.disabled = _ft<feedLock.pellets;
+  const bcl=$('bClean');  if(bcl) bcl.disabled = _ft<feedLock.clean;
+  const bw=$('bWater');   if(bw) bw.disabled = _ft<feedLock.water;
   const bc=$('banCount'); if(bc){ bc.textContent=rab.bananasToday+'/2'; bc.classList.toggle('warn', rab.bananasToday>=2); }
   // the tip line teaches on day 1, then fades away once she's established (keeps the scene clean)
   const hintEl=$('hint');
@@ -2653,6 +2682,9 @@ function buy(id){
   const it=shopItem(id); if(!it) return;
   if(rab.bondLevel<it.unlock) return;
   if((it.type==='toy'||it.type==='decor'||it.type==='tool') && owns(it.id)){ return; }
+  // A sulking bun refuses food from anyone — shop feed must honour the cold shoulder that
+  // hand-feeding does, and abort before spending a single carrot.
+  if(it.type==='feed' && rab.cold){ coldRefuse(); return; }
   if(!spendCarrots(it.cost)){ toast(`Not enough carrots — need ${it.cost}🥕, have ${rab.carrots}.`); return; }
   if(it.type==='feed'){
     if(id==='greens'){ stats.hunger=clamp(stats.hunger-30); stats.water=clamp(stats.water+18);
@@ -2693,7 +2725,7 @@ function renderGoals(inPanel){
   body.appendChild(head);
   rab.goals.forEach(gg=>{
     const row=document.createElement('div'); row.className='grow'+(gg.done?' done':'');
-    row.innerHTML=`<div class="gtext">${gg.done?'✅':'⬜'} ${gg.text}</div>
+    row.innerHTML=`<div class="gtext">${gg.done?'✅':'⬜'} ${esc(gg.text)}</div>
       <div class="gtrack"><div class="gfill" style="width:${Math.round(gg.prog/gg.target*100)}%"></div></div>
       <div class="greward">${gg.prog}/${gg.target} · +${gg.reward}🥕</div>`;
     body.appendChild(row);
@@ -2726,7 +2758,7 @@ function parseSaveCode(code){
 
 function renderMenu(){
   const body=$('panelBody'); body.innerHTML='';
-  const weightTxt = rab.weight>140?'Overweight ⚠️':rab.weight<75?'Underweight ⚠️':'Ideal 👌';
+  const weightTxt = cap(weightStatus().txt);   // one source of truth for weight bands (see weightStatus())
   const masteryList = Object.keys(TRICKS).map(k=>{
     const unlocked = TRICKS[k].unlock<=rab.bondLevel;
     const m = Math.round(rab.mastery[k]||0);
@@ -2736,7 +2768,7 @@ function renderMenu(){
   const achDone=Object.keys(rab.achievements).length, achTotal=Object.keys(ACHS).length;
   body.innerHTML=`
     <div class="vitals">
-      <div><b>${rab.name}</b> · ${cap(rab.sex)} · ${coat.name}</div>
+      <div><b>${esc(rab.name)}</b> · ${cap(rab.sex)} · ${coat.name}</div>
       <div>Age: ${rab.ageDays} day(s) · ${stageFor(rab.ageDays).name} ${stageFor(rab.ageDays).label}</div>
       <div>Bond: Lv ${rab.bondLevel} (${rab.bondXP}/${xpNeeded(rab.bondLevel)} XP)</div>
       <div>Health: ${Math.round(rab.health)}% ${rab.sick?'· 🤒 in stasis':''}</div>
@@ -2818,12 +2850,12 @@ function canvasPos(e){
   const cy=(e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY)-r.top;
   return {x:cx,y:cy};
 }
-function onDown(e){pointer.down=true;const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;
+function onDown(e){pointer.down=true;const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;
   if(pettingMode) $('game').style.cursor='grabbing';
   if(findRabbit(p.x,p.y)) return;
   if(tapCord(p.x,p.y)) return;
   handlePet(p.x,p.y); handleGroom(p.x,p.y);}
-function onMove(e){const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;pointer.moved=1;if(pointer.down){handlePet(p.x,p.y); handleGroom(p.x,p.y);}}
+function onMove(e){const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;if(pointer.down){handlePet(p.x,p.y); handleGroom(p.x,p.y);}}
 function onUp(){pointer.down=false; if(pettingMode) $('game').style.cursor='grab';}
 // Register pointer handlers exactly once. Reset/import reload the page today, but guarding here
 // means a future reload-free reset can't stack duplicate handlers (every pet would fire twice).
@@ -3210,7 +3242,7 @@ function guessWin(){
 function guessLose(){
   GS.done=true; GS.on=false;   // no penalty — she just gloats
   $('gFace').textContent='😏'; $('gBubble').textContent=`It was ${GS.secret}! Better luck next time~`;
-  guessEndCard(`<h3>It was ${GS.secret} — she wins this round 🐰</h3>`); save();
+  guessEndCard(`<h3>It was ${GS.secret} — ${cap(P().s)} wins this round 🐰</h3>`); save();
 }
 bind('bGuess', openGuess);
 bind('guessClose', closeGuess);
@@ -3310,7 +3342,7 @@ function tttEndGame(w){
   } else if(w==='h'){
     stats.happy=clamp(stats.happy+8); startBinky();
     $('tttFace').textContent='😼'; $('tttBubble').textContent='Three hays in a row — I win! 🌾';
-    title=`${rab.name} wins! 🌾`;
+    title=`${esc(rab.name)} wins! 🌾`;
   } else {
     addCarrots(5);
     $('tttFace').textContent='😐'; $('tttBubble').textContent='A tie! Good game. 🤝';
@@ -3370,7 +3402,8 @@ function ccSpawn(){
   CC.items.push({ x:rand(CC.W*0.10, CC.W*0.90), y:-r, r, bad,
                   vy: CC.H*(0.30+CC.speed*0.11)*rand(0.9,1.12) });   // px/sec
 }
-function ccHit(){ CC.lives--; ccLivesUI(); if(CC.lives<=0) ccEnd(); }
+function ccHit(){ if(CC.over) return;   // two bad items in the same frame must not run ccEnd() twice
+  CC.lives--; ccLivesUI(); if(CC.lives<=0) ccEnd(); }
 function ccFrame(){
   if(!CC.on) return;
   const t=now(); let dt=t-CC.lastT; CC.lastT=t; dt=Math.min(dt,0.033);
