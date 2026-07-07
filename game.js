@@ -1496,16 +1496,38 @@ function drawUprightEar(hx,hy,r,s,dir,t,B){
 /* Lion's mane — a fluffy ring of fur tufts. 'back' draws the full halo behind
    the head; 'front' adds chin/neck fluff over the lower face. */
 function drawMane(hx,hy,r,layer){
-  const rr=r*1.16, n=22;
-  for(let i=0;i<n;i++){
-    const a=i/n*Math.PI*2;
-    if(layer==='front' && Math.sin(a) < 0.35) continue;   // front → lower arc only
-    const wob = 0.8 + 0.36*Math.sin(i*1.9 + a*3);
-    const mx=hx+Math.cos(a)*rr, my=hy+Math.sin(a)*rr*0.96;
-    ctx.fillStyle = coat.body;
-    ctx.beginPath(); ctx.arc(mx,my, r*0.27*wob, 0,7); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.12)';
-    ctx.beginPath(); ctx.arc(mx-r*0.05,my-r*0.05, r*0.13*wob, 0,7); ctx.fill();
+  // ONE solid scalloped shape instead of separate balls — the balls left visible
+  // gaps between them as the head moved. A base disc guarantees no holes; the
+  // wavy tufts along the rim give the fluffy edge.
+  if(layer==='back'){
+    const R=r*1.24, n=15;
+    const p=new Path2D();
+    p.arc(hx,hy,R,0,Math.PI*2);                                  // solid core: gaps impossible
+    for(let i=0;i<n;i++){
+      const a=i/n*Math.PI*2;
+      const wob=0.8+0.35*Math.sin(i*2.1);
+      const br=r*0.24*wob;
+      const px=hx+Math.cos(a)*(R-br*0.3), py=hy+Math.sin(a)*(R-br*0.3)*0.98;
+      p.moveTo(px+br,py); p.arc(px,py,br,0,Math.PI*2);
+    }
+    ctx.fillStyle=coat.body; ctx.fill(p);
+    ctx.save(); ctx.clip(p);                                     // soft ruff shading, clipped
+    ctx.fillStyle='rgba(0,0,0,.10)';
+    ctx.beginPath();ctx.ellipse(hx, hy+R*0.55, R*1.15, R*0.62, 0,0,7);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.10)';
+    ctx.beginPath();ctx.ellipse(hx-R*0.3, hy-R*0.45, R*0.55, R*0.4, -0.2,0,7);ctx.fill();
+    ctx.restore();
+  } else {
+    // chin fluff: a scalloped crescent over the lower face — one path, no gaps
+    const p=new Path2D(), n=7;
+    for(let i=0;i<=n;i++){
+      const a=Math.PI*(0.16+0.68*i/n);
+      const wob=0.8+0.3*Math.sin(i*2.3);
+      const br=r*0.21*wob;
+      const px=hx+Math.cos(a)*r*1.02, py=hy+Math.sin(a)*r*1.02;
+      p.moveTo(px+br,py); p.arc(px,py,br,0,Math.PI*2);
+    }
+    ctx.fillStyle=coat.body; ctx.fill(p);
   }
 }
 
