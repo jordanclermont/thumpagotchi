@@ -7,3 +7,6 @@ thumpagotchi-devlog/
 
 # Review screenshots from the props lab (scratch, not shipped)
 lab-shots/
+
+# Local Claude Code settings (machine-specific hooks/paths)
+.claude/settings.local.json
