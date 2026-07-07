@@ -839,7 +839,7 @@ function drawHutch(){
 function hammockGeo(){
   const hm=world.hammock, w=hm.w, px=hm.x, py=hm.y, sy=hm.sy;
   const occupied = !!rab.inHammock;
-  const low = w*0.30 + (occupied? w*0.05 : 0);          // pouch depth below the back rim
+  const low = w*0.35;                                  // always the deep, occupied-look sling
   return {hm,w,px,py,sy,low,occupied,legSpread:w*0.15};
 }
 function drawHammock(){
@@ -878,12 +878,9 @@ function drawHammock(){
     ctx.fillStyle='#5f4526'; ctx.beginPath();ctx.arc(topx,ty,capR,0,7);ctx.fill();
     ctx.fillStyle='rgba(255,255,255,.25)'; ctx.beginPath();ctx.arc(topx-capR*0.3,ty-capR*0.3,capR*0.35,0,7);ctx.fill();
   }
-  if(!occupied){
-    ctx.fillStyle='#f2c8d3';
-    ctx.beginPath();ctx.ellipse(px, ty+low*1.08, w*0.30, w*0.12, 0, 0, 7);ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.4)';
-    ctx.beginPath();ctx.ellipse(px-w*0.09, ty+low*0.98, w*0.11, w*0.045, 0, 0, 7);ctx.fill();
-  }
+  // empty sling shows the SAME near lip it has when she's in it, so the hammock
+  // always reads as a deep pouch (not a shallow cloth with a floating pillow)
+  if(!occupied) drawHammockFront();
 }
 function drawHammockFront(){
   const {w,px,sy,low}=hammockGeo();
