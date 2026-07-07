@@ -3078,14 +3078,13 @@ function snDraw(){
 })();
 
 /* ============================================================================ *
- *  GUESS MY NUMBER — a risk/reward minigame (you guess the bunny's number)
- *  Difficulty scales with anger: the madder she is, the bigger the range (→25).
- *  Win = +50🥕. Lose all 3 guesses = instant MAX thump (cold shoulder).
+ *  GUESS MY NUMBER — a light gamble (you guess the bunny's number)
+ *  Fixed range 1–15, 3 tries. Win = +30🥕. Losing is harmless — she just teases.
  * ============================================================================ */
-const GS = { on:false, secret:0, max:10, guesses:0, done:false };
+const GS = { on:false, secret:0, max:15, guesses:0, done:false };
 function openGuess(){
   if(rab.cold){ coldRefuse(); return; }
-  GS.max = Math.min(25, 10 + Math.round(rab.thumps*3));    // calm 1–10 … furious 1–25
+  GS.max = 15;
   GS.secret = 1 + Math.floor(Math.random()*GS.max);
   GS.guesses = 0; GS.done = false; GS.on = true;
   minigameActive = true;
@@ -3119,17 +3118,16 @@ function guessEndCard(html){ const m=$('gMsg'); m.innerHTML=html+`<div class="mg
   m.className='gmsg show'; $('gAgain').onclick=openGuess; $('gDone2').onclick=closeGuess; }
 function guessWin(){
   GS.done=true; GS.on=false;
-  addCarrots(50, rab.x, rab.baseY-60); addXP(15); stats.happy=clamp(stats.happy+14); rab.thumps=clamp(rab.thumps-1,0,5);
+  addCarrots(30, rab.x, rab.baseY-60); addXP(15); stats.happy=clamp(stats.happy+14); rab.thumps=clamp(rab.thumps-1,0,5);
   incGoal('g_guess');   // daily goal: win Guess My Number
   startBinky();
   $('gFace').textContent='😻'; $('gBubble').textContent=`It WAS ${GS.secret}! You read my mind! 🥕`;
-  guessEndCard(`<h3>Correct! +50🥕</h3>`); save();
+  guessEndCard(`<h3>Correct! +30🥕</h3>`); save();
 }
 function guessLose(){
-  GS.done=true; GS.on=false;
-  rab.thumps=5; checkThreshold(); triggerThump();     // maxed anger → cold shoulder
-  $('gFace').textContent='😡'; $('gBubble').textContent=`It was ${GS.secret}! You'll NEVER guess me! 💢`;
-  guessEndCard(`<h3>Wrong — ${rab.name} is FURIOUS 💢</h3>`); save();
+  GS.done=true; GS.on=false;   // no penalty — she just gloats
+  $('gFace').textContent='😏'; $('gBubble').textContent=`It was ${GS.secret}! Better luck next time~`;
+  guessEndCard(`<h3>It was ${GS.secret} — she wins this round 🐰</h3>`); save();
 }
 bind('bGuess', openGuess);
 bind('guessClose', closeGuess);
