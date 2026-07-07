@@ -220,7 +220,7 @@ const rab = {
   trick:null,
   restUntil:0,
   play:null, playAlpha:1, playYOff:0, hidden:false,
-  boxT:0, boxYOff:0, decor:{rug:null,bed:null}, petReact:0,
+  boxT:0, boxYOff:0, hammockSag:0, decor:{rug:null,bed:null}, petReact:0,
   begUntil:0, begCooldown:0, begWant:'🍌', denUntil:0,
   maxAngerCount:0, weightStrikes:0, pelletsToday:0, _obeseT:0, _obeseWarned:false,
   // v2 "first ten minutes" state — persisted flags + runtime-only scripting timers
@@ -839,7 +839,10 @@ function drawHutch(){
 function hammockGeo(){
   const hm=world.hammock, w=hm.w, px=hm.x, py=hm.y, sy=hm.sy;
   const occupied = !!rab.inHammock;
-  const low = w*0.35;                                  // always the deep, occupied-look sling
+  // the sling sags deeper under her weight and springs back up when empty (damped
+  // in the tick as rab.hammockSag; the lab has no tick, so it falls back to state)
+  const sag = (rab.hammockSag!=null) ? rab.hammockSag : (occupied?1:0);
+  const low = w*(0.31 + 0.06*sag);
   return {hm,w,px,py,sy,low,occupied,legSpread:w*0.15};
 }
 function drawHammock(){
@@ -2484,6 +2487,7 @@ function frame(){
   if(!rab.play){
     const hm=world.hammock;
     rab.inHammock = rab.state==='rest' && owns('hammock') && !rab.hopping && Math.abs(rab.x-hm.x)<hm.w*0.5;
+    rab.hammockSag = damp(rab.hammockSag||0, rab.inHammock?1:0, 6, dt);   // sling sags under her weight, springs up when empty
     // she sometimes curls up in her bed after wandering to it (short nap, interruptible)
     if(rab.bedNapAt && t>rab.bedNapAt){
       rab.bedNapAt=0;
