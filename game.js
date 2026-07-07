@@ -213,7 +213,7 @@ window.addEventListener('resize', resize);
  * ============================================================================ */
 const stats = { happy:80, hunger:30, water:85, hygiene:90, energy:75 };
 const rab = {
-  name:'Mowgli', sex:'doe', breed:'holland',
+  name:'Mowgli', sex:'buck', breed:'holland',
   x:0, baseY:0, hopOff:0, binkyHop:0, curScale:0.74,
   thumps:0, cold:false,
   bananasToday:0, day:1, ageDays:0,
@@ -299,7 +299,7 @@ function loadRaw(){
 // NaN-poison a stat (clamp(NaN) stays NaN forever) — non-finite values fall back
 const num=(v,f)=>{ v=+v; return Number.isFinite(v)?v:f; };
 function applySave(d){
-  rab.name=String(d.name||'Mowgli').slice(0,12); rab.sex=d.sex||'doe';   // match the name input's maxlength
+  rab.name=String(d.name||'Mowgli').slice(0,12); rab.sex=d.sex||'buck';   // match the name input's maxlength
   rab.breed = d.breed && BREEDS[d.breed] ? d.breed : 'holland';
   coatKey = d.coatKey && COATS[d.coatKey] ? d.coatKey : (BREED_DEFAULT_COAT[rab.breed]||'sableGrey');
   coat = COATS[coatKey];
@@ -2907,8 +2907,8 @@ window.addEventListener('beforeunload',save);
 /* ============================================================================ *
  *  START / ADOPTION SCREEN
  * ============================================================================ */
-let chosenCoat='sableGrey', chosenSex='doe', chosenBreed='holland';
-const EXAMPLE_NAMES = { holland:'Mowgli', netherland:'Elvis', lionhead:'Lionel' };
+let chosenCoat='sableGrey', chosenSex='buck', chosenBreed='holland';
+const EXAMPLE_NAMES = { holland:'Mowgli', netherland:'Pip', lionhead:'Tywin' };
 function renderSwatches(breed){
   const sw=$('swatches'); sw.innerHTML='';
   const keys = BREED_COATS[breed] || BREED_COATS.holland;
