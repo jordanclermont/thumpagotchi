@@ -957,59 +957,117 @@ function drawWaterBowl(){
   ctx.fillStyle=`rgba(255,255,255,${sp})`;
   ctx.beginPath();ctx.arc(b.x+lightDirX()*wr*0.4, b.y-wry*0.35, b.r*0.08, 0,7);ctx.fill();
 }
-function drawBed(){
+/* PADDED PET BED, side-on (like the litter box). Both variants are a soft torus:
+   a tall BACK bolster, a sunken CUSHION pillow, and a lower FRONT bolster drawn
+   last. drawBedFront() re-draws just that front bolster over the napping rabbit,
+   so the front functions must own their geometry. Bolsters are fat round-capped
+   arcs — soft tubes, not a hard wall — cel-shaded in base/shadow/highlight bands. */
+function bedGeo(){
   const b=world.bed;
-  if(rab.decor && rab.decor.bed==='cloud'){
-    ctx.fillStyle='#dfe6f2';
-    for(const o of [[-0.7,0.05,0.5],[0.7,0.05,0.5],[-0.35,-0.18,0.55],[0.35,-0.18,0.55],[0,0.06,0.7]])
-      { ctx.beginPath();ctx.ellipse(b.x+b.r*o[0], b.y+b.r*o[1], b.r*o[2], b.r*o[2]*0.62, 0,0,7); ctx.fill(); }
-    ctx.fillStyle='#b7c6e6'; ctx.beginPath();ctx.ellipse(b.x,b.y+b.r*0.06,b.r*0.66,b.r*0.34,0,0,7);ctx.fill();
-    ctx.fillStyle='#eef3fb'; ctx.beginPath();ctx.ellipse(b.x-b.r*0.18,b.y-b.r*0.02,b.r*0.3,b.r*0.14,0,0,7);ctx.fill();
-    return;
-  }
-  /* basket bed with real depth: an exterior side WALL for height (so it sits at the room's angle,
-     not top-down) + tall BACK rim, sunken cushion, low FRONT rim. The front rim is re-drawn over
-     the rabbit while she naps (drawBedFront), so its geometry stays fixed. */
-  const bcy=b.y+b.r*0.06, bry=b.r*0.44, bwall=b.r*0.17;
-  ctx.fillStyle=shade('#a34a5f',0.34);
-  ctx.beginPath();ctx.ellipse(b.x, bcy+bwall, b.r, bry, 0,0,7);ctx.fill();            // bowl base (bottom ellipse)
-  ctx.fillRect(b.x-b.r, bcy, b.r*2, bwall);                                           // exterior side band
-  ctx.fillStyle=shade('#a34a5f',0.18); ctx.fillRect(b.x-b.r, bcy+bwall*0.5, b.r*2, bwall*0.5);  // wall picks up a little light
-  ctx.fillStyle='#a34a5f'; ctx.beginPath();ctx.ellipse(b.x, bcy, b.r, bry, 0,0,7);ctx.fill();    // top opening (flattened)
-  ctx.strokeStyle=shade('#a34a5f',0.4); ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.ellipse(b.x, bcy, b.r, bry, 0,0,7);ctx.stroke();
-  /* back rim — thicker and higher than the front */
-  ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.30; ctx.lineCap='round';
-  ctx.beginPath();ctx.ellipse(b.x, b.y-b.r*0.02, b.r*0.80, b.r*0.42, 0, Math.PI, 0);ctx.stroke();
-  ctx.lineCap='butt';
-  /* sunken cushion, shadowed where the back rim overhangs it */
-  ctx.fillStyle='#e79fae'; ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.10, b.r*0.62, b.r*0.30, 0,0,7);ctx.fill();
-  ctx.fillStyle='rgba(90,30,45,.22)';
-  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.02, b.r*0.60, b.r*0.16, 0, Math.PI, 0);ctx.fill();
-  /* quilt stitches */
-  ctx.strokeStyle='rgba(160,70,90,.35)'; ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.10, b.r*0.40, b.r*0.18, 0,0,7);ctx.stroke();
-  /* front rim — lower, drawn last so it overlaps the cushion */
-  ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.22; ctx.lineCap='round';
-  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.10, b.r*0.80, b.r*0.38, 0, 0.06*Math.PI, 0.94*Math.PI);ctx.stroke();
-  ctx.lineCap='butt';
-  ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=2;
-  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.07, b.r*0.80, b.r*0.36, 0, 0.15*Math.PI, 0.85*Math.PI);ctx.stroke();
+  return { b, oy:b.y-b.r*0.18, R:b.r };   // oy = the rim opening plane
 }
-/* the bed's near rim, redrawn over the rabbit while she naps in it (cf. drawHammockFront) */
-function drawBedFront(){
-  const b=world.bed;
+const BED_ROSE='#c85f78';
+// short strokes ACROSS a bolster tube at intervals → tufted fabric, not a smooth ring.
+function bolsterTufts(cx0,cy0,rx,ry,th0,th1,nr){
+  ctx.strokeStyle='rgba(120,45,65,.26)'; ctx.lineWidth=Math.max(1.2,rx*0.035); ctx.lineCap='round';
+  const steps=5;
+  for(let i=0;i<steps;i++){
+    const th=th0+(th1-th0)*(i+0.5)/steps, c=Math.cos(th), s=Math.sin(th);
+    const cx=cx0+rx*c, cy=cy0+ry*s;
+    ctx.beginPath();ctx.moveTo(cx-c*nr, cy-s*nr*0.85);ctx.lineTo(cx+c*nr, cy+s*nr*0.85);ctx.stroke();
+  }
+  ctx.lineCap='butt';
+}
+// FRONT bolster — the near padded rim, also redrawn over the napping rabbit
+function drawBasicBedWall(){
+  const {b,oy,R}=bedGeo();
+  ctx.lineCap='round';
+  ctx.strokeStyle=shade(BED_ROSE,0.22); ctx.lineWidth=R*0.25;                                  // base
+  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.12, R*0.82, R*0.30, 0, 0.03*Math.PI, 0.97*Math.PI);ctx.stroke();
+  ctx.strokeStyle=BED_ROSE; ctx.lineWidth=R*0.17;                                              // rounded face
+  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.10, R*0.82, R*0.30, 0, 0.06*Math.PI, 0.94*Math.PI);ctx.stroke();
+  ctx.strokeStyle='rgba(255,214,224,.36)'; ctx.lineWidth=R*0.045;                              // soft matte sheen
+  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.075, R*0.82, R*0.30, 0, 0.15*Math.PI, 0.85*Math.PI);ctx.stroke();
+  ctx.lineCap='butt';
+  bolsterTufts(b.x, oy+R*0.10, R*0.82, R*0.30, 0.14*Math.PI, 0.86*Math.PI, R*0.12);            // tufted seams
+}
+// FRONT bolster for the cloud bed — a scalloped lip of merged puffs
+function drawCloudFrontPuffs(){
+  const {b,oy,R}=bedGeo();
+  const p=new Path2D();
+  p.ellipse(b.x, oy+R*0.20, R*0.72, R*0.15, 0, 0, Math.PI*2);                                  // base ribbon → puffs merge, no gap
+  for(let i=0;i<=6;i++){
+    const ang=Math.PI*(0.06+0.88*i/6);
+    const px=b.x+Math.cos(ang)*R*0.74, py=oy+R*0.15+Math.sin(ang)*R*0.26;
+    const br=R*(0.17+0.05*Math.sin(i*1.7));
+    p.moveTo(px+br,py); p.arc(px,py,br,0,Math.PI*2);
+  }
+  ctx.fillStyle='#e9eff9'; ctx.fill(p);
+  ctx.save(); ctx.clip(p);
+  ctx.fillStyle='rgba(150,168,205,.20)';                                                       // underside shade
+  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.36, R*0.9, R*0.18, 0,0,7);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.4)';                                                        // soft top catch
+  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.07, R*0.66, R*0.10, 0,0,7);ctx.fill();
+  ctx.restore();
+}
+function drawBed(){
+  const {b,oy,R}=bedGeo();
   if(rab.decor && rab.decor.bed==='cloud'){
-    ctx.fillStyle='#dfe6f2';
-    for(const o of [[-0.7,0.05,0.5],[0,0.06,0.7],[0.7,0.05,0.5]])
-      { ctx.beginPath();ctx.ellipse(b.x+b.r*o[0], b.y+b.r*(o[1]+0.18), b.r*o[2], b.r*o[2]*0.34, 0,0,7); ctx.fill(); }
+    // BACK cloud bolster — merged scallops across the top, on a solid body
+    const back=new Path2D();
+    back.ellipse(b.x, oy, R*0.80, R*0.26, 0, 0, Math.PI*2);
+    for(let i=0;i<=7;i++){
+      const ang=Math.PI*(1.08+0.84*i/7);
+      const px=b.x+Math.cos(ang)*R*0.80, py=oy+Math.sin(ang)*R*0.30;
+      const br=R*(0.20+0.06*Math.sin(i*1.9));
+      back.moveTo(px+br,py); back.arc(px,py,br,0,Math.PI*2);
+    }
+    ctx.fillStyle='#dbe4f3'; ctx.fill(back);
+    ctx.save(); ctx.clip(back);
+    ctx.fillStyle='rgba(255,255,255,.5)';
+    ctx.beginPath();ctx.ellipse(b.x-R*0.2, oy-R*0.22, R*0.5, R*0.22, -0.1,0,7);ctx.fill();
+    ctx.fillStyle='rgba(150,168,205,.16)';
+    ctx.beginPath();ctx.ellipse(b.x, oy+R*0.16, R*0.8, R*0.2, 0,0,7);ctx.fill();
+    ctx.restore();
+    // CUSHION — a soft matte pale-blue pillow, sunk in the hollow
+    ctx.fillStyle='#c9d6ec';
+    ctx.beginPath();ctx.ellipse(b.x, oy+R*0.10, R*0.54, R*0.19, 0,0,7);ctx.fill();
+    ctx.fillStyle='#e7eefa';
+    ctx.beginPath();ctx.ellipse(b.x, oy+R*0.07, R*0.48, R*0.15, 0,0,7);ctx.fill();
+    ctx.fillStyle='rgba(150,168,205,.22)';                                                     // back-bolster overhang
+    ctx.beginPath();ctx.ellipse(b.x, oy+R*0.00, R*0.46, R*0.11, 0, Math.PI, 2*Math.PI);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.35)';
+    ctx.beginPath();ctx.ellipse(b.x-R*0.10, oy+R*0.10, R*0.22, R*0.06, 0,0,7);ctx.fill();
+    drawCloudFrontPuffs();
     return;
   }
-  // must match the ported drawBed's FRONT rim exactly (b.y+b.r*0.10, b.r*0.80 x b.r*0.38) so the
-  // near lip redrawn over the napping rabbit lines up with the bed she's sitting in
-  ctx.strokeStyle='#c96a80'; ctx.lineWidth=b.r*0.22; ctx.lineCap='round';
-  ctx.beginPath();ctx.ellipse(b.x, b.y+b.r*0.10, b.r*0.80, b.r*0.38, 0, 0.06*Math.PI, 0.94*Math.PI);ctx.stroke();
+  // BASIC bed — BACK bolster (fat arc across the top, raised taller than the front)
+  ctx.lineCap='round';
+  ctx.strokeStyle=shade(BED_ROSE,0.36); ctx.lineWidth=R*0.32;                                  // base (recedes)
+  ctx.beginPath();ctx.ellipse(b.x, oy-R*0.03, R*0.82, R*0.30, 0, Math.PI, 2*Math.PI);ctx.stroke();
+  ctx.strokeStyle=shade(BED_ROSE,0.10); ctx.lineWidth=R*0.23;                                  // face
+  ctx.beginPath();ctx.ellipse(b.x, oy-R*0.05, R*0.82, R*0.30, 0, 1.04*Math.PI, 1.96*Math.PI);ctx.stroke();
+  ctx.strokeStyle='#ec91a6'; ctx.lineWidth=R*0.07;                                             // top highlight
+  ctx.beginPath();ctx.ellipse(b.x, oy-R*0.08, R*0.82, R*0.30, 0, 1.10*Math.PI, 1.90*Math.PI);ctx.stroke();
   ctx.lineCap='butt';
+  bolsterTufts(b.x, oy-R*0.05, R*0.82, R*0.30, 1.14*Math.PI, 1.86*Math.PI, R*0.11);            // tufted seams
+  // CUSHION — a soft cream pillow, wide so the bolster reads as a rim (not a tube)
+  ctx.fillStyle='#e6cba8';
+  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.09, R*0.66, R*0.25, 0,0,7);ctx.fill();
+  ctx.fillStyle='#f4e6cf';
+  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.06, R*0.61, R*0.22, 0,0,7);ctx.fill();
+  ctx.fillStyle='rgba(150,110,70,.20)';                                                        // back-bolster overhang
+  ctx.beginPath();ctx.ellipse(b.x, oy-R*0.03, R*0.57, R*0.15, 0, Math.PI, 2*Math.PI);ctx.fill();
+  ctx.fillStyle='rgba(255,250,240,.5)';
+  ctx.beginPath();ctx.ellipse(b.x-R*0.14, oy+R*0.10, R*0.32, R*0.10, 0,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(150,110,70,.16)';ctx.lineWidth=1.2;                                    // pillow seam ring
+  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.07, R*0.40, R*0.12, 0,0,7);ctx.stroke();
+  drawBasicBedWall();
+}
+/* the bed's near side, redrawn over the rabbit while she naps in it (cf. drawHammockFront) */
+function drawBedFront(){
+  if(rab.decor && rab.decor.bed==='cloud'){ drawCloudFrontPuffs(); return; }
+  drawBasicBedWall();
 }
 function drawTube(){
   const tb=world.tube;
