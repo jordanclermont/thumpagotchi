@@ -2908,7 +2908,7 @@ window.addEventListener('beforeunload',save);
  *  START / ADOPTION SCREEN
  * ============================================================================ */
 let chosenCoat='sableGrey', chosenSex='buck', chosenBreed='holland';
-const EXAMPLE_NAMES = { holland:'Mowgli', netherland:'Pip', lionhead:'Tywin' };
+const EXAMPLE_NAMES = { holland:'Mowgli', netherland:'Elvis', lionhead:'Tywin' };
 function renderSwatches(breed){
   const sw=$('swatches'); sw.innerHTML='';
   const keys = BREED_COATS[breed] || BREED_COATS.holland;
