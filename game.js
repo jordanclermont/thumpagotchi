@@ -59,6 +59,10 @@ const COATS = {
   lhREW:      {name:'Ruby-Eyed White',     body:'#f4f0e4', bodySh:'#ddd6c4', hi:'#ffffff', point:'#cfc6b2', pointMid:'#e4dccb', sable:false, eye:'#c0303a'},
   lhBlack:    {name:'Black',               body:'#413a34', bodySh:'#2b2622', hi:'#5f564d', point:'#171412', pointMid:'#342e29', sable:false},
   lhChestnut: {name:'Chestnut',            body:'#b47c44', bodySh:'#8f5f30', hi:'#d6a066', point:'#5a3a20', pointMid:'#7a4f2c', sable:false},
+  // Broken (white base + brown patches) — Tywin's default. `broken` drives a patch layer over
+  // the white body/head + brown ears & mane; patch* are the brown, body* stay near-white.
+  lhBroken:   {name:'Broken Chestnut',     body:'#f5f1e6', bodySh:'#e4dccb', hi:'#ffffff', point:'#cfc6b2', pointMid:'#e4dccb', sable:false,
+               broken:true, patch:'#b07444', patchSh:'#8a5730', patchHi:'#cf9459'},
 };
 let coat = COATS.sableGrey;
 let coatKey = 'sableGrey';
@@ -74,9 +78,9 @@ const BREEDS = {
 const BREED_COATS = {
   holland:    ['sableGrey','sableSepia','chestnut','black','blue','fawn'],
   netherland: ['ndBlackTan','ndBlueOtter','ndChestnut','ndTort'],
-  lionhead:   ['lhTort','lhREW','lhBlack','lhChestnut'],
+  lionhead:   ['lhBroken','lhTort','lhREW','lhBlack','lhChestnut'],
 };
-const BREED_DEFAULT_COAT = { holland:'sableGrey', netherland:'ndBlackTan', lionhead:'lhTort' };
+const BREED_DEFAULT_COAT = { holland:'sableGrey', netherland:'ndBlackTan', lionhead:'lhBroken' };
 
 /* Account-wide unlocks (persist across pets, e.g. the Lionhead breed) */
 const UNLOCK_KEY = 'thumpagotchi.unlocks';
@@ -1336,6 +1340,24 @@ function drawRabbit(t){
   ctx.fillStyle='rgba(255,255,255,.10)';
   ctx.beginPath();ctx.ellipse(p.cx-p.body.rx*0.46, p.body.y+p.body.ry*0.05, p.body.rx*0.26, p.body.ry*0.30, -0.12, 0, 7);ctx.fill();
 
+  // Broken (white + brown): irregular brown spots on the white base, clipped to the torso.
+  // Each row is [ux,uy centre (fraction of body rx/ry), rx-frac, ry-frac]; asymmetry sells it.
+  if(coat.broken){
+    ctx.save();
+    ctx.beginPath();ctx.ellipse(p.body.x,p.body.y+breath,p.body.rx,p.body.ry-breath*0.4,0,0,7);ctx.clip();
+    const PATCH=[[ 0.30,-0.06, 0.60, 0.72],   // right rump saddle
+                 [-0.42, 0.20, 0.40, 0.48],   // low left flank spot
+                 [ 0.00,-0.44, 0.30, 0.24]];  // small speckle near the shoulders
+    for(const [ux,uy,fx,fy] of PATCH){
+      const cx=p.body.x+ux*p.body.rx, cy=p.body.y+uy*p.body.ry, pr=p.body.rx*fx;
+      const pg=ctx.createRadialGradient(cx-pr*0.3,cy-pr*0.35,pr*0.12, cx,cy,pr);
+      pg.addColorStop(0,coat.patchHi); pg.addColorStop(0.55,coat.patch); pg.addColorStop(1,coat.patchSh);
+      ctx.fillStyle=pg;
+      ctx.beginPath();ctx.ellipse(cx,cy,pr,p.body.ry*fy,0,0,7);ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // Black & tan: a white underside — a low, flat sliver along the belly line (Elvis
   // has white on his belly, not a big chest patch; a large oval + dark paws reads as a skull)
   if(coat.tan){
@@ -1416,6 +1438,22 @@ function drawHead(p,t,tummy,closedEyes){
   ctx.beginPath();ctx.arc(hx-r*0.17, hy-r*0.86, r*0.14, 0, 7);ctx.fill();
   ctx.beginPath();ctx.arc(hx+r*0.02, hy-r*0.95, r*0.17, 0, 7);ctx.fill();
   ctx.beginPath();ctx.arc(hx+r*0.20, hy-r*0.84, r*0.12, 0, 7);ctx.fill();
+
+  // Broken (white + brown) face: an asymmetric brown cap over one eye/ear-base plus a soft
+  // nose smudge (the "butterfly"). Drawn UNDER the eyes/nose, which paint on top later.
+  if(coat.broken){
+    ctx.save();
+    ctx.beginPath();ctx.ellipse(hx,hy,r,r*0.94,0,0,7);ctx.clip();   // stay on the head
+    let cx=hx-r*0.42, cy=hy-r*0.28, rr=r*0.46;                       // cap over the LEFT eye + ear base
+    let pg=ctx.createRadialGradient(cx-rr*0.3,cy-rr*0.3,2,cx,cy,rr);
+    pg.addColorStop(0,coat.patchHi);pg.addColorStop(0.55,coat.patch);pg.addColorStop(1,coat.patchSh);
+    ctx.fillStyle=pg;ctx.beginPath();ctx.ellipse(cx,cy,rr*0.9,rr,-0.2,0,7);ctx.fill();
+    cx=hx+look.x; cy=hy+r*0.30;                                      // soft nose smudge, fading out
+    pg=ctx.createRadialGradient(cx,cy-r*0.06,2,cx,cy,r*0.32);
+    pg.addColorStop(0,coat.patch);pg.addColorStop(0.55,coat.patch);pg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=pg;ctx.beginPath();ctx.ellipse(cx,cy,r*0.26,r*0.30,0,0,7);ctx.fill();
+    ctx.restore();
+  }
 
   const nmx=hx+look.x, nmy=hy+r*0.32;
   if(coat.sable){
@@ -1559,7 +1597,8 @@ function drawUprightEar(hx,hy,r,s,dir,t,B){
   ctx.translate(baseX, baseY);
   ctx.rotate(dir*(0.18 + sway));
   const g=ctx.createLinearGradient(0,0,0,-len);
-  g.addColorStop(0,coat.body); g.addColorStop(1,coat.pointMid);
+  if(coat.broken){ g.addColorStop(0,coat.patchHi); g.addColorStop(1,coat.patchSh); }   // broken: brown ears
+  else { g.addColorStop(0,coat.body); g.addColorStop(1,coat.pointMid); }
   ctx.fillStyle=g;
   ctx.beginPath(); ctx.ellipse(0,-len*0.5, r*0.21, len*0.5, 0,0,7); ctx.fill();
   ctx.fillStyle = coat.tan ? coat.tanCol : 'rgba(228,158,158,.85)';   // inner ear
@@ -1584,7 +1623,7 @@ function drawMane(hx,hy,r,layer){
       const px=hx+Math.cos(a)*(R-br*0.3), py=hy+Math.sin(a)*(R-br*0.3)*0.98;
       p.moveTo(px+br,py); p.arc(px,py,br,0,Math.PI*2);
     }
-    ctx.fillStyle=coat.body; ctx.fill(p);
+    ctx.fillStyle=coat.broken?coat.patch:coat.body; ctx.fill(p);   // broken: brown mane frames the white face
     ctx.save(); ctx.clip(p);                                     // soft ruff shading, clipped
     ctx.fillStyle='rgba(0,0,0,.10)';
     ctx.beginPath();ctx.ellipse(hx, hy+R*0.55, R*1.15, R*0.62, 0,0,7);ctx.fill();
@@ -1601,7 +1640,7 @@ function drawMane(hx,hy,r,layer){
       const px=hx+Math.cos(a)*r*1.02, py=hy+Math.sin(a)*r*1.02;
       p.moveTo(px+br,py); p.arc(px,py,br,0,Math.PI*2);
     }
-    ctx.fillStyle=coat.body; ctx.fill(p);
+    ctx.fillStyle=coat.broken?coat.patch:coat.body; ctx.fill(p);   // broken: brown mane frames the white face
   }
 }
 
