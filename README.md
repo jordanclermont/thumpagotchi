@@ -15,8 +15,17 @@ Owning a house rabbit, simulated — because rabbits don't get *sad*, they get
 Open `index.html` in any modern browser (Chrome, Safari, Firefox, Edge). Works on
 desktop and touch. Keep the three files (`index.html`, `style.css`, `game.js`) together.
 
-**Adopt first:** pick your bun's **name**, **sex**, and **coat colour** (Sable Point
-Grey by default, plus Sepia, Chestnut, Black, Blue, and Fawn).
+**Adopt first:** pick your bun's **name**, **breed**, **sex**, and **coat colour**. Coats are
+real varieties for each breed, using their official ARBA names:
+
+- **Holland Lop:** Sable Point (the default), Siamese Sable, Tortoise, Chestnut, Black,
+  Blue, Orange
+- **Netherland Dwarf:** Black Tan, Blue Otter, Chestnut Agouti, Tortoise Shell, Blue
+- **Lionhead** (unlocks at Bond 5): Broken Chestnut, Tortoise, Ruby-Eyed White, Black,
+  Chocolate, Siamese Sable, Smoke Pearl. All but Broken Chestnut are ARBA show colours;
+  Broken Chestnut is a real pet colour.
+
+In rabbits, "Blue" means a slate blue-grey, not a neutral grey.
 
 The rabbit is drawn with lopped ears, a cobby plush body, a **black V-shaped nose**,
 tiny front teeth, and sable points blended in with canvas gradients.

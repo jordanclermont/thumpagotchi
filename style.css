@@ -205,8 +205,9 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 .seg button:disabled{opacity:.5;cursor:not-allowed;}
 .breedseg{flex-wrap:wrap;}
 .breedseg button{flex:1 1 30%;font-size:12px;padding:9px 6px;}
-.swatches{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;}
-.swatch{width:46px;height:46px;border-radius:50%;cursor:pointer;border:3px solid rgba(90,55,70,.2);
+.swatches{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}   /* 6px fits 7 coats on one row */
+/* up to 46px, but shrinks so a breed's 7 coats always fit one row (7 swatches + 6 gaps of 6px) */
+.swatch{width:min(46px, calc((100% - 36px) / 7));height:auto;aspect-ratio:1/1;border-radius:50%;cursor:pointer;border:3px solid rgba(90,55,70,.2);
   transition:transform .12s, border-color .12s;position:relative;box-shadow:0 2px 6px rgba(120,70,90,.35);}
 .swatch:hover{transform:scale(1.08);}
 .swatch.on{border-color:#a8506c;transform:scale(1.14);box-shadow:0 3px 10px rgba(168,80,108,.55);}

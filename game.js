@@ -42,23 +42,36 @@ function roundRect(x,y,w,h,r){
 }
 
 /* ---------------- Coat colours ---------------- */
+/* Coat colours are real breed varieties (ARBA names; checked 25 Sep 2026 against ARBA's variety
+   lists and the breed clubs). Hex values are estimates from the standards' descriptions and photos.
+   Rabbit "Blue" is a slate blue-grey (a dilute of black), never neutral grey. Keys are kept stable
+   so saved rabbits keep their coat; retired coats stay defined but leave the adoption lists. */
 const COATS = {
-  sableGrey:  {name:'Sable Point (Grey)',  body:'#f2ebd9', bodySh:'#dbd0b6', hi:'#fefaf0', point:'#4c443d', pointMid:'#7d7469', sable:true },
-  sableSepia: {name:'Sable Point (Sepia)', body:'#f6efdd', bodySh:'#e6d8b8', hi:'#fffdf4', point:'#3f2a1e', pointMid:'#6b4a34', sable:true },
-  chestnut:   {name:'Chestnut',            body:'#b47c44', bodySh:'#8f5f30', hi:'#d6a066', point:'#5a3a20', pointMid:'#7a4f2c', sable:false},
-  black:      {name:'Black',               body:'#413a34', bodySh:'#2b2622', hi:'#5f564d', point:'#171412', pointMid:'#342e29', sable:false},
-  blue:       {name:'Blue (Grey)',         body:'#909196', bodySh:'#727379', hi:'#bcbdc3', point:'#4d4e53', pointMid:'#6b6c71', sable:false},
-  fawn:       {name:'Fawn / Orange',       body:'#e2ab61', bodySh:'#c98f47', hi:'#f4cb88', point:'#c07f3d', pointMid:'#dba25a', sable:false},
+  // Sable Point matched to Jo's own Holland Lop (sampled from a photo): taupe-beige body,
+  // charcoal-brown points. Key stays 'sableGrey' so existing saves keep it.
+  sableGrey:  {name:'Sable Point',         body:'#d3c4b0', bodySh:'#b3a18b', hi:'#e6dccd', point:'#463a33', pointMid:'#6f5d50', sable:true },
+  sableSepia: {name:'Sable Point',         body:'#f6efdd', bodySh:'#e6d8b8', hi:'#fffdf4', point:'#3f2a1e', pointMid:'#6b4a34', sable:true },   // retired: old saves only
+  hlSiameseSable:{name:'Siamese Sable',    body:'#7a5c48', bodySh:'#54392b', hi:'#9b7c64', point:'#33241b', pointMid:'#54392b', sable:true },
+  chestnut:   {name:'Chestnut',            body:'#946a42', bodySh:'#6e4c2d', hi:'#bf9563', point:'#4e3522', pointMid:'#6f4e33', sable:false},
+  black:      {name:'Black',               body:'#2f2e34', bodySh:'#1c1b20', hi:'#51545f', point:'#141417', pointMid:'#2e2d33', sable:false},
+  blue:       {name:'Blue',                body:'#6d7a90', bodySh:'#515c70', hi:'#98a5b9', point:'#4a5468', pointMid:'#5f6b80', sable:false, eye:'#5f6f80'},
+  fawn:       {name:'Orange',              body:'#d98a3d', bodySh:'#b06a26', hi:'#f0b56b', point:'#c47a33', pointMid:'#d88f45', sable:false},   // key kept from "Fawn / Orange"
+  hlTort:     {name:'Tortoise',            body:'#bf7a3e', bodySh:'#8e5a2e', hi:'#dc9c5c', point:'#2d2729', pointMid:'#5a4540', sable:true },
   // ---- Netherland Dwarf coats ----
-  ndBlackTan: {name:'Black & Tan',         body:'#2c2825', bodySh:'#1a1613', hi:'#463d36', point:'#100d0b', pointMid:'#2b2622', sable:false, tan:true, tanCol:'#c68a3e', belly:'#f2ece0'},
-  ndBlueOtter:{name:'Blue Otter',          body:'#8f9096', bodySh:'#6f7076', hi:'#b6b7bd', point:'#4a4b50', pointMid:'#67686d', sable:false, tan:true, tanCol:'#ddd2be'},
-  ndChestnut: {name:'Chestnut Agouti',     body:'#9a6b3c', bodySh:'#79512b', hi:'#c08c52', point:'#4a2f18', pointMid:'#6b4526', sable:false},
-  ndTort:     {name:'Tortoise',            body:'#cd925a', bodySh:'#a06f3d', hi:'#e6ad72', point:'#3c2416', pointMid:'#6e4526', sable:false},
-  // ---- Lionhead coats ----
-  lhTort:     {name:'Tortoise',            body:'#d79a5e', bodySh:'#b57a40', hi:'#eeb87b', point:'#3a2417', pointMid:'#6b4327', sable:false},
-  lhREW:      {name:'Ruby-Eyed White',     body:'#f4f0e4', bodySh:'#ddd6c4', hi:'#ffffff', point:'#cfc6b2', pointMid:'#e4dccb', sable:false, eye:'#c0303a'},
-  lhBlack:    {name:'Black',               body:'#413a34', bodySh:'#2b2622', hi:'#5f564d', point:'#171412', pointMid:'#342e29', sable:false},
-  lhChestnut: {name:'Chestnut',            body:'#b47c44', bodySh:'#8f5f30', hi:'#d6a066', point:'#5a3a20', pointMid:'#7a4f2c', sable:false},
+  ndBlackTan: {name:'Black Tan',           body:'#2c2825', bodySh:'#1a1613', hi:'#463d36', point:'#100d0b', pointMid:'#2b2622', sable:false, tan:true, tanCol:'#c68a3e', belly:'#f2ece0'},   // Elvis — colours unchanged
+  ndBlueOtter:{name:'Blue Otter',          body:'#6d7a90', bodySh:'#515c70', hi:'#98a5b9', point:'#4a5468', pointMid:'#5f6b80', sable:false, tan:true, tanCol:'#e6d6b8', eye:'#5f6f80'},
+  ndChestnut: {name:'Chestnut Agouti',     body:'#946a42', bodySh:'#6e4c2d', hi:'#bf9563', point:'#4e3522', pointMid:'#6f4e33', sable:false},
+  ndTort:     {name:'Tortoise Shell',      body:'#bf7a3e', bodySh:'#8e5a2e', hi:'#dc9c5c', point:'#2d2729', pointMid:'#5a4540', sable:true },
+  ndBlue:     {name:'Blue',                body:'#6d7a90', bodySh:'#515c70', hi:'#98a5b9', point:'#4a5468', pointMid:'#5f6b80', sable:false, eye:'#5f6f80'},
+  // ---- Lionhead coats: the ARBA-accepted varieties (Seal omitted), plus Tywin's Broken Chestnut,
+  //      a real pet colour that isn't show-recognised ----
+  lhTort:     {name:'Tortoise',            body:'#bf7a3e', bodySh:'#8e5a2e', hi:'#dc9c5c', point:'#2d2729', pointMid:'#5a4540', sable:true },
+  lhREW:      {name:'Ruby-Eyed White',     body:'#f7f5f0', bodySh:'#dedad2', hi:'#ffffff', point:'#d6d0c4', pointMid:'#e8e3d8', sable:false, eye:'#b81c36'},
+  lhBlack:    {name:'Black',               body:'#2f2e34', bodySh:'#1c1b20', hi:'#51545f', point:'#141417', pointMid:'#2e2d33', sable:false},
+  lhChocolate:{name:'Chocolate',           body:'#56372a', bodySh:'#3a241b', hi:'#7a5642', point:'#2e1d15', pointMid:'#462c21', sable:false},
+  lhSiameseSable:{name:'Siamese Sable',    body:'#7a5c48', bodySh:'#54392b', hi:'#9b7c64', point:'#33241b', pointMid:'#54392b', sable:true },
+  lhSmokePearl:{name:'Smoke Pearl',        body:'#cdc6c1', bodySh:'#a9a3a2', hi:'#e6e1dc', point:'#5a5760', pointMid:'#827d84', sable:true, eye:'#5f6f80'},
+  lhChestnut: {name:'Chestnut',            body:'#b47c44', bodySh:'#8f5f30', hi:'#d6a066', point:'#5a3a20', pointMid:'#7a4f2c', sable:false},   // retired: not show-recognised; old saves only
   // Broken (white base + brown patches) — Tywin's default. `broken` drives a patch layer over
   // the white body/head + brown ears & mane; patch* are the brown, body* stay near-white.
   lhBroken:   {name:'Broken Chestnut',     body:'#f5f1e6', bodySh:'#e4dccb', hi:'#ffffff', point:'#cfc6b2', pointMid:'#e4dccb', sable:false,
@@ -76,9 +89,9 @@ const BREEDS = {
   lionhead:   {name:'Lionhead',         ears:'up',  mane:true,  scale:0.94, headScale:1.06, earLen:1.2,  idealLbs:3.0, emoji:'🦁', desc:'A majestic fluffy mane.', unlock:'bond5'},
 };
 const BREED_COATS = {
-  holland:    ['sableGrey','sableSepia','chestnut','black','blue','fawn'],
-  netherland: ['ndBlackTan','ndBlueOtter','ndChestnut','ndTort'],
-  lionhead:   ['lhBroken','lhTort','lhREW','lhBlack','lhChestnut'],
+  holland:    ['sableGrey','hlSiameseSable','hlTort','chestnut','black','blue','fawn'],
+  netherland: ['ndBlackTan','ndBlueOtter','ndChestnut','ndTort','ndBlue'],
+  lionhead:   ['lhBroken','lhTort','lhREW','lhBlack','lhChocolate','lhSiameseSable','lhSmokePearl'],
 };
 const BREED_DEFAULT_COAT = { holland:'sableGrey', netherland:'ndBlackTan', lionhead:'lhBroken' };
 
