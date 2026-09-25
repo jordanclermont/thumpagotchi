@@ -26,16 +26,17 @@ tiny front teeth, and sable points blended in with canvas gradients.
 - **🥣 Pellets** — a scoop of dry food from the bowl (lowers hunger).
 - **💧 Water** — refills the water bowl (there's a Water bar now).
 - **🍌 Banana** — instant joy + a binky; **max 2/day** (a 3rd = tummy ache).
-- **✋ Pet** — toggle on, then drag over her. **Head** = happiness; **feet/tail** = an
+- **✋ Pet** — toggle on, then drag over your rabbit. **Head** = happiness; **feet/tail** = an
   instant angry **THUMP**.
-- **🌟 Trick** — she performs an unlocked trick. Only tricks real rabbits are clicker-trained
-  to do: **Spin**, **Stand Up**, **Nose Boop**, **Come**, and **Hop Over**. Costs Energy, builds
-  mastery, and pays carrots by skill. (Flops and binkies aren't tricks — she does them on her own.)
-- **🧸 Play** — appears once you own a toy; watch her **chase the treat ball around the
-  rug** or **bolt through the play tunnel** (in one end, out the other). Big happiness + Bond.
+- **🌟 Trick** — your rabbit performs an unlocked trick. Only tricks real rabbits are
+  clicker-trained to do: **Spin**, **Stand Up**, **Nose Boop**, **Come**, and **Hop Over**. Costs
+  Energy, builds mastery, and pays carrots by skill. (Flops and binkies aren't tricks — rabbits
+  do them on their own.)
+- **🧸 Play** — appears once you own a toy; watch your rabbit **chase the treat ball around
+  the rug** or **bolt through the play tunnel** (in one end, out the other). Big happiness + Bond.
 - **🧹 Clean** — scoops the litter box, restoring Hygiene (extra nice with a Grooming Kit).
 - **😴 Rest** — a cozy nap to recover Energy.
-- **🩺 Vet** — cures illness (or a cheap wellness checkup when she's healthy).
+- **🩺 Vet** — cures illness (or a cheap wellness checkup when your rabbit is healthy).
 - **Toolbar (top-right):** 🛒 Shop · 🎯 Daily Goals · 📖 Notebook (About your rabbit + Rabbit
   Notes) · ⚙️ Menu (vitals, personality, favourite treat, mastery, save, reset).
 
@@ -44,35 +45,35 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
 ### Living systems
 - **Five needs** decay over time: Happiness, Hunger, Water, Hygiene, and **Energy** —
   a dirty box, empty bowl, or neglect all feed the **Thump Meter** (5 paw icons).
-- At **3 thumps** she stomps with a screen-shaking "THUMP!"; at **5** she gives the
+- At **3 thumps** your rabbit stomps with a screen-shaking "THUMP!"; at **5** they give the
   **Cold Shoulder** (back turned, sable tail to you) until you offer their **favourite
   treat**, whichever that is for your rabbit.
-- **Binkies**: she randomly leaps for joy when very happy. **Flops**: once she trusts you
-  enough, she drops onto her side on her own.
+- **Binkies**: your rabbit leaps for joy when very happy. **Flops**: once they trust you
+  enough, they drop onto their side on their own.
 - **Real rabbit body language**: a soft tooth **purr** during head pets; **chinning** new
-  furniture to claim it; **digging** the rug or **chewing** the baseboard when she's bored and
+  furniture to claim it; **digging** the rug or **chewing** the baseboard when bored and
   ignored (pets or play stop it).
-- **Dawn and dusk**: like real rabbits she's busiest in the early morning and evening and dozes
-  at midday.
+- **Dawn and dusk**: like real rabbits, they're busiest in the early morning and evening and
+  doze at midday.
 - **Day/night cycle**: the sun arcs across the sky and dims to dusk. When night falls
-  you get a **3 A.M. zoomies** cutscene — she tears around the room all night — then a
-  new day dawns and she wakes up **starving but binkying** to see you.
-- She idles on her own: hopping around the rug, visiting her **bed**, grooming, and
-  dozing. The room also has a **play tube**, food & water bowls, and a hay-filled box.
+  you get a **3 A.M. zoomies** cutscene — your rabbit tears around the room all night — then
+  a new day dawns and they wake up **starving but binkying** to see you.
+- Your rabbit idles on their own: hopping around the rug, visiting their **bed**, grooming,
+  and dozing. The room also has a **play tube**, food & water bowls, and a hay-filled box.
 
 ### Progression (it's a real game now)
 - **Save & continue** — your rabbit is stored in the browser (`localStorage`); reopen
   and pick up where you left off, or **Rehome** from the ⚙️ Menu to start fresh.
 - **Bond levels & XP** — good care raises your Bond; leveling up unlocks new tricks
-  (Nose Boop → Come → Hop Over) and higher Shop tiers, and slowly earns her trust.
+  (Nose Boop → Come → Hop Over) and higher Shop tiers, and slowly earns their trust.
 - **Carrots 🥕 + Shop** — earn carrots from care, tricks, and goals; spend them in the
   **🛒 Shop** on healthy foods, a **Treat Ball / Play Tunnel** (unlocks the **Play**
   action), a **Grooming Kit**, **Gut Medicine**, a **Cardboard Castle**, and more.
-- **Life stages** — Kit → Junior → Adult → Senior as she ages; she visibly grows.
-- **Personality** — how you raise her as a Kit and Junior quietly decides who she becomes
-  at Adult: **Cuddly** (lots of affection), **Bold** (lots of play) or **Skittish** (too many
-  care mistakes). There's no score — you find out when she grows up, and it changes how she
-  behaves from then on.
+- **Life stages** — Kit → Junior → Adult → Senior as your rabbit ages; they visibly grow.
+- **Personality** — how you raise your rabbit as a Kit and Junior quietly decides who they
+  become at Adult: **Cuddly** (lots of affection), **Bold** (lots of play) or **Skittish** (too
+  many care mistakes). There's no score — you find out when they grow up, and it changes how
+  they behave from then on.
 - **Likes and dislikes** — every rabbit is different, and you have to find out how:
   - **Favourite treat** (banana, leafy greens or apple chews): try them, watch what they beg
     for, or see which one ends a sulk.
@@ -83,21 +84,22 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
   you know a dislike you stop offering it, and you reach for the favourite toy more often.
 - **Hay by age** — young rabbits start on **alfalfa**. At Adult, buy **Timothy Hay** in the
   Shop to switch; it mixes in over 2 days. An adult left on alfalfa gains weight.
-- **Energy & Rest** — activity tires her; **😴 Rest** naps restore energy (night fully
-  recharges her).
-- **Spotting illness** — like real rabbits, she hides it. There's no warning chip: an
-  unwell bun refuses treats (above all her favourite), only nibbles her food, leaves fewer
-  and smaller droppings, sits hunched with half-closed eyes, and grinds her teeth loudly.
-  Take her to the **🩺 Vet** then and it's caught early at checkup price.
+- **Energy & Rest** — activity tires your rabbit; **😴 Rest** naps restore energy (night fully
+  recharges them).
+- **Spotting illness** — like real rabbits, they hide it. There's no warning chip: an
+  unwell bun refuses treats (above all their favourite), only nibbles their food, leaves fewer
+  and smaller droppings, sits hunched with half-closed eyes, and grinds their teeth loudly.
+  Take them to the **🩺 Vet** then and it's caught early at checkup price.
 - **Rabbit Notes 📖** — 21 real rabbit-care notes that unlock when you see the behaviour
   yourself. Notes carry over when you rehome.
 - **Illness & the Vet** — sustained neglect or a sugary diet can trigger **GI stasis**.
   Cure it with **🩺 Vet** (25🥕) or free if you keep **Gut Medicine** stocked; ignore it
-  and she'll need an emergency vet that costs half your carrots.
-- **Diet & weight** — hay keeps her trim, pellets/bananas add weight, activity burns it.
-  Too much weight brings vet welfare warnings (it doesn't make her ill). Being underweight
-  does hurt her health. (Bananas are still capped at 2/day.)
-- **Trick mastery** — tricks improve with practice and pay more carrots the better she is.
+  and your rabbit will need an emergency vet that costs half your carrots.
+- **Diet & weight** — hay keeps your rabbit trim, pellets/bananas add weight, activity burns
+  it. Too much weight brings vet welfare warnings (it doesn't make them ill). Being
+  underweight does hurt their health. (Bananas are still capped at 2/day.)
+- **Trick mastery** — tricks improve with practice and pay more carrots the better your
+  rabbit gets.
 - **🎮 Games** — the Games tab (from day 2) opens a menu of eight minigames that unlock over
   the first days:
   - Day 2: **Bunny Snake**, **Guess My Number**, **🥣 Forage** (follow the treat under three
@@ -130,21 +132,21 @@ The rabbit has four needs that drift in real time (and tick forward with each ac
 - **Affection** — decays when ignored; raised by head pets, banana, and just being present.
 - **Hunger** — rises constantly; lowered by fresh Timothy hay (and a little by banana).
 - **Boredom** — rises in the cage; lowered by free-roam time.
-- **Litter box** — gets dirty over time; ignoring it stresses him out.
+- **Litter box** — gets dirty over time; ignoring it stresses your rabbit out.
 
 Sustained hunger, boredom, neglect, or a filthy litter box feed **The Thump Meter (0–5)**:
 
-- At **3 thumps** he slams a back foot — a visual warning.
-- At **5 thumps** he turns his back and refuses all commands until you offer an
+- At **3 thumps** your rabbit slams a back foot — a visual warning.
+- At **5 thumps** they turn their back and refuse all commands until you offer an
   **apology banana** (action `[2]`), which resets the Thumps and restores the bond.
 
 ## Rules that bite
 
 - **Banana:** instant joy, but **max 2/day**. Push past it and you trigger a tummy-ache
-  vet event. Banana doubles as the apology treat when he's turned his back.
+  vet event. Banana doubles as the apology treat when your rabbit has turned their back.
 - **Head Scratches:** pick where you pet. The **head** is bliss; the **nose** is risky;
   the **feet/tail** are sacred — touch them and the Thump Meter jumps.
-- **Free-Roam:** great for boredom, but ~30% chance he chews a baseboard or phone
+- **Free-Roam:** great for boredom, but ~30% chance your rabbit chews a baseboard or phone
   charger if you glance away.
 
-Keep him fed, entertained, scooped, and scratched (on the head only). Good luck.
+Keep them fed, entertained, scooped, and scratched (on the head only). Good luck.
