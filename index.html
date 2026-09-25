@@ -45,6 +45,7 @@
   <div id="toolbar">
     <button class="tbtn" id="tbShop" title="Shop">🛒</button>
     <button class="tbtn" id="tbGoals" title="Daily goals">🎯<span id="goalBadge" class="badge">0/3</span></button>
+    <button class="tbtn" id="tbNotes" title="Notebook: your rabbit and rabbit notes">📖<span id="notesBadge" class="badge">0</span></button>
     <button class="tbtn" id="tbMenu" title="Menu">⚙️</button>
   </div>
 
@@ -77,6 +78,11 @@
       <button class="act" id="bGuess"><span class="emo">🎲</span>Guess</button>
       <button class="act" id="bTtt" style="display:none"><span class="emo">⭕</span>Tic-Tac</button>
       <button class="act" id="bCatch" style="display:none"><span class="emo">🥕</span>Catch</button>
+      <button class="act" id="bQuiz" style="display:none"><span class="emo">🧠</span>Quiz</button>
+      <!-- this row is never shown now: the 🎮 Games tab opens the games menu, which clicks these -->
+      <button class="act" id="bForage"><span class="emo">🥣</span>Forage</button>
+      <button class="act" id="bDig"><span class="emo">📦</span>Dig Box</button>
+      <button class="act" id="bSafe"><span class="emo">🥬</span>Safe?</button>
     </div>
     <div class="actrow" data-group="health" hidden>
       <button class="act" id="bRest"><span class="emo">😴</span>Rest</button>
@@ -120,6 +126,64 @@
       <div class="gpad" id="gPad"></div>
       <div class="gmsg" id="gMsg"></div>
       <div class="mghint">Guess the number your bunny picked, 1–15. <b>3 tries.</b> Right = <b>+30🥕</b>. Wrong = no harm done, your bunny just gloats.</div>
+    </div>
+  </div>
+
+  <!-- ---------- Forage: follow the treat under the shuffling cups ---------- -->
+  <div id="forage" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>🥣 Forage</span><button id="forageClose">✕</button></div>
+      <div class="gbunny"><div class="gface" id="fFace">🐰</div>
+        <div class="gbubble" id="fBubble">Watch where my treat goes…</div></div>
+      <div class="qprog" id="fProg"></div>
+      <div class="fstage" id="fStage">
+        <div class="ftreat" id="fTreat">🥕</div>
+        <button class="fcup" id="fCup0" aria-label="Cup 1"></button>
+        <button class="fcup" id="fCup1" aria-label="Cup 2"></button>
+        <button class="fcup" id="fCup2" aria-label="Cup 3"></button>
+      </div>
+      <div class="gmsg" id="fMsg"></div>
+      <div class="mghint">Follow the treat under the cups, then tap the right one. 3 rounds, each faster. <b>+4🥕</b> per round.</div>
+    </div>
+  </div>
+
+  <!-- ---------- Dig Box: dig through shredded paper for buried treats ---------- -->
+  <div id="dig" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>📦 Dig Box</span><span class="mgscore">⏱ <b id="dTime">20</b>s · 🥕 <b id="dFound">0</b>/<b id="dTotal">5</b></span><button id="digClose">✕</button></div>
+      <div class="dgrid" id="dGrid"></div>
+      <div class="gmsg" id="dMsg"></div>
+      <div class="mghint">Tap to dig. Empty spots show 👃 sniffs: how many treats are right next to them. Pebbles cost 2 seconds. <b>+2🥕</b> per treat.</div>
+    </div>
+  </div>
+
+  <!-- ---------- Safe or Not? — which foods are OK for rabbits ---------- -->
+  <div id="safe" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span>🥬 Safe or Not?</span><span class="mgscore"><b id="sScore">0</b>/<b id="sTotal">10</b></span><button id="safeClose">✕</button></div>
+      <div class="sfood" id="sFood">🥬</div>
+      <div class="sname2" id="sName">Romaine lettuce</div>
+      <div class="sbtns" id="sBtns">
+        <button id="sYes">✅ Safe</button>
+        <button id="sNo">❌ Not safe</button>
+      </div>
+      <div class="qexplain" id="sExplain"></div>
+      <div class="gmsg" id="sMsg"></div>
+      <div class="mghint">Is it OK for a rabbit to eat? Each answer tells you why. <b>+2🥕</b> per right answer.</div>
+    </div>
+  </div>
+
+  <!-- ---------- "How well do you know me?" quiz (day 5, once there's enough to ask) ---------- -->
+  <div id="quiz" class="mg">
+    <div class="mgcard">
+      <div class="mghead"><span id="qTitle">🧠 Quiz</span><button id="quizClose">✕</button></div>
+      <div class="gbunny"><div class="gface" id="qFace">🐰</div>
+        <div class="gbubble" id="qBubble">How well do you know me?</div></div>
+      <div class="qprog" id="qProg"></div>
+      <div class="qopts" id="qOpts"></div>
+      <div class="qexplain" id="qExplain"></div>
+      <div class="gmsg" id="qMsg"></div>
+      <div class="mghint">Questions come from what you've discovered about your rabbit and what's in 📖. <b>+3🥕</b> per right answer; a perfect round earns a bonus.</div>
     </div>
   </div>
 

@@ -332,6 +332,45 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 .gmsg{display:none;text-align:center;}
 .gmsg.show{display:block;}
 .gmsg h3{margin:6px 0 8px;font-size:18px;color:#ffd98a;}
+/* forage — three cups over a hidden treat; cups slide between slots with a CSS transition */
+.fstage{position:relative;width:300px;max-width:100%;height:120px;margin:6px 0;}
+.fcup{position:absolute;bottom:8px;left:0;width:78px;height:78px;padding:0;border:none;cursor:pointer;
+  background:linear-gradient(180deg,#d98c5f,#a85a35);border-radius:14px 14px 38px 38px / 12px 12px 30px 30px;
+  box-shadow:inset 0 -8px 0 rgba(0,0,0,.18),0 4px 0 #6e3a20;transition:left .35s ease,bottom .3s ease;}
+.fcup::before{content:"";position:absolute;left:10px;right:10px;top:8px;height:8px;border-radius:6px;background:rgba(255,255,255,.28);}
+.fcup.up{bottom:52px;}
+.fcup:focus-visible{outline:2px solid #fff;outline-offset:3px;}
+.fcup:disabled{cursor:default;}
+.ftreat{position:absolute;bottom:18px;left:0;width:78px;text-align:center;font-size:34px;line-height:1;transition:left .35s ease;}
+/* dig box — a grid of shredded-paper tiles */
+.dgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;max-width:300px;}
+.dgrid button{appearance:none;border:none;cursor:pointer;height:58px;border-radius:10px;font-size:24px;font-weight:800;color:#5b3a1e;
+  background:repeating-linear-gradient(115deg,#f3e2bd 0 5px,#e6cf9c 5px 9px,#f7ead0 9px 12px);box-shadow:0 3px 0 #b58f55;}
+.dgrid button:active{transform:translateY(2px);box-shadow:0 1px 0 #b58f55;}
+.dgrid button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+.dgrid button.dug{background:#6e4c2e;box-shadow:inset 0 3px 6px rgba(0,0,0,.35);color:#fbe9c4;font-size:15px;cursor:default;}
+.dgrid button.found{background:#8fd18f;box-shadow:inset 0 3px 6px rgba(0,0,0,.2);}
+/* safe or not */
+.sfood{font-size:64px;line-height:1.1;}
+.sname2{font-size:17px;font-weight:800;color:#ffd98a;min-height:22px;}
+.sbtns{display:flex;gap:10px;}
+.sbtns button{appearance:none;border:none;cursor:pointer;font-weight:800;font-size:15px;color:#231810;padding:11px 18px;border-radius:12px;
+  background:linear-gradient(180deg,#fbe9c4,#e6c078);box-shadow:0 2px 0 #a9803e;}
+.sbtns button:disabled{opacity:.5;cursor:default;}
+.sbtns button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+/* quiz — answer buttons reuse the Guess pad's warm-button look, full width */
+.qprog{font-size:15px;letter-spacing:4px;height:20px;}
+.qopts{display:flex;flex-direction:column;gap:7px;width:100%;max-width:340px;}
+.qopts button{appearance:none;border:none;cursor:pointer;font-weight:700;font-size:14px;color:#231810;text-align:left;
+  padding:10px 13px;border-radius:10px;background:linear-gradient(180deg,#fbe9c4,#e6c078);box-shadow:0 2px 0 #a9803e;}
+.qopts button:active{transform:translateY(2px);box-shadow:0 0 0 #a9803e;}
+.qopts button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+.qopts button:disabled{cursor:default;opacity:.55;}
+.qopts button.right{background:linear-gradient(180deg,#c9f0c0,#8fd18f);box-shadow:0 2px 0 #4e8f4e;opacity:1;}
+.qopts button.wrong{background:linear-gradient(180deg,#f7cfc6,#e79a8f);box-shadow:0 2px 0 #a55a4f;opacity:1;}
+.qexplain{font-size:12.5px;line-height:1.45;color:#f4ecd8;max-width:340px;min-height:18px;text-align:center;}
+.qexplain button{appearance:none;border:none;cursor:pointer;font-weight:700;font-size:14px;color:#231810;margin-top:8px;
+  padding:8px 18px;border-radius:10px;background:linear-gradient(180deg,#fbe9c4,#e6c078);box-shadow:0 2px 0 #a9803e;}
 
 /* ---- Bunny Tic-Tac-Toe ---- */
 .tttboard{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:288px;margin:2px 0;}

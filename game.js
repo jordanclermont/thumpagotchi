@@ -100,14 +100,118 @@ const STAGES = [   // life stages unlock as she ages (days lived)
 ];
 const stageFor = d => STAGES.reduce((s,st)=> d>=st.minDay ? st : s, STAGES[0]);
 
+// Only tricks real rabbits are clicker-trained to do. Flop and binky are NOT tricks — they're
+// spontaneous signs of trust and joy (see idleBrain). Keys 'beg'/'jump' kept so old mastery carries over.
 const TRICKS = {   // unlock gates by Bond level; energy is the cost to perform
-  flop:    {name:'Flop',      emoji:'😌', unlock:1, energy:5,  dur:1.8},
   spin:    {name:'Spin',      emoji:'🌀', unlock:1, energy:9,  dur:1.0},
-  binky:   {name:'Binky',     emoji:'✨', unlock:1, energy:13, dur:0.85},
-  beg:     {name:'Beg',       emoji:'🙏', unlock:2, energy:6,  dur:1.4},
-  highfive:{name:'High-Five', emoji:'🖐️', unlock:4, energy:7,  dur:1.0},
-  jump:    {name:'Hurdle',    emoji:'⤴️', unlock:6, energy:15, dur:1.1},
+  beg:     {name:'Stand Up',  emoji:'🙏', unlock:1, energy:6,  dur:1.4},
+  boop:    {name:'Nose Boop', emoji:'👃', unlock:2, energy:4,  dur:1.2},
+  come:    {name:'Come',      emoji:'📣', unlock:3, energy:6,  dur:1.0},
+  jump:    {name:'Hop Over',  emoji:'⤴️', unlock:5, energy:15, dur:1.1},
 };
+
+/* Temperament — decided once, when she grows into an Adult, from a hidden tally of how she was
+   raised as a Kit/Junior (rab.upbringing). Never shown as a number: care shows up as who she is. */
+const TEMPER_MISTAKES = 6;   // this many upbringing mistakes → skittish
+const TEMPERS = {
+  cuddly:  {name:'Cuddly',   emoji:'🤗', desc:'loves head rubs, purrs easily, and flops near you',
+            thumpMul:0.85, binkyMul:1.0, flopBond:2, flopRate:1.6, mischief:0.6, purr:1.6, petJoy:1.3, hide:0},
+  bold:    {name:'Bold',     emoji:'⚡', desc:'explores everything, binkies a lot, and gets into mischief when bored',
+            thumpMul:1.0,  binkyMul:1.5, flopBond:3, flopRate:1.0, mischief:1.5, purr:1.0, petJoy:1.0, hide:0},
+  skittish:{name:'Skittish', emoji:'🍃', desc:'startles easily, hides often, and only flops once fully trusting you',
+            thumpMul:1.3,  binkyMul:0.6, flopBond:6, flopRate:0.6, mischief:0.8, purr:0.7, petJoy:0.9, hide:0.25},
+};
+const TEMPER_YOUNG = {thumpMul:1, binkyMul:1, flopBond:3, flopRate:1, mischief:1, purr:1, petJoy:1, hide:0};
+const temper = () => TEMPERS[rab.temper] || TEMPER_YOUNG;
+
+/* Treats a rabbit can have as a favourite (rolled per rabbit at adoption, discovered in play) */
+const FAV_TREATS = {banana:{name:'Banana', emoji:'🍌'}, greens:{name:'Leafy Greens', emoji:'🥬'}, chews:{name:'Apple Chew Sticks', emoji:'🥢'}};
+
+/* Preferences — what makes THIS rabbit theirs. Rolled at adoption, never shown until the player
+   discovers them in play; collected on the "About" tab of 📖 and quizzed in the Quiz game. */
+const PET_SPOTS = {forehead:{name:'the forehead', emoji:'💆'}, cheeks:{name:'the cheeks', emoji:'☺️'}, ears:{name:'behind the ears', emoji:'👂'}};
+const TOYS      = {ball:{name:'Treat Ball', emoji:'🧸'}, tunnel:{name:'Play Tunnel', emoji:'🕳️'}, tower:{name:'Climbing Tower', emoji:'🪜'}};
+const NAP_SPOTS = {bed:{name:'the bed', emoji:'🛏️'}, hutch:{name:'the wooden hutch', emoji:'🛖'},
+                   castle:{name:'the cardboard castle', emoji:'🏰'}, hammock:{name:'the hammock', emoji:'🪢'}};
+const DISLIKES  = {rump:{name:'being brushed on the haunches', emoji:'🪮'}, nose:{name:'having their nose touched', emoji:'👃'},
+                   ball:{name:'the Treat Ball', emoji:'🧸'}, tunnel:{name:'the Play Tunnel', emoji:'🕳️'}, tower:{name:'the Climbing Tower', emoji:'🪜'}};
+const PREF_FIND = {pet:40, toy:2, nap:2};   // stroke ticks (~6s of rubbing) / plays / naps before it's "discovered"
+function rollPrefs(){
+  const toy = pick(Object.keys(TOYS));
+  return { pet:pick(Object.keys(PET_SPOTS)), toy, nap:pick(Object.keys(NAP_SPOTS)),
+           dislike:pick(['rump','nose', ...Object.keys(TOYS).filter(k=>k!==toy)]) };   // never dislikes the favourite toy
+}
+
+/* Hay by age: young rabbits (under ~6 months) can have rich alfalfa; adults switch GRADUALLY to a
+   grass hay like timothy. The player makes the switch (Timothy Hay in the Shop, unlocked at Adult);
+   it mixes over HAY_MIX_DAYS, and an adult left on alfalfa gains weight from it. */
+const HAY_MIX_DAYS = 2;
+const HAY_TYPES = {alfalfa:{name:'alfalfa hay', emoji:'🌱'}, mixed:{name:'alfalfa–timothy mix', emoji:'🌾'}, timothy:{name:'Timothy hay', emoji:'🌾'}};
+
+/* Rabbit Notes — real rabbit knowledge, unlocked by witnessing the behaviour in play.
+   Player knowledge, so it's account-wide (survives Rehome), like breed unlocks. */
+const NOTES_KEY = 'thumpagotchi.notes';
+const NOTES = [
+  {id:'thump',   emoji:'🦶', title:'Thumping',        hint:'Something upsets your rabbit.',
+   text:'A hard stamp with a back foot. Wild rabbits thump to warn the warren of danger; pet rabbits also thump when scared or annoyed.'},
+  {id:'binky',   emoji:'✨', title:'Binkies',         hint:'Keep your rabbit very happy.',
+   text:'A leap with a twist in mid-air. It is pure happiness, and you only see it from a rabbit that feels safe.'},
+  {id:'flop',    emoji:'😌', title:'The flop',        hint:'Earn your rabbit’s trust.',
+   text:'Dropping over onto their side looks alarming but means they feel completely safe. Prey animals only drop their guard like this when they trust their surroundings.'},
+  {id:'purr',    emoji:'🦷', title:'Tooth purring',   hint:'Pet your rabbit’s head when they’re happy.',
+   text:'A soft, gentle grinding of the teeth while being petted. It is a content rabbit’s purr.'},
+  {id:'grind',   emoji:'😣', title:'Loud grinding',   hint:'You hope you never see this one.',
+   text:'Loud, harsh teeth grinding, especially with a hunched posture, is a sign of pain. It is not a purr. A rabbit doing this needs a vet.'},
+  {id:'chin',    emoji:'🪵', title:'Chinning',        hint:'Bring home something new.',
+   text:'Rabbits have scent glands under the chin and rub them on things to claim them. People can’t smell it; other rabbits can.'},
+  {id:'fav',     emoji:'💛', title:'A favourite treat', hint:'Try different treats.',
+   text:'Every rabbit has a favourite. Knowing it matters: a rabbit refusing their favourite treat is one of the clearest early signs something is wrong.'},
+  {id:'refuse',  emoji:'🚫', title:'Off their food',  hint:'Watch what your rabbit won’t eat.',
+   text:'Rabbits are prey animals and hide illness. Refusing food, especially a favourite, is often the first sign. A rabbit that stops eating needs a vet the same day.'},
+  {id:'droppings',emoji:'🟤', title:'Fewer droppings', hint:'Keep an eye on the litter box.',
+   text:'Fewer or smaller droppings mean the gut is slowing down, an early warning of GI stasis.'},
+  {id:'stasis',  emoji:'🚑', title:'GI stasis',       hint:'Let’s hope not.',
+   text:'The gut stops moving, and it can turn fatal within a day or two. Unlimited hay keeps things moving; the vet handles the rest.'},
+  {id:'hay',     emoji:'🌾', title:'Hay first',       hint:'Overdo the pellets.',
+   text:'Hay should be most of a rabbit’s diet and available at all times. It wears down ever-growing teeth and keeps the gut moving. Pellets are a small supplement.'},
+  {id:'sugar',   emoji:'🍌', title:'Easy on treats',  hint:'One banana too many.',
+   text:'Rabbits can’t vomit, and a hit of sugar throws their gut off. A bite of banana is a party; a whole one is a bellyache.'},
+  {id:'grudge',  emoji:'🥶', title:'Grudges',         hint:'Push your rabbit too far.',
+   text:'Rabbits remember how they’re treated. Trust is earned back with space, a favourite treat, and time.'},
+  {id:'dawn',    emoji:'🌅', title:'Dawn and dusk',   hint:'Watch your rabbit through a whole day.',
+   text:'Rabbits are crepuscular: most active at dawn and dusk, resting through the middle of the day.'},
+  {id:'zoomies', emoji:'🌙', title:'Zoomies',         hint:'Stay up late.',
+   text:'Sudden bursts of running laps around the room. It is play and spare energy from a happy, healthy rabbit.'},
+  {id:'bored',   emoji:'🕳️', title:'Boredom',         hint:'Leave your rabbit alone for a while.',
+   text:'Bored rabbits make their own fun by digging carpets and chewing baseboards and cords. Toys, tunnels and time with you prevent it.'},
+  {id:'tricks',  emoji:'🎓', title:'Trick training',  hint:'Ask your rabbit for a trick.',
+   text:'Rabbits can learn tricks with patience and a favourite treat as a reward: spinning, standing up, coming when called, nose-booping a target, and hopping over a low step.'},
+  {id:'forage',  emoji:'🥣', title:'Foraging',        hint:'Make your rabbit hunt for a treat.',
+   text:'Rabbits naturally spend much of the day foraging. Hiding food under cups, in boxes or in shredded paper turns snack time into enrichment.'},
+  {id:'safefoods',emoji:'🥬', title:'Safe foods',     hint:'Play Safe or Not?',
+   text:'Leafy greens and herbs like romaine, cilantro and basil are great every day; fruit is a small treat. Chocolate, onion, garlic, avocado and rhubarb are poisonous to rabbits.'},
+  {id:'haytypes',emoji:'🌱', title:'Hay by age',      hint:'Watch what changes when your rabbit grows up.',
+   text:'Rabbits under about six months can have alfalfa hay, rich in protein and calcium for growing. Adults switch gradually to grass hays like timothy, orchard or oat; alfalfa is too rich for them.'},
+  {id:'temper',  emoji:'🧬', title:'Personality',     hint:'Raise your rabbit to adulthood.',
+   text:'Rabbits handled gently and often while young tend to grow into confident, friendly adults. Early care shapes the rabbit you end up with.'},
+];
+let notes = {};
+function loadNotes(){ try{ notes = JSON.parse(localStorage.getItem(NOTES_KEY)) || {}; }catch(e){ notes = {}; } }
+function saveNotes(){ try{ localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); }catch(e){} }
+loadNotes();
+// Unlock a note the first time its behaviour is witnessed. `quiet` skips the toast (e.g. when a
+// fact card is already on screen explaining it). The toast is delayed so it doesn't clobber the
+// action's own message in the single toast slot.
+function learnNote(id, quiet){
+  if(notes[id] || !NOTES.some(n=>n.id===id)) return;
+  notes[id] = rab.day || 1; saveNotes(); updateNotesBadge();
+  if(started) applyGamesTab();   // a new note can make the Quiz ready
+  if(!quiet){ const n=NOTES.find(n=>n.id===id); setTimeout(()=>toast(`📖 New Rabbit Note: ${n.emoji} ${n.title}`), 1800); }
+}
+function updateNotesBadge(){
+  const b=document.getElementById('notesBadge'); if(!b) return;
+  b.textContent = `${Object.keys(notes).length}/${NOTES.length}`;
+}
 
 const SHOP = [   // type: feed(instant) · cure(stock) · toy/decor(permanent) · tool(permanent)
   {id:'greens',  name:'Leafy Greens',    emoji:'🥬', cost:8,  type:'feed', unlock:1, desc:'Healthy: −hunger, +water, +health, trims weight.'},
@@ -117,6 +221,7 @@ const SHOP = [   // type: feed(instant) · cure(stock) · toy/decor(permanent) �
   {id:'ball',    name:'Treat Ball',      emoji:'🧸', cost:18, type:'toy',  unlock:1, desc:'Enrichment: unlocks Play, slows happiness decay.'},
   {id:'tunnel',  name:'Play Tunnel',     emoji:'🕳️', cost:26, type:'toy',  unlock:2, desc:'More Play value and energy from zoomies.'},
   {id:'castle',  name:'Cardboard Castle',emoji:'🏰', cost:44, type:'decor',unlock:3, desc:'Cosy hideout — a little happiness every day.'},
+  {id:'timothy', name:'Timothy Hay',     emoji:'🌾', cost:6,  type:'tool', unlock:1, adult:true, desc:'Grass hay for grown-up rabbits. Mixes in over 2 days to switch from alfalfa.'},
   {id:'chews',   name:'Apple Chew Sticks',emoji:'🥢',cost:10, type:'feed', unlock:1, desc:'A good chew: happiness + a little hunger, healthy teeth.'},
   {id:'bottle',  name:'Deluxe Water Bottle',emoji:'🚰',cost:16,type:'tool',unlock:2, desc:'Fresh water lasts longer — the Water need drains slower.'},
   {id:'rug_rose',name:'Rose Shag Rug',   emoji:'🟥', cost:24, type:'decor',unlock:2, desc:'Re-carpets the room in plush rose.'},
@@ -144,6 +249,10 @@ const GOAL_POOL = [
   () => ({track:'play',   target:2,  reward:8,  text:'Play together ×2',            avail:()=>owns('ball')||owns('tunnel')||owns('tower')}),
   () => ({track:'g_snake',target:1,  reward:10, text:`Score ${SNAKE_GOAL}+ in Bunny Snake`, avail:()=>gameUnlocked('snake')}),
   () => ({track:'g_guess',target:1,  reward:10, text:'Win at Guess My Number',      avail:()=>gameUnlocked('guess')}),
+  () => ({track:'g_forage',target:1, reward:9,  text:'Win all 3 rounds of Forage',   avail:()=>gameUnlocked('forage')}),
+  () => ({track:'g_dig',  target:1,  reward:9,  text:'Find every treat in the Dig Box', avail:()=>gameUnlocked('dig')}),
+  () => ({track:'g_safe', target:1,  reward:9,  text:'Score 8+ in Safe or Not?',      avail:()=>gameUnlocked('safe')}),
+  () => ({track:'g_quiz', target:1,  reward:12, text:'Ace {name}’s quiz',          avail:()=>gameUnlocked('quiz')}),
   () => ({track:'g_ttt',  target:1,  reward:12, text:'Beat me at Bunny Tic-Tac-Toe',avail:()=>gameUnlocked('ttt')}),
 ];
 
@@ -242,6 +351,13 @@ const rab = {
   items:{}, mastery:{}, achievements:{},
   goals:[], goalDay:0, goalCounters:{},
   lifetimePets:0,
+  // realism pass: temperament, favourite treat, and runtime-only behaviour timers
+  temper:null, upbringing:{mistakes:0, affection:0, play:0},
+  favTreat:'banana', favKnown:false,
+  prefs:{pet:'forehead', toy:'ball', nap:'bed', dislike:'nose'}, prefKnown:{}, prefCount:{}, quizPaidDay:0, safePaidDay:0,
+  hayType:'alfalfa', haySwitchDay:0, napSpot:'bed', lastAnnoyed:0,
+  lastEngaged:0, mischiefCooldown:0, digUntil:0, chewUntil:0, chinUntil:0, chinAt:0,
+  purrCooldown:0, grindAt:0, flopCooldown:0, mischiefAt:0, mischiefKind:null, chinName:null, hurdle:false,
 };
 const PRON={doe:{s:'she',o:'her',p:'her'}, buck:{s:'he',o:'him',p:'his'}};
 const P=()=>PRON[rab.sex]||PRON.doe;
@@ -291,6 +407,8 @@ function save(){
       // v2 first-session flags + a heartbeat for welcome-back catch-up
       firedCards:rab.firedCards, gamesRevealed:rab.gamesRevealed,
       baitDone:rab.baitDone, thumpSeen:rab.thumpSeen, exitBeatShown:rab.exitBeatShown,
+      temper:rab.temper, upbringing:rab.upbringing, favTreat:rab.favTreat, favKnown:rab.favKnown,
+      prefs:rab.prefs, prefKnown:rab.prefKnown, prefCount:rab.prefCount, hayType:rab.hayType, haySwitchDay:rab.haySwitchDay, quizPaidDay:rab.quizPaidDay, safePaidDay:rab.safePaidDay,
       lastSeen:Date.now(),
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -339,6 +457,30 @@ function applySave(d){
   rab.thumpSeen = d.thumpSeen===undefined ? rab.day>=2 : !!d.thumpSeen;
   rab.exitBeatShown=!!d.exitBeatShown;
   rab.lastSeen=num(d.lastSeen,0);
+  // realism pass — migrate older saves: roll a favourite, and give an existing adult a
+  // temperament from the history we do have (rage/obesity strikes → skittish, lots of pets → cuddly)
+  const ub=d.upbringing||{};
+  rab.upbringing={mistakes:num(ub.mistakes,0), affection:num(ub.affection,0), play:num(ub.play,0)};
+  rab.favTreat = FAV_TREATS[d.favTreat] ? d.favTreat : pick(Object.keys(FAV_TREATS));
+  rab.favKnown = !!d.favKnown;
+  // preferences: keep only valid values, roll anything missing (older saves get a fresh set)
+  const dp = d.prefs||{}, rp = rollPrefs();
+  rab.prefs = { pet: PET_SPOTS[dp.pet]?dp.pet:rp.pet, toy: TOYS[dp.toy]?dp.toy:rp.toy,
+                nap: NAP_SPOTS[dp.nap]?dp.nap:rp.nap, dislike: DISLIKES[dp.dislike]?dp.dislike:rp.dislike };
+  if(rab.prefs.dislike===rab.prefs.toy) rab.prefs.dislike='nose';
+  const dk=d.prefKnown||{}, dc=d.prefCount||{};
+  rab.prefKnown = {pet:!!dk.pet, toy:!!dk.toy, nap:!!dk.nap, dislike:!!dk.dislike};
+  rab.prefCount = {pet:num(dc.pet,0), toy:num(dc.toy,0), nap:num(dc.nap,0)};
+  // hay: an existing adult save was already on "Timothy hay" (the old default); kits start on alfalfa
+  rab.hayType = HAY_TYPES[d.hayType] ? d.hayType : (Math.round(num(d.ageDays,0))>=7 ? 'timothy' : 'alfalfa');
+  rab.haySwitchDay = num(d.haySwitchDay,0);
+  rab.quizPaidDay = num(d.quizPaidDay,0);
+  rab.safePaidDay = num(d.safePaidDay,0);
+  rab.temper = TEMPERS[d.temper] ? d.temper : null;
+  if(!rab.temper && rab.ageDays>=7){
+    rab.temper = (rab.maxAngerCount>=1 || rab.weightStrikes>=2) ? 'skittish'
+               : rab.lifetimePets>=150 ? 'cuddly' : 'bold';
+  }
   rab.curScale=stageFor(rab.ageDays).scale;
 }
 function wipeSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
@@ -456,7 +598,9 @@ function fillPron(str){
            .replace(/\{O\}/g,cap(p.o)).replace(/\{o\}/g,p.o);
 }
 let factQueue = [], factShowing = false;
+const FACT_NOTE = {feet:'thump', banana3:'sugar', stasis:'stasis', pellet3:'hay', cold:'grudge'};
 function fireFact(id){
+  if(FACT_NOTE[id]) learnNote(FACT_NOTE[id], true);   // the card itself explains it — no extra toast
   const f = FACTS[id]; if(!f || rab.firedCards[id]) return;
   rab.firedCards[id] = 1; save();
   factQueue.push(id);
@@ -495,11 +639,16 @@ function parts(){
   const sqY = 1 + stretch*0.9 - land*0.17 - cr*0.13;
   const bodyRx = 92*s*(1+0.06*loaf)*sqX, bodyRy = 72*s*(1-0.10*loaf)*sqY;
   const bodyCy = cy - bodyRy*0.82;
-  const headR  = 60*s*(B.headScale||1);   // big head on a compact body — chibi proportions
+  // Nose Boop: the head pushes out toward the viewer (reads as a slight swell + dip) and back
+  const boop = rab.trick && rab.trick.name==='boop' ? Math.sin(Math.min(1,rab.trick.t/rab.trick.dur)*Math.PI) : 0;
+  // Chinning: a few quick downward rubs of the chin against whatever she's claiming
+  const chin = now() < rab.chinUntil ? Math.abs(Math.sin(now()*9)) : 0;
+  const headR  = 60*s*(B.headScale||1)*(1+0.14*boop);   // big head on a compact body — chibi proportions
   const beg = rab.trick && rab.trick.name==='beg';
   const alert = rab.state==='alert';
   const headCx = cx + (alert? 6*s:0);
-  const headCy = bodyCy - bodyRy*0.55 - headR*0.22 + (alert? -8*s:4*s) + (beg? -34*s:0) + loaf*headR*0.18;   // nestled low into the body
+  const headCy = bodyCy - bodyRy*0.55 - headR*0.22 + (alert? -8*s:4*s) + (beg? -34*s:0) + loaf*headR*0.18   // nestled low into the body
+               + boop*14*s + chin*12*s;
   return {
     s, cx, cy, loaf,
     body:{x:cx, y:bodyCy, rx:bodyRx, ry:bodyRy},
@@ -928,25 +1077,33 @@ function drawLitter(){
   ctx.fillStyle='#2c4a7c'; roundRect(x-w/2, top, w, h*0.64, 8); ctx.fill();
   ctx.strokeStyle=shade('#3f6fae',0.5); ctx.lineWidth=2; roundRect(x-w/2, top, w, h*0.64, 8); ctx.stroke();
   ctx.fillStyle='#5a86c2'; roundRect(x-w/2+3, top+2, w-6, h*0.07, 5); ctx.fill();
-  // hay bed rising against the back wall
+  // hay bed rising against the back wall — alfalfa (young rabbits) is greener and leafier than
+  // timothy; the mix sits in between
   const bright=hayFresh>0?1:0.75;
-  ctx.fillStyle='#e7dcc4'; roundRect(x-w/2+5, top+h*0.16, w-10, h*0.5, 6); ctx.fill();
+  const hayK = rab.hayType==='alfalfa'?1 : rab.hayType==='mixed'?0.5 : 0;
+  ctx.fillStyle= hayK===1?'#d5dcb4' : hayK?'#dedcbc' : '#e7dcc4'; roundRect(x-w/2+5, top+h*0.16, w-10, h*0.5, 6); ctx.fill();
   ctx.fillStyle='rgba(18,32,58,.16)'; roundRect(x-w/2+5, top+h*0.16, w-10, 6, 5); ctx.fill();
   // hay sprigs standing up out of the bed
   for(let i=0;i<26;i++){
     const bx=x-w/2+9+((i*29)%Math.max(6,w-18));
     const by=top+h*0.24+((i*13)%(h*0.3));
-    ctx.strokeStyle=`hsl(${72+((i*11)%26)},58%,${(46+((i*7)%15))*bright}%)`;
+    ctx.strokeStyle=`hsl(${72+hayK*28+((i*11)%26)},${58+hayK*6}%,${(46+((i*7)%15))*bright}%)`;
     ctx.lineWidth=2;
     const ang=((i%5)-2)*0.3;
     ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+Math.sin(ang)*11,by-13);ctx.stroke();
+    // alfalfa is leafy: small clover-like leaves on some sprigs (fewer in the mix)
+    if(hayK && i%(hayK===1?2:4)===0){
+      ctx.fillStyle=`hsl(${108+((i*7)%14)},48%,${40*bright+6}%)`;
+      ctx.beginPath();ctx.ellipse(bx+Math.sin(ang)*11, by-13, 3.2, 2, ang, 0, 7);ctx.fill();
+    }
   }
   const mess = Math.round((100-stats.hygiene)/13);
+  const dsz = (rab.sick||unwell()) ? 0.62 : 1;   // a slowing gut → fewer, SMALLER droppings (a real early sign)
   for(let i=0;i<mess;i++){
     const mx=x-w/2+10+((i*37)%Math.max(6,w-20));
     const my=top+h*0.22+((i*23)%(h*0.3));
     ctx.fillStyle= i%3? 'rgba(110,80,45,.85)':'rgba(140,112,66,.7)';
-    ctx.beginPath();ctx.ellipse(mx,my,5,3.4,0.5,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(mx,my,5*dsz,3.4*dsz,0.5,0,7);ctx.fill();
   }
   if(!(now() < rab.boxT)) drawLitterFront();   // near wall — unless she's inside (drawn over her instead)
 }
@@ -1304,7 +1461,7 @@ function drawRabbit(t){
   let rot=0;
   if(rab.trick && rab.trick.name==='spin') rot = (rab.trick.t/rab.trick.dur)*Math.PI*2;
   if(rab.trick && rab.trick.name==='flop') rot = Math.min(1,rab.trick.t/0.45)*1.35;
-  if(rab.binkyT>0){const pr=1-rab.binkyT/rab.binkyDur; rot += Math.sin(pr*Math.PI*2)*0.22;}
+  if(rab.binkyT>0 && !rab.hurdle){const pr=1-rab.binkyT/rab.binkyDur; rot += Math.sin(pr*Math.PI*2)*0.22;}
 
   ctx.save();
   if(rot){ctx.translate(p.cx,p.body.y);ctx.rotate(rot);ctx.translate(-p.cx,-p.body.y);}
@@ -1387,7 +1544,7 @@ function drawRabbit(t){
   if(rab.loaf<0.75){
     const beg = rab.trick && rab.trick.name==='beg';
     ctx.fillStyle=coat.body;
-    const groom = t < rab.groomUntil;
+    const groom = t < rab.groomUntil || t < rab.digUntil;   // digging reuses the busy-paws motion (eyes stay open)
     const pawY = p.body.y+p.body.ry*0.55;
     const pawLift = groom? Math.sin(t*14)*6*s : (beg? -30*s : 0);
     roundedPaw(p.cx-16*s, pawY - pawLift, 13*s);
@@ -1419,7 +1576,7 @@ function drawHead(p,t,tummy,closedEyes){
   const B = BREEDS[rab.breed] || BREEDS.holland;
   const hx=p.head.x, hy=p.head.y, r=p.head.r, s=p.s;
   const look = rab.state==='alert' ? {x:rab.lookX*8*s, y:rab.lookY*5*s} : {x:0,y:0};
-  const droop = rab.sick? 8*s : 0;   // sick/tired → ears hang lower
+  const droop = rab.sick? 11*s : unwell()? 9*s : 0;   // sick/unwell → ears hang lower
   const eyeCol = coat.eye || '#140f0b';
 
   // Mane (Lionhead) — fluffy ring drawn BEHIND the head
@@ -1500,6 +1657,14 @@ function drawHead(p,t,tummy,closedEyes){
     } else if(closedEyes || rab.blink>0){
       ctx.strokeStyle='#140f0b';
       ctx.beginPath();ctx.arc(ex,ey,7.4*s,0.15*Math.PI,0.85*Math.PI);ctx.stroke();
+    } else if(rab.sick || unwell()){    // dull, half-lidded eyes: a rabbit in discomfort
+      ctx.fillStyle=eyeCol;
+      ctx.beginPath();ctx.ellipse(ex,ey+2.4*s,8.2*s,5.2*s,0,0,7);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.35)';                        // one dim catchlight, no sparkle
+      ctx.beginPath();ctx.arc(ex-2.2*s,ey+0.8*s,1.6*s,0,7);ctx.fill();
+      ctx.strokeStyle='#140f0b'; ctx.lineWidth=2.6*s; ctx.lineCap='round';   // heavy upper lid
+      ctx.beginPath();ctx.moveTo(ex-9*s,ey-2.2*s);ctx.quadraticCurveTo(ex,ey-4.2*s,ex+9*s,ey-2.2*s);ctx.stroke();
+      ctx.lineCap='butt'; ctx.lineWidth=3.4*s;
     } else {
       const joy = clamp((stats.happy-70)/30,0,1);          // rounder & brighter when content
       // big glossy anime eyes — the single biggest cuteness lever
@@ -1520,7 +1685,7 @@ function drawHead(p,t,tummy,closedEyes){
     }
   }
   // rosy blush under the eyes — instant charm (skipped while sick/upset tummy)
-  if(!tummy){
+  if(!tummy && !unwell()){
     ctx.fillStyle='rgba(248,148,158,.38)';
     ctx.beginPath();ctx.ellipse(hx-r*0.60+look.x*0.5, hy+r*0.26+look.y*0.5, r*0.155, r*0.095, -0.1, 0, 7);ctx.fill();
     ctx.beginPath();ctx.ellipse(hx+r*0.60+look.x*0.5, hy+r*0.26+look.y*0.5, r*0.155, r*0.095,  0.1, 0, 7);ctx.fill();
@@ -1693,6 +1858,9 @@ function spawnSparkle(x,y){for(let i=0;i<6;i++)particles.push({type:'spark',x,y,
 function spawnDrop(x,y){for(let i=0;i<7;i++)particles.push({type:'drop',x:x+rand(-10,10),y,vx:rand(-20,20),vy:rand(-10,20),life:.7,t:0});}
 function spawnZ(x,y){particles.push({type:'z',x,y,vy:-22,vx:8,life:2,t:0});}
 function spawnStars(x,y){for(let i=0;i<5;i++)particles.push({type:'star',x,y,vx:rand(-50,50),vy:rand(-60,-10),life:.9,t:0});}
+// small floating sound-words (purr, grind, boop, chomp) — the game has no audio, so sounds are drawn
+function spawnWord(x,y,text,col){particles.push({type:'word',x,y,vy:-18,vx:rand(-6,6),life:1.3,t:0,text,col:col||'#fff'});}
+function spawnDust(x,y){for(let i=0;i<4;i++)particles.push({type:'dust',x:x+rand(-14,14),y,vx:rand(-30,30),vy:rand(-40,-10),life:.7,t:0});}
 function spawnCarrot(x,y,n){particles.push({type:'carrot',x:x??rab.x,y:y??rab.baseY-60,vy:-34,vx:rand(-8,8),life:1.4,t:0,n});}
 
 function twinkle(x,y,r,col){                       // a 4-point sparkle with a bright core
@@ -1719,6 +1887,10 @@ function drawParticles(dt){
       ctx.fillStyle='rgba(255,255,255,.92)'; ctx.fillText('Z',zx,pl.y); }
     else if(pl.type==='carrot'){ctx.font='bold 16px system-ui';ctx.fillStyle='#e8863a';
       ctx.fillText(`+${pl.n}🥕`,pl.x,pl.y);}
+    else if(pl.type==='word'){ ctx.font='italic 700 14px system-ui';
+      ctx.strokeStyle='rgba(40,30,25,.55)'; ctx.lineWidth=3; ctx.strokeText(pl.text,pl.x,pl.y);
+      ctx.fillStyle=pl.col; ctx.fillText(pl.text,pl.x,pl.y); }
+    else if(pl.type==='dust'){ ctx.fillStyle='rgba(150,120,85,.8)'; ctx.beginPath(); ctx.arc(pl.x,pl.y,2.4,0,7); ctx.fill(); }
     ctx.globalAlpha=1;
   }
   ctx.textAlign='left';
@@ -1777,6 +1949,9 @@ function endNight(){
   const st=stageFor(rab.ageDays);
   const grewTo = (st.key!=='kit' && stageFor(rab.ageDays-1).key!==st.key) ? st : null;
   if(grewTo && grewTo.key==='senior') unlockAch('senior');
+  learnNote('zoomies', true);   // the night cutscene itself showed it
+  const becameAdult = grewTo && grewTo.key==='adult' && !rab.temper;
+  if(becameAdult) settleTemperament();
   if(rab.ageDays>=7) unlockAch('week');
   // Progressive disclosure: the Games tab appears on the morning of day 2 (item 5); individual
   // games then unlock on later days, so re-apply visibility every rollover (Tic-Tac-Toe day 3,
@@ -1790,6 +1965,7 @@ function endNight(){
   // risk climbs each morning until the (free) checkup is done — see callVet/completeCheckup.
   const checkupOverdue = rab.day - rab.nextCheckupDay;   // <0 not due · 0 due today · ≥1 overdue
   if(checkupOverdue>=1 && !rab.sick){
+    raiseMistake(1);
     rab.health = clamp(rab.health - (10 + checkupOverdue*5));
     if(Math.random() < Math.min(0.7, 0.18 + checkupOverdue*0.18)) getSick();
   }
@@ -1813,6 +1989,18 @@ function endNight(){
   let followT = 3200;
   if(grewTo){ const g=grewTo;
     setTimeout(()=>toast(`🎂 ${rab.name} grew up — now a ${g.name}! ${g.label}`), followT); followT+=3200; }
+  if(becameAdult){ const T=temper();
+    setTimeout(()=>{ toast(`${T.emoji} ${rab.name} has turned out ${T.name.toLowerCase()}: ${P().s} ${T.desc}.`); learnNote('temper'); }, followT);
+    followT+=4200; }
+  // hay: finish a gradual switch, or nudge a grown-up who's still on alfalfa
+  if(rab.hayType==='mixed' && rab.day - rab.haySwitchDay >= HAY_MIX_DAYS){
+    rab.hayType='timothy';
+    setTimeout(()=>toast(`🌾 ${rab.name} is fully on Timothy hay now — the right hay for a grown-up rabbit.`), followT); followT+=3200;
+  } else if(rab.hayType==='alfalfa' && isAdult()){
+    setTimeout(()=>toast(becameAdult
+      ? `🌱 Grown up means a new hay: time to start switching ${rab.name} from alfalfa to Timothy Hay (in the 🛒 Shop).`
+      : `🌱 ${rab.name} is still on alfalfa — it's too rich for an adult. Timothy Hay is in the 🛒 Shop.`), followT); followT+=3600;
+  }
   if(revealGames){
     setTimeout(()=>toast('🎮 New! The Games tab just opened in the bottom bar — tap 🎮 Games for arcade minigames and extra 🥕.'), followT); followT+=3200; }
   if(tttNew){
@@ -1880,9 +2068,29 @@ function drawNight(dt){
 function owns(id){ return !!rab.items[id]; }
 function addWeight(n){ rab.weight = clamp(rab.weight+n, 45, 175); }
 
+const isAdult = () => rab.ageDays >= 7;
+
+/* "Unwell" is the quiet stage before stasis. No HUD chip: the player has to read it from her
+   behaviour — refusing treats (above all her favourite), only nibbling hay, fewer/smaller
+   droppings, hunched with droopy ears, no binkies, and the odd bout of loud tooth grinding. */
+const UNWELL_BELOW = 45;
+function unwell(){ return !rab.sick && rab.health < UNWELL_BELOW; }
+
+/* Upbringing tally — only counts while she's a Kit/Junior and her temperament isn't set yet */
+function raising(){ return !rab.temper && rab.ageDays < 7; }
+function raiseMistake(n){ if(raising()) rab.upbringing.mistakes += n; }
+function raiseAffection(n){ if(raising()) rab.upbringing.affection += n; }
+function raisePlay(n){ if(raising()) rab.upbringing.play += n; }
+function settleTemperament(){
+  const u = rab.upbringing;
+  rab.temper = u.mistakes >= TEMPER_MISTAKES ? 'skittish'
+             : u.affection >= u.play ? 'cuddly' : 'bold';
+}
+
 function getSick(){
   if(rab.sick) return;
   rab.sick=true;
+  raiseMistake(3);
   rab.thumps=clamp(rab.thumps+0.5,0,5);
   toast(`🤒 ${rab.name} has gone into GI stasis! ${cap(P().s)} needs the Vet — fast.`);
   fireFact('stasis');
@@ -1913,8 +2121,13 @@ function tickHealth(dt){
   if(stats.hygiene<12) dh-=2.4*dt;
   if(stats.water<10)  dh-=1.8*dt;
   if(stats.energy<6)  dh-=1.2*dt;
-  if(rab.weight>145 || rab.weight<66) dh-=1.0*dt;
-  if(dh===0 && !rab.sick) dh += 1.8*dt;   // recovers a touch quicker when cared for
+  // Overweight is a weight problem, not an illness: it's handled by the vet's welfare warnings
+  // (checkWeight), not by draining health — so too many pellets can't tip her into "unwell"/stasis.
+  // Underweight still drains health: that's starvation.
+  if(rab.weight<66) dh-=1.0*dt;
+  // recovers a touch quicker when cared for — but once her gut has slowed (unwell), good care
+  // only holds the line; it takes a vet visit to turn it around
+  if(dh===0 && !rab.sick) dh += (unwell()? 0.15 : 1.8)*dt;
   rab.health=clamp(rab.health+dh);
   // illness only from genuinely sustained neglect
   if(!rab.sick && rab.health<12 && Math.random()<0.35*dt) getSick();
@@ -1952,17 +2165,18 @@ function checkWeight(dt){
 }
 function onMaxAnger(){
   rab.maxAngerCount++;
+  raiseMistake(2);
   if(rab.maxAngerCount>=3){ takenAway('anger'); return; }
-  toast(`💢 ${rab.name} is FURIOUS! Rage strike ${rab.maxAngerCount}/2 — 3 and RPS takes ${P().o}! Offer a banana. 🍌`);
+  toast(`💢 ${rab.name} is FURIOUS! Rage strike ${rab.maxAngerCount}/2 — 3 and RPS takes ${P().o}! Offer ${P().p} favourite treat.`);
 }
 function takenAway(reason){
   started=false; wipeSave();
   // tidy up any open minigame (losing Guess can trigger this mid-overlay)
   if(SN.timer){ clearInterval(SN.timer); SN.timer=null; } SN.on=false;
   if(CC.raf){ cancelAnimationFrame(CC.raf); CC.raf=null; } CC.on=false;
-  GS.on=false; TTT.on=false;
+  GS.on=false; TTT.on=false; QZ.on=false; SF.on=false; FG.on=false; DG.on=false; DG.over=true; clearInterval(DG.timer);
   minigameActive=false;
-  ['snake','guess','ttt','catch'].forEach(id=>{ const el=$(id); if(el) el.classList.remove('show'); });
+  ['snake','guess','ttt','catch','quiz','forage','dig','safe'].forEach(id=>{ const el=$(id); if(el) el.classList.remove('show'); });
   const o=$('rps');
   if(reason==='anger'){
     $('rpsIcon').textContent='🚔'; $('rpsTitle').textContent='Rabbit Protective Services';
@@ -1986,13 +2200,17 @@ function toast(msg){
 }
 function triggerThump(){
   rab.thumpSeen=true;   // the thump has now been demonstrated — cancels the day-2 fallback (item 3b)
+  learnNote('thump', !!rab.firedCards.feet);   // quiet if the feet fact card already explained it
   rab.legStomp=1; thumpFx=0.5; thumpTextT=0.9;
   const p=parts(); thumpRipples.push({x:p.cx,y:rab.baseY,t:0}); spawnSparkle(p.feet.x,p.feet.y);
 }
-function startBinky(){ rab.binkyT=rab.binkyDur; const p=parts();
+function startBinky(){ rab.binkyT=rab.binkyDur; rab.hurdle=false; const p=parts();
   for(let i=0;i<5;i++) spawnHeart(p.head.x+rand(-24,24),p.head.y);
   stats.energy=clamp(stats.energy-4);
+  learnNote('binky');
   incGoal('binky'); }
+// Hop Over trick: the same leap arc as a binky, but a trained straight jump — no twist, no joy-binky credit
+function startHurdle(){ rab.binkyT=rab.binkyDur; rab.hurdle=true; stats.energy=clamp(stats.energy-4); }
 const HOP_CROUCH = 0.11;   // anticipation: she compresses for a beat before launching
 function hopTo(x){
   rab.hopToX=clamp(x, 80, W-80); rab.hopFromX=rab.x; rab.hopT0=now()+HOP_CROUCH; rab.hopping=true;
@@ -2012,21 +2230,85 @@ let hayCreditAt = 0;                        // when the pending hay-goal credit 
 // During a hide-and-seek morning she's invisible — block care actions (a stray hay credit,
 // a litter box that renders occupied, a queued hop that lands after the reveal) until she's found.
 function hiddenBlock(){ if(rab.hidden){ toast(`🔍 Find ${rab.name} first!`); return true; } return false; }
+// A sick or unwell rabbit goes off her food — the game's main early-warning sign.
+// kind: 'hay' | 'pellets' | a FAV_TREATS key. Returns true if she refused.
+function refusesFood(kind){
+  const isTreat = !!FAV_TREATS[kind];
+  const isFav = kind===rab.favTreat;
+  if(!rab.sick && !(unwell() && (isTreat || isFav))) return false;
+  const p=parts(); spawnWord(p.head.x+p.head.r, p.head.y-p.head.r*0.4, 'sniff…', '#dfe6ea');
+  if(isFav && rab.favKnown){
+    toast(`${rab.name} sniffs the ${FAV_TREATS[kind].name.toLowerCase()} and turns away. ${cap(P().s)} NEVER refuses that. Something's wrong. 🩺`);
+  } else if(rab.sick){
+    toast(`${rab.name} won't touch it. A rabbit that stops eating needs the vet today. 🩺`);
+  } else {
+    toast(`${rab.name} sniffs it and turns away. Not like ${P().o}…`);
+  }
+  learnNote('refuse');
+  return true;
+}
+// Favourite-treat reaction: the first time it's a discovery; after that, just extra joy
+function favReact(kind){
+  if(kind!==rab.favTreat) return false;
+  stats.happy=clamp(stats.happy+10);
+  const p=parts(); for(let i=0;i<4;i++) spawnHeart(p.head.x+rand(-24,24),p.head.y-10);
+  if(!rab.favKnown){
+    rab.favKnown=true;
+    setTimeout(()=>toast(`💛 ${FAV_TREATS[kind].emoji} That's ${rab.name}'s favourite! Remember it: if ${P().s} ever refuses it, something's wrong.`), 1500);
+    learnNote('fav', true);
+  }
+  return true;
+}
+// Mark a preference as discovered (once) and tell the player what they learned about their rabbit.
+function discoverPref(key, msg){
+  if(rab.prefKnown[key]) return;
+  rab.prefKnown[key]=true;
+  setTimeout(()=>toast(msg), 1500);
+  applyGamesTab(); save();
+}
+// Count one more experience of a favourite; discover it at the PREF_FIND threshold.
+function prefHit(key, msg){
+  rab.prefCount[key]=(rab.prefCount[key]||0)+1;
+  if(rab.prefCount[key]>=PREF_FIND[key]) discoverPref(key, msg);
+}
+// A dislike: mild annoyance (never a big thump), throttled; the first time reveals what it is.
+function annoyed(key, msg){
+  const t=now(); if(t-rab.lastAnnoyed<1.4) return;
+  rab.lastAnnoyed=t;
+  rab.thumps=clamp(rab.thumps+0.35,0,5); stats.happy=clamp(stats.happy-4);
+  const p=parts(); spawnWord(p.head.x+p.head.r*0.8, p.head.y-p.head.r*0.6, 'hmph', '#ffd6c9');
+  if(!rab.prefKnown.dislike) discoverPref('dislike', msg);
+  checkThreshold();
+}
 function giveHay(){
   if(hiddenBlock()) return;
   if(rab.cold){ coldRefuse(); return; }
   if(now()<feedLock.hay) return;            // still munching the last serving — ignore
   feedLock.hay = now()+FEED_CD;
   wake();
+  if(refusesFood('hay')) return;
+  if(unwell()){                              // off her food: a few strands, then she walks away
+    stats.hunger=clamp(stats.hunger-14);
+    hayFresh=6; hayCreditAt = now()+0.8;
+    hopTo(world.litter.x);
+    toast(`${rab.name} nibbles a few strands of hay and wanders off.`);
+    learnNote('refuse');
+    return;
+  }
   stats.hunger=clamp(stats.hunger-40);
   stats.happy=clamp(stats.happy+4);
   rab.thumps=clamp(rab.thumps-0.4,0,5);
-  addWeight(-1.6);                          // hay is the healthy staple — trims weight
+  // hay is the healthy staple and trims weight — except rich alfalfa on a grown-up rabbit
+  const richHay = rab.hayType==='alfalfa' && isAdult();
+  addWeight(richHay ? 2.2 : -1.6);
   hayFresh=6; addXP(3); addCarrots(1, rab.x, rab.baseY-70);
   hayCreditAt = now()+0.8;                  // goal counts only once she's hopped over & eating
   hopTo(world.litter.x);
   rab.boxT = now() + 8;                     // hops over and climbs into the box to munch
-  toast(`Fresh Timothy hay in the box! ${rab.name} climbs in to munch. 🌾`);
+  const H=HAY_TYPES[rab.hayType];
+  toast(richHay ? `Fresh alfalfa in the box. ${rab.name} loves it, but it's too rich for a grown-up rabbit — time for Timothy Hay from the Shop. 🌱`
+                : `Fresh ${H.name} in the box! ${rab.name} climbs in to munch. ${H.emoji}`);
+  if(richHay) learnNote('haytypes');
 }
 function givePellets(){
   if(hiddenBlock()) return;
@@ -2034,6 +2316,13 @@ function givePellets(){
   if(now()<feedLock.pellets) return;        // one scoop per cooldown
   feedLock.pellets = now()+FEED_CD;
   wake();
+  if(refusesFood('pellets')) return;
+  if(unwell()){
+    stats.hunger=clamp(stats.hunger-8); hopTo(world.food.x);
+    toast(`${rab.name} picks at a couple of pellets and leaves the rest.`);
+    learnNote('refuse');
+    return;
+  }
   stats.hunger=clamp(stats.hunger-26);
   stats.happy=clamp(stats.happy+6);
   rab.pelletsToday++;
@@ -2061,13 +2350,13 @@ function offerBanana(){
   const p=parts();
   bananas.push({x:rab.x+rand(-10,10), y:rab.baseY-10, life:3});
   if(rab.cold){
-    rab.cold=false; rab.thumps=0; stats.happy=clamp(stats.happy+20);
-    for(let i=0;i<6;i++) spawnHeart(p.head.x+rand(-20,20),p.head.y);
-    startBinky();
-    toast(`The apology banana! ${cap(P().s)} turns back around… forgiven. 🍌`);
+    if(rab.favTreat==='banana') forgive('banana');
+    else toast(`${rab.name} sniffs the banana but stays turned away. It'll take ${P().p} favourite treat.`);
     return;
   }
+  if(refusesFood('banana')) return;
   if(rab.bananasToday>=2){
+    raiseMistake(1);
     rab.tummyUntil=now()+5; rab.state='tummy';
     stats.happy=clamp(stats.happy-14); stats.hunger=clamp(stats.hunger+8);
     rab.thumps=clamp(rab.thumps+0.6,0,5);
@@ -2080,6 +2369,7 @@ function offerBanana(){
   stats.happy=clamp(stats.happy+22); stats.hunger=clamp(stats.hunger-6);
   rab.thumps=clamp(rab.thumps-1,0,5); addWeight(5); addXP(2);
   startBinky();
+  favReact('banana');
   toast(`Banana! A full-body binky of joy. (${rab.bananasToday}/2 today)`);
 }
 function cleanLitter(){
@@ -2091,6 +2381,10 @@ function cleanLitter(){
   stats.happy=clamp(stats.happy+bonus);
   addXP(owns('groom')?4:2); incGoal('clean');
   spawnSparkle(world.litter.x, world.litter.y);
+  if(rab.sick || unwell()){
+    toast(`Hardly anything to scoop: only a few small droppings. ${rab.name}'s gut may be slowing down.`);
+    learnNote('droppings'); return;
+  }
   toast(owns('groom')
     ? 'Scooped & groomed — spotless coat, extra-happy bun. ✨🪮'
     : 'Litter box scooped & fresh. Hygiene restored. ✨');
@@ -2136,6 +2430,7 @@ function handleGroom(px,py){
       lastFeetPet=tnow;
       const dmg = rab.bondLevel>=8? 0.9 : 1.4;
       rab.thumps=clamp(rab.thumps+dmg,0,5); stats.happy=clamp(stats.happy-8);
+      raiseMistake(0.5);
       triggerThump(); toast('You combed the SACRED back feet! 😾 *THUMP*'); checkThreshold();
       fireFact('feet');
     }
@@ -2145,8 +2440,15 @@ function handleGroom(px,py){
   const inBody = ((px-p.body.x)**2)/(p.body.rx*p.body.rx) + ((py-p.body.y)**2)/(p.body.ry*p.body.ry) <= 1.15;
   const inHead = Math.hypot(px-p.head.x, py-p.head.y) < p.head.r*1.2;
   if(inBody || inHead){
+    // the haunches: lower body, out toward the sides
+    const haunch = inBody && !inHead && py>p.body.y && Math.abs(px-p.body.x)>p.body.rx*0.45;
+    if(haunch && rab.prefs.dislike==='rump'){
+      annoyed('rump', `${rab.name} twists away from the comb — ${P().s} doesn't like being brushed on the haunches. Noted in 📖.`);
+      return;
+    }
     if(tnow-lastGroomGain>0.12){
       lastGroomGain=tnow; wake();
+      rab.lastEngaged=tnow; raiseAffection(0.25);
       const kit=owns('groom');
       stats.hygiene=clamp(stats.hygiene + (kit?4:2.6));
       stats.happy=clamp(stats.happy + (kit?1.4:0.8));
@@ -2159,15 +2461,29 @@ function handleGroom(px,py){
     }
   }
 }
+// Where she naps: her favourite spot if it's in the room, else the hammock if owned, else the bed.
+function napTarget(){
+  const fav=rab.prefs.nap;
+  if(fav==='bed' || owns(fav)) return fav;
+  return owns('hammock') ? 'hammock' : 'bed';
+}
+function napSpotPos(k){ return k==='bed' ? world.bed : (furnitureSpot(k) || world.bed); }
+function napAtFavourite(){
+  if(rab.napSpot!==rab.prefs.nap) return;
+  prefHit('nap', `💛 ${rab.name} always curls up in ${NAP_SPOTS[rab.prefs.nap].name}. That's ${P().p} favourite nap spot.`);
+}
 function restRabbit(){
   if(hiddenBlock()) return;
   if(rab.cold){ coldRefuse(); return; }
   if(stats.energy>85){ toast(`${rab.name} isn't sleepy — plenty of energy right now.`); return; }
-  if(owns('hammock')) hopTo(world.hammock.x);   // she settles by her hammock for the cushier nap
+  const k=napTarget(); rab.napSpot=k;
+  hopTo(napSpotPos(k).x);                       // she settles in her chosen spot
   rab.restUntil=now()+4.5; rab.state='rest'; rab.trick=null;
   spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r);
-  toast(owns('hammock') ? `${rab.name} settles into the hammock for a deluxe nap. 😴🛏️`
-                        : `${rab.name} curls into a cozy nap. 😴`);
+  toast(k==='hammock' ? `${rab.name} settles into the hammock for a deluxe nap. 😴🪢`
+      : k==='bed'     ? `${rab.name} curls into a cozy nap. 😴`
+                      : `${rab.name} tucks into ${NAP_SPOTS[k].name} for a nap. 😴`);
+  napAtFavourite();
 }
 function playToy(){
   if(hiddenBlock()) return;
@@ -2176,8 +2492,22 @@ function playToy(){
   if(!(owns('ball')||owns('tunnel')||owns('tower'))){ toast('Buy a toy from the Shop 🛒 first, then Play!'); return; }
   if(stats.energy<12){ toast(`${rab.name} is too tired to play — try Rest 😴.`); return; }
   wake();
+  rab.lastEngaged=now(); raisePlay(15);
+  rab.digUntil=rab.chewUntil=rab.mischiefAt=0;
   startPlay();
   const type = rab.play.type, big = type!=='ball';
+  if(type===rab.prefs.dislike){                       // a toy she just doesn't like: sniff, and done
+    rab.play.dur=1.2; stats.happy=clamp(stats.happy+2); stats.energy=clamp(stats.energy-2);
+    incGoal('play');
+    if(rab.prefKnown.dislike) toast(`${rab.name} sniffs the ${TOYS[type].name.toLowerCase()} and wanders off. Not ${P().p} thing.`);
+    else { toast(`${rab.name} sniffs the ${TOYS[type].name.toLowerCase()} and wanders off.`);
+      discoverPref('dislike', `🙅 ${rab.name} really isn't into the ${TOYS[type].name}. Noted in 📖.`); }
+    return;
+  }
+  if(type===rab.prefs.toy){                           // her favourite: extra joy, a binky mid-play
+    stats.happy=clamp(stats.happy+10); startBinky();
+    prefHit('toy', `💛 The ${TOYS[type].name} is ${rab.name}'s favourite toy — ${P().s} goes wild for it.`);
+  }
   stats.happy=clamp(stats.happy + (big?20:15));
   stats.energy=clamp(stats.energy - (big?8:9));
   addWeight(-3);                          // exercise burns weight — play to keep her trim
@@ -2190,8 +2520,12 @@ function playToy(){
 
 /* --- Toy-play animation: she actually chases the ball / runs the tunnel --- */
 function startPlay(){
-  const toys=['ball','tunnel','tower'].filter(owns);
-  const type = toys.length? pick(toys) : 'ball';
+  let toys=['ball','tunnel','tower'].filter(owns);
+  // knowing her pays off: once you've learned what she dislikes you stop offering it,
+  // and once you know her favourite you reach for it more often
+  if(rab.prefKnown.dislike && toys.length>1) toys=toys.filter(k=>k!==rab.prefs.dislike);
+  let type = toys.length? pick(toys) : 'ball';
+  if(rab.prefKnown.toy && toys.includes(rab.prefs.toy) && Math.random()<0.6) type=rab.prefs.toy;
   const dur = type==='ball'?4.2 : type==='tunnel'?3.8 : 4.0;
   rab.play = {type, t:0, dur, binked:false};
   rab.trick=null; rab.binkyT=0; rab.hopping=false; rab.restUntil=0; rab.groomUntil=0;
@@ -2266,6 +2600,17 @@ function callVet(){
     toast(`An emergency vet visit is 45🥕 (you have ${rab.carrots})! Cheaper to keep Gut Medicine 💊 stocked.`);
     return;
   }
+  // caught early: an unwell (pre-stasis) bun is treated at checkup price and bounces back
+  if(unwell()){
+    const due = checkupDueNow();
+    if(!due && !spendCarrots(10)){ toast(`A checkup is 10🥕 — you have ${rab.carrots}. Keep an eye on ${P().o}…`); return; }
+    if(due) rab.nextCheckupDay = rab.day + 5;
+    rab.health = clamp(Math.max(rab.health, 78));
+    stats.happy=clamp(stats.happy+4); addXP(10);
+    toast(`🩺 Caught early${due?'':' (−10🥕)'} — the vet found ${rab.name}'s gut slowing down. Fibre, fluids and a tummy rub: ${P().s}'s eating again. Good eye. 💚`);
+    learnNote('droppings', true);
+    save(); return;
+  }
   // the required scheduled checkup is free when it's due/overdue
   if(checkupDueNow()){ completeCheckup(); return; }
   // an optional off-schedule wellness checkup still costs 10🥕
@@ -2283,6 +2628,8 @@ function doTrick(){
   if(rab.sick){ toast(`${rab.name} feels too poorly for tricks. See the Vet. 🩺`); return; }
   wake();
   if(rab.trick||rab.binkyT>0) return;
+  rab.lastEngaged = now();
+  if(unwell()){ toast(`${rab.name} just watches you and stays hunched. Not in the mood today.`); return; }
   if(stats.happy<30){ toast(`${rab.name} isn't in the mood for tricks. Bond a little more first.`); return; }
   if(stats.energy<12){ toast(`${rab.name} is worn out — let ${P().o} Rest 😴 first.`); return; }
   // choose from unlocked tricks
@@ -2300,16 +2647,32 @@ function doTrick(){
   addWeight(-0.6);
   const reward = 2 + Math.floor(nm/30);      // 2..5 carrots by skill
   addCarrots(reward, rab.x, rab.baseY-70); addXP(6);
-  incGoal('trick');
-  // map each trick to a visible motion (unlockables reuse expressive poses)
-  if(key==='binky' || key==='jump'){ startBinky(); }
-  else if(key==='highfive'){ rab.trick={name:'beg', t:0, dur:T.dur}; }
+  incGoal('trick'); raisePlay(6); learnNote('tricks');
+  // map each trick to a visible motion
+  if(key==='jump'){ startHurdle(); }
+  else if(key==='come'){                     // recall: she hops to the front of the rug, toward you
+    const tx = Math.abs(rab.x-world.rug.x) > 50 ? world.rug.x : world.rug.x + (rab.x<world.rug.x? 90 : -90);
+    hopTo(tx);
+  }
   else rab.trick={name:key, t:0, dur:T.dur};
   const p=parts(); for(let i=0;i<4;i++) spawnHeart(p.head.x+rand(-20,20),p.head.y);
+  if(key==='boop') setTimeout(()=>{ const q=parts(); spawnWord(q.head.x, q.head.y+q.head.r*0.2, 'boop!', '#ffd1dc'); }, 500);
   toast(`${rab.name} performs ${T.name} ${T.emoji}  (mastery ${Math.round(nm)}% · +${reward}🥕)`);
 }
+// The Cold Shoulder is only forgiven with this rabbit's OWN favourite treat — so a sulk is also
+// a way to learn what that favourite is. (Banana treats are hand-fed; greens/apple chews come from the Shop.)
+function forgive(kind){
+  const p=parts(), F=FAV_TREATS[kind];
+  rab.cold=false; rab.thumps=0; stats.happy=clamp(stats.happy+20);
+  for(let i=0;i<6;i++) spawnHeart(p.head.x+rand(-20,20),p.head.y);
+  startBinky();
+  toast(`The apology ${F.name.toLowerCase()}! ${cap(P().s)} turns back around… forgiven. ${F.emoji}`);
+  if(!rab.favKnown){ rab.favKnown=true; learnNote('fav'); }
+  save();
+}
 function coldRefuse(){
-  toast(`${cap(P().s)} has turned ${P().p} back. Only a banana will fix this. 🍌`);
+  const fav = rab.favKnown ? `${P().p} favourite, ${FAV_TREATS[rab.favTreat].name.toLowerCase()} ${FAV_TREATS[rab.favTreat].emoji}` : `${P().p} favourite treat`;
+  toast(`${cap(P().s)} has turned ${P().p} back. Only ${fav} will fix this.`);
   spawnSparkle(parts().tail.x, parts().tail.y);
 }
 
@@ -2327,16 +2690,40 @@ function handlePet(px,py){
       // trust softens the feet reaction a little at high Bond
       const dmg = rab.bondLevel>=8? 0.9 : 1.4;
       rab.thumps=clamp(rab.thumps+dmg,0,5); stats.happy=clamp(stats.happy-8);
+      raiseMistake(0.5);                                  // rough handling while young makes a warier adult
       triggerThump(); toast('You touched the SACRED back feet! 😾 *THUMP*'); checkThreshold();
       fireFact('feet');
     }
     return;
   }
   if(dHead<p.head.r*1.3){
+    // which part of the head: nose (muzzle), ears (far sides), forehead (top), cheeks (lower sides)
+    const hdx=px-p.head.x, hdy=py-p.head.y, hr=p.head.r;
+    const zone = (hdy>hr*0.12 && Math.abs(hdx)<hr*0.3) ? 'nose'
+               : Math.abs(hdx)>hr*0.62 ? 'ears'
+               : hdy<-hr*0.2 ? 'forehead'
+               : Math.abs(hdx)>hr*0.28 ? 'cheeks' : null;
+    if(zone==='nose' && rab.prefs.dislike==='nose'){
+      annoyed('nose', `${rab.name} shakes ${P().p} head and pulls back — ${P().s} doesn't like ${P().p} nose touched. Noted in 📖.`);
+      return;
+    }
+    const favSpot = zone && zone===rab.prefs.pet;
     if(tnow-lastPetGain>0.14){
       lastPetGain=tnow; wake();
-      stats.happy=clamp(stats.happy+3); rab.thumps=clamp(rab.thumps-0.2,0,5);
+      stats.happy=clamp(stats.happy+3*temper().petJoy*(favSpot?1.7:1)); rab.thumps=clamp(rab.thumps-0.2,0,5);
+      if(favSpot){
+        if(Math.random()<0.3) spawnHeart(p.head.x+rand(-18,18), p.head.y-p.head.r*1.2);
+        prefHit('pet', `💛 ${rab.name} leans right into it — ${PET_SPOTS[rab.prefs.pet].name} is ${P().p} favourite place for a rub.`);
+      }
       rab.petReact=0.6;                                   // obvious happy reaction
+      rab.lastEngaged=tnow; raiseAffection(0.5);   // per stroke tick (~7/s) — weighed against play in settleTemperament
+      rab.digUntil=rab.chewUntil=rab.mischiefAt=0;        // attention ends the mischief
+      // tooth purr: soft grinding when a content bun is being stroked (never when she's unwell)
+      if(stats.happy>70 && !unwell() && !rab.sick && tnow>=rab.purrCooldown && Math.random()<0.07*temper().purr*(favSpot?3:1)){
+        rab.purrCooldown = tnow+3;
+        spawnWord(p.head.x+p.head.r*0.9, p.head.y+p.head.r*0.3, 'prrr', '#fff3c4');
+        learnNote('purr');
+      }
       rab.lifetimePets++; if(rab.lifetimePets%30===0) addXP(4);
       if(rab.lifetimePets>=100) unlockAch('pets100');
       incGoal('pet',1);                                   // counts every pet now
@@ -2349,19 +2736,63 @@ function handlePet(px,py){
 /* ---------------- Thump thresholds ---------------- */
 let wasAbove3=false, happy90Armed=false;
 function checkThreshold(){
-  if(rab.thumps>=3 && !wasAbove3){ wasAbove3=true; triggerThump(); }
+  if(rab.thumps>=3 && !wasAbove3){ wasAbove3=true; triggerThump(); raiseMistake(1); }
   if(rab.thumps<2.6) wasAbove3=false;
   if(rab.thumps>=5 && !rab.cold){ rab.cold=true; onMaxAnger(); fireFact('cold'); }   // maxed anger → a rage strike
 }
 
 /* ---------------- Idle brain ---------------- */
 let nextIdle=3;
+// Rabbits are crepuscular: busiest at dawn and dusk, dozy at midday. Scales idle activity.
+function activity(){ const d=timeOfDay; return (d<0.2||d>0.78) ? 1.6 : (d>0.38&&d<0.62) ? 0.55 : 1; }
+// Boredom mischief: needs are met but nobody has petted, groomed, played or trained her for a while.
+function boredomCheck(t,T){
+  if(t<rab.mischiefCooldown || rab.mischiefAt || t<rab.digUntil || t<rab.chewUntil) return false;
+  if(!rab.lastEngaged) rab.lastEngaged=t;          // start the clock on a fresh session
+  const needsMet = stats.hunger<60 && stats.water>40 && stats.hygiene>40 && stats.energy>30;
+  if(!needsMet || t-rab.lastEngaged<45 || stats.happy>=75) return false;
+  if(Math.random() > 0.0008*T.mischief) return false;
+  rab.mischiefCooldown = t + rand(35,60);
+  if(Math.random()<0.55){
+    rab.mischiefKind='dig';
+    hopTo(world.rug.x + (Math.random()<0.5?-1:1)*world.rug.rx*0.55);
+    toast(`${rab.name} is digging at the rug. ${cap(P().s)}'s bored — play or a few pets would help.`);
+  } else {
+    rab.mischiefKind='chew';
+    hopTo(Math.max(90, W*0.1));
+    toast(`${rab.name} is chewing the baseboard! Bored bunnies chew. Time for a toy or some attention.`);
+  }
+  rab.mischiefAt = t + 0.8;                        // starts once she's landed (see frame timers)
+  stats.happy=clamp(stats.happy+3); stats.hygiene=clamp(stats.hygiene-3);   // amuses herself, makes a mess
+  learnNote('bored'); return true;
+}
+// Idle chinning: she wanders over to a piece of her furniture and claims it again
+function chinSomething(){
+  const ids=['castle','tower','hutch','tunnel','bed_cloud'].filter(id=>owns(id));
+  const spot = ids.length ? furnitureSpot(pick(ids)) : world.bed;
+  hopTo(spot.x); rab.chinAt=now()+0.9; rab.chinName=null;
+}
 function idleBrain(dt,t){
   if(rab.cold||rab.state==='tummy'||rab.state==='rest'||rab.hopping||rab.trick||rab.binkyT>0) return;
   if(pettingMode && pointer.down) return;
-  if(stats.energy<18 && Math.random()<0.01){ rab.restUntil=now()+rand(2,4); rab.state='rest';
+  if(rab.mischiefAt || t<rab.digUntil || t<rab.chewUntil || rab.chinAt || t<rab.chinUntil) return;   // busy
+  const T = temper(), act = activity(), ill = unwell() || rab.sick;
+  if(stats.energy<18 && Math.random()<0.01){ rab.restUntil=now()+rand(2,4); rab.state='rest'; rab.napSpot=null;
     spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r); return; }
-  if(stats.happy>88 && stats.energy>25 && Math.random()<0.004){ startBinky(); return; }
+  // midday lull: rabbits doze through the middle of the day
+  if(act<1 && stats.energy<80 && !ill && Math.random()<0.003){ rab.restUntil=now()+rand(3,5); rab.state='rest'; rab.napSpot=null;
+    spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r); return; }
+  if(!ill && stats.happy>88 && stats.energy>25 && Math.random()<0.004*T.binkyMul*act){ startBinky(); return; }
+  // a spontaneous flop — only once she trusts you enough (temperament sets how much)
+  if(!ill && rab.bondLevel>=T.flopBond && stats.happy>80 && rab.loaf>0.5 && t>=rab.flopCooldown
+     && Math.random()<0.0015*T.flopRate){
+    rab.flopCooldown=t+rand(40,70);
+    rab.trick={name:'flop', t:0, dur:rand(4,6)};
+    if(!notes.flop) toast(`${rab.name} flops over onto ${P().p} side. That's total trust. 😌`);
+    learnNote('flop'); return;
+  }
+  // boredom: needs met but nobody's paid her attention for a while → she makes her own fun
+  if(!ill && boredomCheck(t, T)) return;
   // occasionally asks for something with a speech bubble. What she wants is contextual
   // (real needs first; treats/attention only when content), and there's a proper
   // cooldown so she isn't a broken banana vending-machine ad.
@@ -2371,10 +2802,11 @@ function idleBrain(dt,t){
     if(stats.hunger>60)  wants.push('🌾');
     if(stats.hygiene<40) wants.push('🧹');
     if(stats.energy<30)  wants.push('😴');
-    if(!wants.length && stats.happy>35){                        // content → mischief asks
+    if(!wants.length && stats.happy>35 && !ill){                // content → mischief asks (never while unwell)
       wants.push('✋');
-      if(owns('ball')||owns('tunnel')||owns('tower')) wants.push('🧸');
-      if(rab.bananasToday<2) wants.push('🍌','🍌');             // still her favourite ask
+      if(owns('ball')||owns('tunnel')||owns('tower')) wants.push(owns(rab.prefs.toy) ? TOYS[rab.prefs.toy].emoji : '🧸');   // her favourite toy, if you have it
+      // asks for HER favourite treat — a quiet clue for players still working out what it is
+      if(rab.favTreat!=='banana' || rab.bananasToday<2) wants.push(FAV_TREATS[rab.favTreat].emoji, FAV_TREATS[rab.favTreat].emoji);
     }
     if(wants.length){
       rab.begWant=pick(wants);
@@ -2384,13 +2816,19 @@ function idleBrain(dt,t){
   }
   nextIdle-=dt;
   if(nextIdle<=0){
-    nextIdle=rand(3.5,7);
+    nextIdle=rand(3.5,7)/act;                  // busier at dawn and dusk, slower at midday
+    if(ill){ nextIdle*=2.5; if(Math.random()<0.7) return; }   // hunched and reluctant to move
     const roll=Math.random();
-    if(roll<0.4){ hopTo(rand(world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6)); }
+    if(T.hide && Math.random()<T.hide){        // skittish: retreats to cover
+      if(owns('hutch')){ hopTo(world.hutch.x); rab.denUntil=now()+rand(3.5,5.5); }
+      else { hopTo(world.bed.x); rab.bedNapAt=now()+0.9; }
+    }
+    else if(roll<0.4){ hopTo(rand(world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6)); }
     else if(roll<0.62){ rab.groomUntil=t+rand(1.4,2.6); }
-    else if(roll<0.74 && stats.happy>75 && stats.energy>30){ startBinky(); }
+    else if(roll<0.74 && stats.happy>75 && stats.energy>30 && !ill){ if(Math.random()<T.binkyMul) startBinky(); }
+    else if(roll<0.77){ chinSomething(); }
     else if(roll<0.82 && owns('hutch')){ hopTo(world.hutch.x); rab.denUntil=now()+rand(3.5,5.5); }  // pops into her hutch
-    else if(roll<0.9){ hopTo(world.bed.x); rab.bedNapAt=now()+0.9; }   // wander to bed → maybe curl up
+    else if(roll<0.9){ rab.napSpot=napTarget(); hopTo(napSpotPos(rab.napSpot).x); rab.bedNapAt=now()+0.9; }   // wander to her nap spot → maybe curl up
     else { rab.groomUntil=0; }
   }
 }
@@ -2436,6 +2874,7 @@ function tickScript(t){
       rab.trick={name:'flop', t:0, dur:6.5};   // long, luxurious flop (reuses the flop pose)
       rab.state='trick';
       toast(`${rab.name} flops over and stretches right out — back feet on full display. So relaxed. 😌`);
+      learnNote('flop');
       save();
     }
   }
@@ -2465,13 +2904,20 @@ function frame(){
     timeOfDay<0.15?'🌅': timeOfDay<0.45?'☀️': timeOfDay<0.75?'🌤️': timeOfDay<0.9?'🌇':'🌆';
 
   /* stat decay (stage-scaled hunger + energy; sick & max-anger drain faster) */
-  const sickMul = (rab.sick? 1.4 : 1) * (rab.cold? 1.5 : 1);   // a furious bun neglects itself
-  stats.hunger=clamp(stats.hunger + stage.hunger*sickMul*dt);
-  stats.hygiene=clamp(stats.hygiene - 0.72*sickMul*dt);
-  stats.water=clamp(stats.water - 0.62*(owns('bottle')?0.6:1)*sickMul*dt);   // Deluxe Water Bottle: water lasts longer
+  const coldMul = rab.cold? 1.5 : 1;   // a furious bun neglects itself
+  // A slowing gut means FEWER droppings, so the box stays cleaner when she's unwell or in stasis —
+  // that quiet litter box is one of the clues. (Hunger isn't sped up: a sick rabbit stops eating.)
+  const gutMul = rab.sick? 0.35 : unwell()? 0.6 : 1;
+  stats.hunger=clamp(stats.hunger + stage.hunger*coldMul*dt);
+  stats.hygiene=clamp(stats.hygiene - 0.72*coldMul*gutMul*dt);
+  stats.water=clamp(stats.water - 0.62*(owns('bottle')?0.6:1)*coldMul*dt);   // Deluxe Water Bottle: water lasts longer
   const happyDecay = 0.6 * (owns('castle')||owns('hutch')?0.82:1) * ((owns('ball')||owns('tunnel')||owns('tower'))?0.88:1);
   stats.happy=clamp(stats.happy - happyDecay*dt);
-  if(rab.state==='rest'){ stats.energy=clamp(stats.energy + (owns('hammock')?15:11)*dt); }   // hammock = cushier naps
+  if(rab.state==='rest'){
+    const favNap = rab.napSpot===rab.prefs.nap;
+    stats.energy=clamp(stats.energy + (owns('hammock')?15:11)*(favNap?1.3:1)*dt);   // hammock = cushier naps; her favourite spot = deeper sleep
+    if(favNap) stats.happy=clamp(stats.happy + 0.6*dt);
+  }
   else { stats.energy=clamp(stats.energy - stage.energy*0.5*dt); }
   if(hayFresh>0) hayFresh-=dt;
 
@@ -2486,7 +2932,7 @@ function frame(){
   if(stats.happy<25)   pressure++;
   if(stats.energy<15)  pressure++;
   if(rab.sick)         pressure++;
-  if(pressure>0) rab.thumps=clamp(rab.thumps + pressure*0.11*dt,0,5);
+  if(pressure>0) rab.thumps=clamp(rab.thumps + pressure*0.11*temper().thumpMul*dt,0,5);
   else if(!rab.cold) rab.thumps=clamp(rab.thumps - 0.12*dt,0,5);
   checkThreshold();
 
@@ -2515,6 +2961,30 @@ function frame(){
   rab.nextBlink-=dt; if(rab.nextBlink<=0){ rab.blink=rand(0.09,0.16); rab.nextBlink = Math.random()<0.22? 0.2 : rand(2.5,6); }
   if(rab.blink>0) rab.blink-=dt;
   if(rab.petReact>0) rab.petReact=Math.max(0,rab.petReact-dt);
+  // chinning: once she's hopped over to something new, she rubs her chin on it to claim it
+  if(rab.chinAt && t>=rab.chinAt && !rab.hopping){
+    rab.chinAt=0; rab.chinUntil=t+1.6;
+    if(rab.chinName) toast(`${rab.name} rubs ${P().p} chin all over the ${rab.chinName.toLowerCase()}. It's ${rab.sex==='buck'?'his':'hers'} now.`);
+    rab.chinName=null; learnNote('chin');
+  }
+  // boredom mischief: begins once she's landed; dust while digging, chomps while chewing the baseboard
+  if(rab.mischiefAt && t>=rab.mischiefAt && !rab.hopping){
+    if(rab.mischiefKind==='dig') rab.digUntil=t+2.6; else rab.chewUntil=t+2.4;
+    rab.mischiefAt=0;
+  }
+  if(t<rab.digUntil && Math.random()<dt*6) spawnDust(rab.x, rab.baseY-4);
+  if(t<rab.chewUntil && Math.random()<dt*2.5){ const q=parts(); spawnWord(q.head.x+q.head.r, q.head.y+q.head.r*0.3, 'chomp', '#f3e2c7'); }
+  // pain sign: loud tooth grinding every so often while unwell or sick
+  if(rab.sick || unwell()){
+    if(!rab.grindAt) rab.grindAt = t + rand(4,8);
+    else if(t>=rab.grindAt){ rab.grindAt = t + rand(9,16);
+      const q=parts(); spawnWord(q.head.x+q.head.r*0.9, q.head.y+q.head.r*0.3, 'grrk grrk', '#cfc8c2'); learnNote('grind'); }
+  } else rab.grindAt = 0;
+  // the first evening: point out that she perks up at dusk (crepuscular)
+  if(timeOfDay>0.78 && !notes.dawn && !rab.sick && !cutscene){
+    learnNote('dawn', true);
+    toast(`🌇 Evening — ${rab.name} perks up and starts exploring. Rabbits are most active at dawn and dusk.`);
+  }
   // pre-hop crouch settle/release, eased head-turn, ear-trail spring, occasional ear swivel
   rab.crouch = damp(rab.crouch||0, rab.crouchT||0, 16, dt);
   rab.lookX  = damp(rab.lookX||0, rab.lookXTarget||0, 12, dt);
@@ -2559,9 +3029,12 @@ function frame(){
     // she sometimes curls up in her bed after wandering to it (short nap, interruptible)
     if(rab.bedNapAt && t>rab.bedNapAt){
       rab.bedNapAt=0;
+      const ns=napSpotPos(rab.napSpot||'bed');
       if(!rab.hopping && !rab.cold && rab.state!=='tummy' && !rab.trick
-         && Math.abs(rab.x-world.bed.x)<world.bed.r*0.6 && Math.random()<0.65)
+         && Math.abs(rab.x-ns.x)<Math.max(40,(ns.r||ns.w*0.3||60)*0.6) && Math.random()<0.65){
         rab.restUntil = t + rand(5,9);
+        napAtFavourite();
+      }
     }
     rab.inBed = rab.state==='rest' && !rab.inHammock && !rab.hopping && Math.abs(rab.x-world.bed.x)<world.bed.r*0.6;
     rab.playYOff = damp(rab.playYOff||0,
@@ -2575,10 +3048,11 @@ function frame(){
   rab.earJiggle  = damp(rab.earJiggle||0, 0, 6, dt);
 
   /* loaf pose: content, fed, calm */
-  const wantsLoaf = rab.state==='loaf' && !rab.hopping && stats.happy>60 && stats.hunger<55;
+  // content loaf — or, when unwell, the hunched, tucked-up sit of a rabbit in discomfort
+  const wantsLoaf = rab.state==='loaf' && !rab.hopping && ((stats.happy>60 && stats.hunger<55) || unwell() || rab.sick);
   rab.loaf = damp(rab.loaf, wantsLoaf?1:0, 3, dt);
 
-  if((rab.state==='loaf'||rab.state==='rest') && stats.happy>70 && Math.random()<0.006){
+  if((rab.state==='loaf'||rab.state==='rest') && stats.happy>70 && !unwell() && Math.random()<0.006){
     const p=parts(); spawnZ(p.head.x+p.head.r*0.6,p.head.y-p.head.r);
   }
 
@@ -2661,8 +3135,8 @@ function updateHUD(){
   wc.textContent='⚖️ '+ws.lbs+'lb'; wc.className='chip'+(ws.band!=='ok'?' warn':'');
   // health warning pip
   const hc=$('healthChip');
+  // No chip for low health any more: "unwell" has to be spotted from her behaviour (see unwell())
   if(rab.sick){ hc.style.display='inline-flex'; hc.textContent='🤒 Sick'; hc.className='chip warn blink'; }
-  else if(rab.health<45){ hc.style.display='inline-flex'; hc.textContent='❤ '+Math.round(rab.health); hc.className='chip warn'; }
   else if(checkupDueNow()){ hc.style.display='inline-flex'; hc.textContent='🩺 Checkup'; hc.className='chip warn'; }
   else { hc.style.display='none'; }
   // contextual action enabling
@@ -2691,10 +3165,70 @@ let panelOpen=null;
 function openPanel(kind){
   panelOpen=kind;
   $('panelWrap').classList.add('show');
-  $('panelTitle').textContent = kind==='shop'?'🛒 Carrot Shop' : kind==='goals'?'🎯 Daily Goals' : '⚙️ Menu';
+  $('panelTitle').textContent = kind==='shop'?'🛒 Carrot Shop' : kind==='goals'?'🎯 Daily Goals'
+                              : kind==='notes'?'📖 Notebook' : kind==='games'?'🎮 Games' : '⚙️ Menu';
   if(kind==='shop') renderShop();
   else if(kind==='goals') renderGoals(true);
+  else if(kind==='notes') renderNotes();
+  else if(kind==='games') renderGames();
   else renderMenu();
+}
+let notesTab='about';
+function notesTabs(body){
+  const tabs=document.createElement('div'); tabs.className='mbtns';
+  tabs.innerHTML=`<button id="ntAbout" class="mbtn${notesTab==='about'?' on':''}">🐰 About ${esc(rab.name)}</button>
+    <button id="ntNotes" class="mbtn${notesTab==='notes'?' on':''}">📖 Rabbit Notes</button>`;
+  body.appendChild(tabs);
+  $('ntAbout').onclick=()=>{ notesTab='about'; renderNotes(); };
+  $('ntNotes').onclick=()=>{ notesTab='notes'; renderNotes(); };
+}
+// "About <name>": everything you've learned about THIS rabbit. Unknowns show a hint, not the answer.
+function renderAbout(body){
+  const S=P().s, Pp=P().p, pr=rab.prefs, k=rab.prefKnown;
+  const st=stageFor(rab.ageDays);
+  const notOwned = key => key!=='bed' && !owns(key);
+  const rows=[
+    ['🧬','Personality', rab.temper ? `${TEMPERS[rab.temper].emoji} ${TEMPERS[rab.temper].name}: ${S} ${TEMPERS[rab.temper].desc}.` : null,
+      `Shows when ${S} grows up. How you raise ${P().o} now shapes it.`],
+    ['💛','Favourite treat', rab.favKnown ? `${FAV_TREATS[rab.favTreat].emoji} ${FAV_TREATS[rab.favTreat].name}` : null,
+      `Try different treats, or watch what ${S} begs for.`],
+    ['💆','Favourite place for a rub', k.pet ? `${PET_SPOTS[pr.pet].emoji} ${cap(PET_SPOTS[pr.pet].name)}` : null,
+      `Try stroking different parts of ${Pp} head: forehead, cheeks, behind the ears.`],
+    ['🧸','Favourite toy', k.toy ? `${TOYS[pr.toy].emoji} ${TOYS[pr.toy].name}` : null,
+      notOwned(pr.toy) ? `Maybe a toy you don't have yet.` : `Play together and watch which toy gets the biggest reaction.`],
+    ['😴','Favourite nap spot', k.nap ? `${NAP_SPOTS[pr.nap].emoji} ${cap(NAP_SPOTS[pr.nap].name)}` : null,
+      notOwned(pr.nap) ? `Maybe somewhere you haven't set up yet.` : `Watch where ${S} chooses to nap.`],
+    ['🙅','Doesn’t like', k.dislike ? `${DISLIKES[pr.dislike].emoji} ${cap(DISLIKES[pr.dislike].name)}` : null,
+      `Every rabbit has something. You'll find out, probably by accident.`],
+    ['🌾','Hay', `${HAY_TYPES[rab.hayType].emoji} ${cap(HAY_TYPES[rab.hayType].name)}${rab.hayType==='alfalfa' && isAdult() ? ' — time to switch to Timothy' : ''}`, ''],
+    ['🎂','Age', `${rab.ageDays} day(s) · ${st.label} ${st.name}`, ''],
+  ];
+  const found = [rab.favKnown,k.pet,k.toy,k.nap,k.dislike].filter(Boolean).length;
+  const head=document.createElement('div'); head.className='balance';
+  head.innerHTML=`You know <b>${found}/5</b> of ${esc(rab.name)}'s likes and dislikes.`;
+  body.appendChild(head);
+  rows.forEach(([emo,label,val,hint])=>{
+    const row=document.createElement('div'); row.className='srow'+(val?'':' locked');
+    row.innerHTML=`<div class="semoji">${val?emo:'❓'}</div><div class="sinfo"><div class="sname">${label}</div>
+      <div class="sdesc">${val ? val : 'Not discovered yet. '+hint}</div></div>`;
+    body.appendChild(row);
+  });
+}
+function renderNotes(){
+  const body=$('panelBody'); body.innerHTML='';
+  notesTabs(body);
+  if(notesTab==='about'){ renderAbout(body); return; }
+  const head=document.createElement('div'); head.className='balance';
+  head.innerHTML=`Learned <b>${Object.keys(notes).length}/${NOTES.length}</b>. Notes unlock when you see the behaviour yourself.`;
+  body.appendChild(head);
+  NOTES.forEach(n=>{
+    const known=!!notes[n.id];
+    const row=document.createElement('div'); row.className='srow'+(known?'':' locked');
+    row.innerHTML = known
+      ? `<div class="semoji">${n.emoji}</div><div class="sinfo"><div class="sname">${n.title}</div><div class="sdesc">${n.text}</div></div>`
+      : `<div class="semoji">🔒</div><div class="sinfo"><div class="sname">Not seen yet</div><div class="sdesc">Hint: ${n.hint}</div></div>`;
+    body.appendChild(row);
+  });
 }
 function closePanel(){ panelOpen=null; $('panelWrap').classList.remove('show'); }
 
@@ -2704,26 +3238,42 @@ function renderShop(){
   bal.innerHTML=`Balance: <b>${rab.carrots}🥕</b> &nbsp;·&nbsp; Bond Lv ${rab.bondLevel}`;
   body.appendChild(bal);
   SHOP.forEach(it=>{
-    const locked = rab.bondLevel < it.unlock;
-    const ownedPerm = (it.type==='toy'||it.type==='decor'||it.type==='tool') && owns(it.id);
+    const adultLock = it.adult && !isAdult();          // Timothy Hay is for grown-ups
+    const locked = rab.bondLevel < it.unlock || adultLock;
+    const ownedPerm = ((it.type==='toy'||it.type==='decor'||it.type==='tool') && owns(it.id))
+                   || (it.id==='timothy' && rab.hayType!=='alfalfa');
     const row=document.createElement('div'); row.className='srow'+(locked?' locked':'');
     const stock = it.type==='cure' ? ` ×${rab.items[it.id]||0}` : '';
     row.innerHTML=`<div class="semoji">${it.emoji}</div>
       <div class="sinfo"><div class="sname">${it.name}${stock}</div><div class="sdesc">${it.desc}</div></div>`;
     const btn=document.createElement('button'); btn.className='sbuy';
-    if(locked){ btn.textContent=`Lv ${it.unlock}`; btn.disabled=true; }
+    if(locked){ btn.textContent= adultLock ? 'Adult' : `Lv ${it.unlock}`; btn.disabled=true; }
     else if(ownedPerm){ btn.textContent='Owned'; btn.disabled=true; }
     else { btn.textContent=`${it.cost}🥕`; btn.onclick=()=>buy(it.id); }
     row.appendChild(btn); body.appendChild(row);
   });
 }
+// where a piece of furniture sits, so she can hop over and chin it
+function furnitureSpot(id){
+  const m = {castle:world.castle, tower:world.tower, hutch:world.hutch, hammock:world.hammock,
+             tunnel:world.tube, ball:world.ball, bed_cloud:world.bed, rug_rose:world.rug};
+  return m[id] || null;
+}
 function buy(id){
   const it=shopItem(id); if(!it) return;
   if(rab.bondLevel<it.unlock) return;
+  if(it.adult && !isAdult()) return;
+  if(id==='timothy' && rab.hayType!=='alfalfa') return;   // already switched / switching
   if((it.type==='toy'||it.type==='decor'||it.type==='tool') && owns(it.id)){ return; }
   // A sulking bun refuses food from anyone — shop feed must honour the cold shoulder that
   // hand-feeding does, and abort before spending a single carrot.
-  if(it.type==='feed' && rab.cold){ coldRefuse(); return; }
+  if(it.type==='feed' && rab.cold){
+    if(id!==rab.favTreat){ coldRefuse(); return; }                 // only the favourite earns forgiveness
+    if(!spendCarrots(it.cost)){ toast(`Not enough carrots — need ${it.cost}🥕, have ${rab.carrots}.`); return; }
+    closePanel(); forgive(id); return;
+  }
+  // …and an unwell bun refuses treats (and a sick one everything) — also before any carrots are spent
+  if(it.type==='feed' && refusesFood(id==='oxbow' ? 'pellets' : id)){ closePanel(); return; }
   if(!spendCarrots(it.cost)){ toast(`Not enough carrots — need ${it.cost}🥕, have ${rab.carrots}.`); return; }
   if(it.type==='feed'){
     if(id==='greens'){ stats.hunger=clamp(stats.hunger-30); stats.water=clamp(stats.water+18);
@@ -2733,6 +3283,7 @@ function buy(id){
     else if(id==='chews'){ stats.hunger=clamp(stats.hunger-8); stats.happy=clamp(stats.happy+10);
       stats.energy=clamp(stats.energy+6); addWeight(1.5); rab.thumps=clamp(rab.thumps-0.3,0,5); }   // treat
     stats.happy=clamp(stats.happy+6); spawnHeart(parts().head.x,parts().head.y);
+    if(favReact(id)) startBinky();
     if(id==='oxbow' && rab.pelletsToday>2)
       { toast(`⚠️ That's ${P().p} ${ord(rab.pelletsToday)} scoop of pellets today — too many! Hay should be the main food.`); fireFact('pellet3'); }
     else toast(`Yum! ${it.name} served. 😋`);
@@ -2741,9 +3292,16 @@ function buy(id){
     toast(`Bought ${it.name}. The Vet will use it free when needed. 💊`);
   } else {
     rab.items[id]=1;
+    if(id==='timothy'){                               // start the gradual switch off alfalfa
+      rab.hayType='mixed'; rab.haySwitchDay=rab.day;
+      toast(`Timothy Hay! It'll be mixed in with the alfalfa for ${HAY_MIX_DAYS} days — switching slowly is easier on ${P().p} gut. 🌾`);
+      learnNote('haytypes', true); addXP(2); renderShop(); save(); return;
+    }
     if(id==='rug_rose') rab.decor.rug='rose';         // room customization
     if(id==='bed_cloud') rab.decor.bed='cloud';       // upgraded bed
     toast(`Bought ${it.name}! ${it.emoji}`);
+    const spot = furnitureSpot(id);
+    if(spot && !rab.sick && !rab.cold){ hopTo(spot.x); rab.chinAt = now()+0.9; rab.chinName = it.name; }   // she goes to claim it
     if(it.type==='toy'||it.type==='decor'){
       const toys=['ball','tunnel','castle','tower','hutch','hammock'].filter(owns).length;
       if(toys>=3) unlockAch('toybox');
@@ -2778,7 +3336,7 @@ function buildSaveCode(){
   save();   // flush the latest state to storage first
   const data = loadRaw();
   if(!data) return null;   // storage unavailable — never hand out a junk code
-  const payload = { c:'thump', v:2, save:data, unlocks };
+  const payload = { c:'thump', v:2, save:data, unlocks, notes };
   return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));   // unicode-safe base64
 }
 function parseSaveCode(code){
@@ -2810,7 +3368,9 @@ function renderMenu(){
       <div><b>${esc(rab.name)}</b> · ${cap(rab.sex)} · ${coat.name}</div>
       <div>Age: ${rab.ageDays} day(s) · ${stageFor(rab.ageDays).name} ${stageFor(rab.ageDays).label}</div>
       <div>Bond: Lv ${rab.bondLevel} (${rab.bondXP}/${xpNeeded(rab.bondLevel)} XP)</div>
-      <div>Health: ${Math.round(rab.health)}% ${rab.sick?'· 🤒 in stasis':''}</div>
+      <div>Health: ${rab.sick?'🤒 in stasis — see the Vet':'watch how '+P().s+'’s eating'} · next checkup day ${rab.nextCheckupDay}</div>
+      <div>Personality: ${rab.temper ? `${TEMPERS[rab.temper].emoji} ${TEMPERS[rab.temper].name}` : `still growing up (shows at Adult)`}</div>
+      <div>Favourite treat: ${rab.favKnown ? `${FAV_TREATS[rab.favTreat].emoji} ${FAV_TREATS[rab.favTreat].name}` : 'not found yet'}</div>
       <div>Weight: ${Math.round(rab.weight)} · ${weightTxt}</div>
       <div>Carrots: ${rab.carrots}🥕 · Achievements: ${achDone}/${achTotal} 🏆</div>
     </div>
@@ -2875,6 +3435,10 @@ function renderMenu(){
       localStorage.setItem(SAVE_KEY, JSON.stringify(s));
       if(res.payload.unlocks && typeof res.payload.unlocks==='object')
         localStorage.setItem(UNLOCK_KEY, JSON.stringify(res.payload.unlocks));
+      if(res.payload.notes && typeof res.payload.notes==='object'){   // keep only known note ids
+        const clean={}; NOTES.forEach(n=>{ if(res.payload.notes[n.id]) clean[n.id]=num(res.payload.notes[n.id],1); });
+        localStorage.setItem(NOTES_KEY, JSON.stringify({...notes, ...clean}));
+      }
     }catch(e){ toast('⚠️ Couldn’t write to storage — import cancelled.'); return; }
     location.reload();
   };
@@ -2916,20 +3480,51 @@ bind('bHay',giveHay); bind('bPellets',givePellets); bind('bWater',giveWater);
 bind('bBanana',offerBanana); bind('bPet',togglePetting); bind('bTrick',doTrick);
 bind('bClean',cleanLitter); bind('bGroom',toggleGrooming); bind('bRest',restRabbit); bind('bPlay',playToy); bind('bVet',callVet);
 bind('tbShop',()=>openPanel('shop')); bind('tbGoals',()=>openPanel('goals')); bind('tbMenu',()=>openPanel('menu'));
+bind('tbNotes',()=>openPanel('notes')); updateNotesBadge();
 
 // Games tab stays hidden until it's revealed (day 2, or immediately for established saves) — item 5.
 // Individual games unlock on a schedule after that: Snake/Guess with the tab, Tic-Tac-Toe on day 3,
 // Carrot Catch on day 4. Single source of truth for both goal availability and button visibility.
+// The games menu: one row per game, in unlock order. `btn` is the (hidden) button whose existing
+// click handler opens the game.
+const GAMES = [
+  {id:'snake',  btn:'bSnake', emoji:'🐍', name:'Bunny Snake',       day:2, desc:'Steer your rabbit to the banana slices without hitting the walls.'},
+  {id:'guess',  btn:'bGuess', emoji:'🎲', name:'Guess My Number',   day:2, desc:'Guess the number your rabbit picked, 1–15, in 3 tries.'},
+  {id:'forage', btn:'bForage',emoji:'🥣', name:'Forage',            day:2, desc:'Follow the treat under the shuffling cups.'},
+  {id:'ttt',    btn:'bTtt',   emoji:'⭕', name:'Bunny Tic-Tac-Toe', day:3, desc:'You’re 🥕, your rabbit is 🌾.'},
+  {id:'dig',    btn:'bDig',   emoji:'📦', name:'Dig Box',           day:3, desc:'Dig through shredded paper for buried treats.'},
+  {id:'catch',  btn:'bCatch', emoji:'🥕', name:'Carrot Catch',      day:4, desc:'Catch falling carrots; dodge the wilted lettuce.'},
+  {id:'safe',   btn:'bSafe',  emoji:'🥬', name:'Safe or Not?',      day:4, desc:'Which foods are OK for rabbits? Learn why.'},
+  {id:'quiz',   btn:'bQuiz',  emoji:'🧠', name:'How well do you know me?', day:5, desc:'Your rabbit quizzes you on them and on 📖.'},
+];
+function renderGames(){
+  const body=$('panelBody'); body.innerHTML='';
+  const head=document.createElement('div'); head.className='balance';
+  head.innerHTML=`Play together for 🥕 and Bond. New games open up over the first few days.`;
+  body.appendChild(head);
+  GAMES.forEach(g=>{
+    const open=gameUnlocked(g.id);
+    const why = !rab.gamesRevealed || rab.day<g.day ? `Day ${g.day}` : 'Learn more';   // quiz: needs enough known
+    const row=document.createElement('div'); row.className='srow'+(open?'':' locked');
+    row.innerHTML=`<div class="semoji">${g.emoji}</div><div class="sinfo"><div class="sname">${g.name}</div><div class="sdesc">${g.desc}</div></div>`;
+    const b=document.createElement('button'); b.className='sbuy';
+    if(open){ b.textContent='Play'; b.onclick=()=>{ closePanel(); $(g.btn).click(); }; }
+    else { b.textContent=why; b.disabled=true; }
+    row.appendChild(b); body.appendChild(row);
+  });
+}
 function gameUnlocked(id){
   if(!rab.gamesRevealed) return false;
-  if(id==='ttt')   return rab.day>=3;
-  if(id==='catch') return rab.day>=4;
+  if(id==='ttt' || id==='dig')    return rab.day>=3;
+  if(id==='catch' || id==='safe') return rab.day>=4;
+  if(id==='quiz')  return rab.day>=5 && quizReady();   // needs enough discovered to ask about
   return true;   // snake, guess
 }
 function applyGamesTab(){
   const t=$('tabGames'); if(t) t.style.display = rab.gamesRevealed ? '' : 'none';
   const bt=$('bTtt');   if(bt) bt.style.display   = gameUnlocked('ttt')   ? 'flex' : 'none';
   const bct=$('bCatch');if(bct) bct.style.display = gameUnlocked('catch') ? 'flex' : 'none';
+  const bq=$('bQuiz');  if(bq) bq.style.display   = gameUnlocked('quiz')  ? 'flex' : 'none';
 }
 
 // bottom-dock sub-tabs (Care / Play / Health)
@@ -2937,7 +3532,12 @@ function setTab(name){
   document.querySelectorAll('.atab').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
   document.querySelectorAll('.actrow').forEach(r=>{ r.hidden = r.dataset.group!==name; });
 }
-document.querySelectorAll('.atab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+// The 🎮 Games tab opens the games menu instead of a crowded row of buttons (the old buttons stay in
+// the markup, hidden, so every game still opens through its own existing handler).
+document.querySelectorAll('.atab').forEach(b=>b.addEventListener('click',()=>{
+  if(b.dataset.tab==='games'){ openPanel('games'); return; }
+  setTab(b.dataset.tab);
+}));
 bind('panelClose',closePanel);
 $('panelWrap').addEventListener('click',e=>{ if(e.target===$('panelWrap')) closePanel(); });
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) save(); });
@@ -3072,6 +3672,9 @@ function startGame(fromSave, saved){
   rab.name = nm || pick(['Mowgli','Nutmeg','Clover','Waffles','Mochi','Pip','Biscuit','Bramble','Poppy']);
   $('petName').textContent=rab.name;
   rab.curScale=stageFor(0).scale;
+  rab.favTreat = pick(Object.keys(FAV_TREATS));   // a secret to discover
+  rab.prefs = rollPrefs(); rab.prefKnown = {}; rab.prefCount = {};   // …and so are these
+  rab.hayType = 'alfalfa';                         // young rabbits start on alfalfa
   setDay1Goals();          // day 1 = the fixed tutorial goal set (item 2)
   unlockAch('firstDay');
   beginLoop();
@@ -3285,6 +3888,351 @@ function guessLose(){
 }
 bind('bGuess', openGuess);
 bind('guessClose', closeGuess);
+
+/* ============================================================================ *
+ *  "HOW WELL DO YOU KNOW ME?" — the rabbit quizzes the owner (day-5 unlock).
+ *  Questions only come from things the player has DISCOVERED about this rabbit or UNLOCKED
+ *  in Rabbit Notes, so it rewards paying attention, and every wrong answer teaches.
+ * ============================================================================ */
+// One question per Rabbit Note, asked in the rabbit's voice. a = right answer, w = wrong answers.
+const QUIZ_NOTES = {
+  thump:   {q:'When I thump my back foot, I’m…', a:'Warning of danger, or annoyed', w:['Asking for a treat','Happy to see you']},
+  binky:   {q:'A leap with a twist in mid-air is called a…', a:'Binky', w:['Flop','Thump']},
+  flop:    {q:'If I flop over onto my side, it means…', a:'I feel completely safe', w:['I’m unwell','I’m ignoring you']},
+  purr:    {q:'Soft teeth grinding while you pet me means…', a:'I’m content', w:['I’m in pain','I’m hungry']},
+  grind:   {q:'Loud teeth grinding while I sit hunched means…', a:'I’m in pain and need a vet', w:['I’m content','I’m sleepy']},
+  chin:    {q:'Why do I rub my chin on things?', a:'To mark them as mine with scent', w:['My chin itches','To file my teeth']},
+  fav:     {q:'Why should you know my favourite treat?', a:'If I refuse it, something may be wrong', w:['So you can give it all day','It doesn’t matter']},
+  refuse:  {q:'If I stop eating, you should…', a:'Take me to the vet the same day', w:['Wait a few days','Give me more pellets']},
+  droppings:{q:'Fewer or smaller droppings can mean…', a:'My gut is slowing down', w:['I’m extra healthy','I drank too much']},
+  stasis:  {q:'What keeps my gut moving?', a:'Unlimited hay', w:['Lots of fruit','Extra pellets']},
+  hay:     {q:'What should most of my diet be?', a:'Hay', w:['Pellets','Fruit']},
+  sugar:   {q:'Why are sweet treats like banana limited?', a:'Sugar upsets my gut', w:['They make me too bouncy','They dull my fur']},
+  grudge:  {q:'After you upset me, trust comes back with…', a:'Space, time and a favourite treat', w:['Picking me up more','Nothing, ever']},
+  dawn:    {q:'When am I most active?', a:'Dawn and dusk', w:['Midday','Only at midnight']},
+  zoomies: {q:'Wild laps around the room mean…', a:'I’m happy and full of energy', w:['I’m scared','I’m unwell']},
+  bored:   {q:'If I dig the carpet or chew the baseboard, I’m probably…', a:'Bored', w:['Hungry','Cold']},
+  tricks:  {q:'How do rabbits learn tricks?', a:'Patience, with a favourite treat as a reward', w:['Being told off','They can’t']},
+  temper:  {q:'What shapes the rabbit I grow up to be?', a:'Gentle care while I’m young', w:['Only my breed','Nothing at all']},
+  forage:  {q:'Why hide my food in cups, boxes or paper?', a:'Foraging keeps me busy and happy', w:['To keep it fresh','So I eat less']},
+  safefoods:{q:'Which of these is poisonous to me?', a:'Avocado', w:['Romaine lettuce','Cilantro']},
+  haytypes:{q:'Which hay suits a grown-up rabbit?', a:'Grass hay, like timothy', w:['Alfalfa','No hay, just pellets']},
+};
+const QUIZ_DISLIKE = {rump:'Being brushed on my haunches', nose:'Having my nose touched',
+                      ball:'The Treat Ball', tunnel:'The Play Tunnel', tower:'The Climbing Tower'};
+function quizOthers(all, right, n){ return all.filter(x=>x!==right).sort(()=>Math.random()-0.5).slice(0,n); }
+// Build every question the player could fairly be asked right now.
+function quizPool(){
+  const Q=[], pr=rab.prefs, k=rab.prefKnown;
+  const ask=(q,a,w,why,about)=>Q.push({q,a,w,why,about});
+  if(rab.favKnown){ const all=Object.values(FAV_TREATS).map(t=>t.name);
+    ask('What’s my favourite treat?', FAV_TREATS[rab.favTreat].name, quizOthers(all,FAV_TREATS[rab.favTreat].name,2), `${FAV_TREATS[rab.favTreat].emoji} It’s ${FAV_TREATS[rab.favTreat].name.toLowerCase()}!`, true); }
+  if(k.pet){ const all=Object.values(PET_SPOTS).map(s=>cap(s.name));
+    ask('Where do I love a rub the most?', cap(PET_SPOTS[pr.pet].name), quizOthers(all,cap(PET_SPOTS[pr.pet].name),2), `${PET_SPOTS[pr.pet].emoji} ${cap(PET_SPOTS[pr.pet].name)}, every time.`, true); }
+  if(k.toy){ const all=Object.values(TOYS).map(t=>t.name);
+    ask('Which toy do I love most?', TOYS[pr.toy].name, quizOthers(all,TOYS[pr.toy].name,2), `${TOYS[pr.toy].emoji} The ${TOYS[pr.toy].name}!`, true); }
+  if(k.nap){ const all=Object.values(NAP_SPOTS).map(s=>cap(s.name));
+    ask('Where’s my favourite nap spot?', cap(NAP_SPOTS[pr.nap].name), quizOthers(all,cap(NAP_SPOTS[pr.nap].name),2), `${NAP_SPOTS[pr.nap].emoji} ${cap(NAP_SPOTS[pr.nap].name)}.`, true); }
+  if(k.dislike){ const all=Object.values(QUIZ_DISLIKE);
+    ask('What do I NOT like?', QUIZ_DISLIKE[pr.dislike], quizOthers(all,QUIZ_DISLIKE[pr.dislike],2), `${DISLIKES[pr.dislike].emoji} Please remember that one.`, true); }
+  if(rab.temper){ const all=Object.values(TEMPERS).map(t=>t.name);
+    ask('What kind of personality do I have?', TEMPERS[rab.temper].name, quizOthers(all,TEMPERS[rab.temper].name,2), `${TEMPERS[rab.temper].emoji} ${TEMPERS[rab.temper].name}. That’s me!`, true); }
+  NOTES.forEach(n=>{ const Z=QUIZ_NOTES[n.id]; if(notes[n.id] && Z) ask(Z.q, Z.a, Z.w, n.text, false); });
+  return Q;
+}
+const QUIZ_LEN = 5, QUIZ_MIN = 4;
+function quizReady(){ return quizPool().length >= QUIZ_MIN; }
+const QZ = { on:false, qs:[], i:0, right:0, answered:false };
+function openQuiz(){
+  if(rab.cold){ coldRefuse(); return; }
+  const pool=quizPool();
+  if(pool.length<QUIZ_MIN){ toast(`Learn a little more about ${rab.name} first — check 📖.`); return; }
+  // lead with questions about her (up to 2), then fill with rabbit-care questions
+  const about=pool.filter(q=>q.about).sort(()=>Math.random()-0.5), care=pool.filter(q=>!q.about).sort(()=>Math.random()-0.5);
+  const pickN=[...about.slice(0,2), ...care].slice(0,QUIZ_LEN);
+  while(pickN.length<Math.min(QUIZ_LEN,pool.length)){ const extra=about.find(q=>!pickN.includes(q)); if(!extra) break; pickN.push(extra); }
+  QZ.qs=pickN.sort(()=>Math.random()-0.5); QZ.i=0; QZ.right=0; QZ.on=true;
+  minigameActive=true;
+  $('qTitle').textContent=`🧠 How well do you know ${rab.name}?`;
+  $('qMsg').className='gmsg'; $('qMsg').innerHTML='';
+  $('quiz').classList.add('show');
+  quizShow();
+}
+function closeQuiz(){ QZ.on=false; minigameActive=false; $('quiz').classList.remove('show'); last=now(); }
+function quizShow(){
+  const Q=QZ.qs[QZ.i]; QZ.answered=false;
+  $('qFace').textContent='🐰'; $('qBubble').textContent=Q.q;
+  $('qProg').textContent=QZ.qs.map((_,j)=>j<QZ.i?'🐾':j===QZ.i?'◉':'·').join(' ');
+  $('qExplain').innerHTML='';
+  const box=$('qOpts'); box.innerHTML=''; box.style.display='';
+  [Q.a, ...Q.w].sort(()=>Math.random()-0.5).forEach(opt=>{
+    const b=document.createElement('button'); b.textContent=opt;
+    b.onclick=()=>quizAnswer(opt,b); box.appendChild(b);
+  });
+}
+function quizAnswer(opt,btn){
+  if(QZ.answered) return; QZ.answered=true;
+  const Q=QZ.qs[QZ.i], ok=opt===Q.a;
+  if(ok) QZ.right++;
+  $('qOpts').querySelectorAll('button').forEach(b=>{ b.disabled=true; if(b.textContent===Q.a) b.classList.add('right'); });
+  if(!ok) btn.classList.add('wrong');
+  $('qFace').textContent = ok ? '😻' : '🙀';
+  $('qBubble').textContent = ok ? pick(['Yes! You know me!','Exactly right!','Correct! 🥕']) : pick(['Nope!','Not quite…','Hmm, no!']);
+  const last_ = QZ.i===QZ.qs.length-1;
+  $('qExplain').innerHTML = `${esc(Q.why)}<br><button id="qNext">${last_?'See score':'Next question'}</button>`;
+  $('qNext').onclick=()=>{ if(last_) quizEnd(); else { QZ.i++; quizShow(); } };
+  $('qNext').focus();
+}
+function quizEnd(){
+  QZ.on=false;
+  const n=QZ.qs.length, r=QZ.right, perfect = r===n;
+  // the pool is small, so only the first round each day pays — later rounds are practice
+  const paid = rab.quizPaidDay!==rab.day;
+  let carrots = paid ? r*3 + (perfect?10:0) : 0;
+  if(paid) rab.quizPaidDay=rab.day;
+  if(carrots) addCarrots(carrots, rab.x, rab.baseY-60);
+  if(paid) addXP(r*3 + (perfect?8:0));
+  stats.happy=clamp(stats.happy + r*2);
+  if(perfect){ incGoal('g_quiz'); startBinky(); }
+  $('qOpts').innerHTML=''; $('qOpts').style.display='none'; $('qExplain').innerHTML='';
+  $('qProg').textContent='';
+  $('qFace').textContent = perfect ? '😻' : r>=n/2 ? '🐰' : '🙄';
+  $('qBubble').textContent = perfect ? `You really know me. Best human.` : r>=n/2 ? `Not bad! You're getting to know me.` : `Do you even know me? Keep watching!`;
+  const m=$('qMsg');
+  m.innerHTML=`<h3>${r}/${n} right${carrots?` · +${carrots}🥕`:''}</h3>${paid?'':'<p>Practice round — carrots pay once a day.</p>'}<div class="mgbtns"><button id="qAgain">Play again</button><button id="qDone">Done</button></div>`;
+  m.className='gmsg show'; $('qAgain').onclick=openQuiz; $('qDone').onclick=closeQuiz;
+  save();
+}
+bind('bQuiz', openQuiz);
+bind('quizClose', closeQuiz);
+
+/* ============================================================================ *
+ *  FORAGE — the cup game. Her treat goes under a cup, the cups shuffle, you pick.
+ *  3 rounds, each faster with more swaps; a miss ends the game. Real enrichment:
+ *  rabbits forage, and hiding food under cups is a common foraging toy.
+ * ============================================================================ */
+const FG = { on:false, round:0, won:0, slots:[0,1,2], treatCup:1, busy:true };
+const F_SLOT = ['0%','37%','74%'];
+const forageTreat = () => rab.favKnown ? FAV_TREATS[rab.favTreat].emoji : '🥕';   // never gives the favourite away
+function forageCups(fn){ for(let c=0;c<3;c++) fn($('fCup'+c), c); }
+function forageLayout(){
+  forageCups((el,c)=>{ el.style.left=F_SLOT[FG.slots[c]]; });
+  $('fTreat').style.left=F_SLOT[FG.slots[FG.treatCup]];
+}
+function openForage(){
+  if(rab.cold){ coldRefuse(); return; }
+  FG.on=true; FG.round=0; FG.won=0; minigameActive=true;
+  $('fMsg').className='gmsg'; $('fMsg').innerHTML=''; $('fStage').style.display='';
+  $('fTreat').textContent=forageTreat();
+  $('forage').classList.add('show');
+  forageRound();
+}
+function closeForage(){ FG.on=false; minigameActive=false; $('forage').classList.remove('show'); last=now(); }
+function forageRound(){
+  FG.round++; FG.busy=true; FG.slots=[0,1,2]; FG.treatCup=Math.floor(Math.random()*3);
+  const speed=[0.42,0.30,0.22][FG.round-1], swaps=[4,6,8][FG.round-1];
+  $('fProg').textContent=[1,2,3].map(n=>n<FG.round?'🐾':n===FG.round?'◉':'·').join(' ');
+  $('fFace').textContent='🐰';
+  $('fBubble').textContent = FG.round===1 ? 'Watch where my treat goes…' : FG.round===2 ? 'Faster this time!' : 'Last one, fastest!';
+  forageCups(el=>{ el.disabled=true; el.classList.remove('up'); el.style.transitionDuration=speed+'s'; });
+  $('fTreat').style.transitionDuration='0s';
+  forageLayout(); $('fTreat').style.visibility='visible';
+  const cup=$('fCup'+FG.treatCup); cup.classList.add('up');          // show where it starts
+  setTimeout(()=>{ if(!FG.on) return;
+    cup.classList.remove('up');
+    setTimeout(()=>{ if(!FG.on) return;
+      $('fTreat').style.visibility='hidden';
+      let n=0;
+      const step=()=>{ if(!FG.on) return;
+        if(n++>=swaps){ FG.busy=false; forageCups(el=>{ el.disabled=false; }); $('fBubble').textContent='Which cup is it under?'; return; }
+        const a=Math.floor(Math.random()*3), b=(a+1+Math.floor(Math.random()*2))%3;   // two different slots
+        const ca=FG.slots.indexOf(a), cb=FG.slots.indexOf(b);
+        FG.slots[ca]=b; FG.slots[cb]=a; forageLayout();
+        setTimeout(step, speed*1000+70);
+      };
+      step();
+    }, 450);
+  }, 1100);
+}
+function forageTap(c){
+  if(FG.busy || !FG.on) return;
+  FG.busy=true; forageCups(el=>{ el.disabled=true; });
+  forageLayout(); $('fTreat').style.visibility='visible';
+  const right = c===FG.treatCup;
+  $('fCup'+FG.treatCup).classList.add('up');
+  if(!right) $('fCup'+c).classList.add('up');
+  if(right){ FG.won++; $('fFace').textContent='😻'; $('fBubble').textContent=pick(['Found it!','Yes! Treat time!','You were watching!']); }
+  else { $('fFace').textContent='😏'; $('fBubble').textContent='Nope, it was over here!'; }
+  setTimeout(()=>{ if(!FG.on) return;
+    if(right && FG.round<3) forageRound(); else forageEnd();
+  }, 1300);
+}
+function forageEnd(){
+  const all = FG.won===3;
+  const carrots = FG.won*4 + (all?4:0);
+  if(carrots) addCarrots(carrots, rab.x, rab.baseY-60);
+  addXP(FG.won*3); stats.happy=clamp(stats.happy + FG.won*3);
+  learnNote('forage');
+  if(all){ incGoal('g_forage'); startBinky(); }
+  $('fStage').style.display='none'; $('fProg').textContent='';
+  $('fFace').textContent = all ? '😻' : '🐰';
+  $('fBubble').textContent = all ? 'Three for three! That was fun.' : 'Good foraging. Again?';
+  const m=$('fMsg');
+  m.innerHTML=`<h3>${FG.won}/3 found${carrots?` · +${carrots}🥕`:''}</h3><div class="mgbtns"><button id="fAgain">Play again</button><button id="fDone">Done</button></div>`;
+  m.className='gmsg show'; $('fAgain').onclick=openForage; $('fDone').onclick=closeForage;
+  save();
+}
+bind('bForage', openForage);
+bind('forageClose', closeForage);
+for(let c=0;c<3;c++) bind('fCup'+c, ()=>forageTap(c));
+
+/* ============================================================================ *
+ *  DIG BOX — a 4×4 box of shredded paper with 5 buried treats and 2 pebbles.
+ *  Empty spots show 👃N: how many treats are right next to them (a little
+ *  minesweeper), so it's skill, not luck. Dig boxes are real rabbit enrichment.
+ * ============================================================================ */
+const DG = { on:false, over:true, cells:[], found:0, total:5, time:20, timer:null };
+const DIG_TIME=20, DIG_SIZE=4;
+function digNeighbours(i){
+  const r=Math.floor(i/DIG_SIZE), c=i%DIG_SIZE, out=[];
+  for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+    if(!dr && !dc) continue;
+    const rr=r+dr, cc=c+dc;
+    if(rr>=0 && rr<DIG_SIZE && cc>=0 && cc<DIG_SIZE) out.push(rr*DIG_SIZE+cc);
+  }
+  return out;
+}
+function digHud(){ $('dTime').textContent=DG.time; $('dFound').textContent=DG.found; $('dTotal').textContent=DG.total; }
+function openDig(){
+  if(rab.cold){ coldRefuse(); return; }
+  clearInterval(DG.timer);
+  DG.on=true; DG.over=false; DG.found=0; DG.time=DIG_TIME; minigameActive=true;
+  const order=[...Array(DIG_SIZE*DIG_SIZE).keys()].sort(()=>Math.random()-0.5);
+  DG.cells=Array(DIG_SIZE*DIG_SIZE).fill('empty');
+  order.slice(0,DG.total).forEach(i=>DG.cells[i]='treat');
+  order.slice(DG.total,DG.total+2).forEach(i=>DG.cells[i]='pebble');
+  const grid=$('dGrid'); grid.innerHTML=''; grid.style.display='';
+  DG.cells.forEach((_,i)=>{
+    const b=document.createElement('button'); b.setAttribute('aria-label',`Dig spot ${i+1}`);
+    b.onclick=()=>digAt(i,b); grid.appendChild(b);
+  });
+  $('dMsg').className='gmsg'; $('dMsg').innerHTML='';
+  digHud(); $('dig').classList.add('show');
+  DG.timer=setInterval(()=>{ if(!DG.on||DG.over) return; DG.time--; digHud(); if(DG.time<=0) digEnd(); }, 1000);
+}
+function closeDig(){ clearInterval(DG.timer); DG.on=false; DG.over=true; minigameActive=false; $('dig').classList.remove('show'); last=now(); }
+function digAt(i,b){
+  if(DG.over || b.classList.contains('dug') || b.classList.contains('found')) return;
+  const cell=DG.cells[i];
+  if(cell==='treat'){
+    b.classList.add('found'); b.textContent = rab.favKnown && Math.random()<0.4 ? FAV_TREATS[rab.favTreat].emoji : pick(['🥕','🌿']);
+    DG.found++;
+  } else if(cell==='pebble'){
+    b.classList.add('dug'); b.textContent='🪨'; DG.time=Math.max(0,DG.time-2);
+  } else {
+    b.classList.add('dug');
+    const n=digNeighbours(i).filter(j=>DG.cells[j]==='treat').length;
+    b.textContent = n ? `👃${n}` : '·';
+  }
+  digHud();
+  if(DG.found>=DG.total || DG.time<=0) digEnd();
+}
+function digEnd(){
+  if(DG.over) return;
+  DG.over=true; clearInterval(DG.timer);
+  const all = DG.found>=DG.total;
+  // show where the rest were hiding
+  [...$('dGrid').children].forEach((b,i)=>{ b.disabled=true; if(DG.cells[i]==='treat' && !b.classList.contains('found')){ b.textContent='🥕'; b.style.opacity='.45'; } });
+  const carrots = DG.found*2 + (all?5:0);
+  if(carrots) addCarrots(carrots, rab.x, rab.baseY-60);
+  addXP(DG.found*2); stats.happy=clamp(stats.happy + DG.found*2);
+  learnNote('forage');
+  if(all){ incGoal('g_dig'); startBinky(); }
+  const m=$('dMsg');
+  m.innerHTML=`<h3>${all?'Every treat found!':`${DG.found}/${DG.total} found`}${carrots?` · +${carrots}🥕`:''}</h3><div class="mgbtns"><button id="dAgain">Dig again</button><button id="dDone">Done</button></div>`;
+  m.className='gmsg show'; $('dAgain').onclick=openDig; $('dDone').onclick=closeDig;
+  save();
+}
+bind('bDig', openDig);
+bind('digClose', closeDig);
+
+/* ============================================================================ *
+ *  SAFE OR NOT? — tap whether a food is OK for rabbits; every answer says why.
+ *  Food list fact-checked 25 Sep 2026 against RSPCA, PDSA, House Rabbit Society and RWAF;
+ *  only foods where those sources AGREE are included. Deliberately left out as ambiguous:
+ *  carrot root and banana (sugary treats, not "safe" or "unsafe"), spinach/kale/parsley/broccoli
+ *  leaves (safe but limited), celery (choking caveat), lilies (evidence is for cats).
+ * ============================================================================ */
+const SAFE_FOODS = [
+  {e:'🌾', n:'Timothy hay',            ok:true,  why:'Hay should be most of what a rabbit eats.'},
+  {e:'🥬', n:'Romaine lettuce',        ok:true,  why:'A dark, leafy lettuce: a good everyday green.'},
+  {e:'🌿', n:'Cilantro (coriander)',   ok:true,  why:'A leafy herb that’s fine every day.'},
+  {e:'🌿', n:'Basil',                  ok:true,  why:'A safe herb for daily greens.'},
+  {e:'🌱', n:'Mint',                   ok:true,  why:'A safe herb that lots of rabbits love.'},
+  {e:'🥕', n:'Carrot tops (the leaves)',ok:true, why:'The leafy tops are healthier than the carrot itself.'},
+  {e:'🫑', n:'Bell pepper',            ok:true,  why:'Safe, crunchy veg in small portions.'},
+  {e:'🌼', n:'Dandelion greens',       ok:true,  why:'Dandelion leaves are a natural, healthy green.'},
+  {e:'🍎', n:'Apple slice (no seeds)', ok:true,  why:'A small piece is a fine treat. Always remove the seeds.'},
+  {e:'🍓', n:'Strawberry',             ok:true,  why:'Fine as a small, occasional treat.'},
+  {e:'🍫', n:'Chocolate',              ok:false, why:'Chocolate is poisonous to rabbits.'},
+  {e:'🧅', n:'Onion',                  ok:false, why:'Onions can damage a rabbit’s blood cells.'},
+  {e:'🧄', n:'Garlic',                 ok:false, why:'Garlic can damage a rabbit’s blood cells too.'},
+  {e:'🥑', n:'Avocado',                ok:false, why:'Avocado has a toxin that can harm a rabbit’s heart.'},
+  {e:'🥬', n:'Iceberg lettuce',        ok:false, why:'Mostly water with little nutrition, and it can upset the tummy.'},
+  {e:'🌱', n:'Rhubarb',                ok:false, why:'Rhubarb is poisonous to rabbits.'},
+  {e:'🍏', n:'Apple seeds (pips)',     ok:false, why:'Apple seeds are poisonous, so always remove them.'},
+  {e:'🍞', n:'Bread',                  ok:false, why:'Too starchy: it upsets a rabbit’s gut.'},
+  {e:'🥛', n:'Yogurt drops',           ok:false, why:'Sugary dairy treats can make rabbits seriously ill.'},
+  {e:'🌸', n:'Foxglove',               ok:false, why:'Foxglove is a poisonous plant that affects the heart.'},
+];
+const SF = { on:false, list:[], i:0, right:0, answered:false };
+function openSafe(){
+  if(rab.cold){ coldRefuse(); return; }
+  const mix=a=>a.sort(()=>Math.random()-0.5);
+  SF.list = mix([...mix(SAFE_FOODS.filter(f=>f.ok)).slice(0,5), ...mix(SAFE_FOODS.filter(f=>!f.ok)).slice(0,5)]);
+  SF.i=0; SF.right=0; SF.on=true; minigameActive=true;
+  $('sMsg').className='gmsg'; $('sMsg').innerHTML=''; $('sBtns').style.display='';
+  $('sTotal').textContent=SF.list.length;
+  $('safe').classList.add('show');
+  safeShow();
+}
+function closeSafe(){ SF.on=false; minigameActive=false; $('safe').classList.remove('show'); last=now(); }
+function safeShow(){
+  const f=SF.list[SF.i]; SF.answered=false;
+  $('sFood').textContent=f.e; $('sName').textContent=f.n; $('sScore').textContent=SF.right;
+  $('sExplain').innerHTML=''; $('sYes').disabled=false; $('sNo').disabled=false;
+}
+function safeAnswer(saidOk){
+  if(SF.answered || !SF.on) return; SF.answered=true;
+  const f=SF.list[SF.i], right = saidOk===f.ok;
+  if(right) SF.right++;
+  $('sScore').textContent=SF.right; $('sYes').disabled=true; $('sNo').disabled=true;
+  const last_ = SF.i===SF.list.length-1;
+  $('sExplain').innerHTML = `<b>${right?'✅ Right!':'❌ Not quite.'}</b> ${f.ok?'Safe':'Not safe'}: ${esc(f.why)}<br><button id="sNext">${last_?'See score':'Next food'}</button>`;
+  $('sNext').onclick=()=>{ if(last_) safeEnd(); else { SF.i++; safeShow(); } };
+  $('sNext').focus();
+}
+function safeEnd(){
+  SF.on=false;
+  const n=SF.list.length, r=SF.right;
+  // a small fixed list is easy to memorise, so like the quiz only the first round each day pays
+  const paid = rab.safePaidDay!==rab.day;
+  const carrots = paid ? r*2 : 0;
+  if(paid){ rab.safePaidDay=rab.day; addXP(r*2); }
+  if(carrots) addCarrots(carrots, rab.x, rab.baseY-60);
+  learnNote('safefoods');
+  if(r>=8) incGoal('g_safe');
+  $('sBtns').style.display='none'; $('sExplain').innerHTML='';
+  $('sFood').textContent = r>=8 ? '🏅' : '🥬'; $('sName').textContent = r>=8 ? 'You know your rabbit food!' : 'Keep learning. It matters!';
+  const m=$('sMsg');
+  m.innerHTML=`<h3>${r}/${n} right${carrots?` · +${carrots}🥕`:''}</h3>${paid?'':'<p>Practice round — carrots pay once a day.</p>'}<div class="mgbtns"><button id="sAgain">Play again</button><button id="sDone">Done</button></div>`;
+  m.className='gmsg show'; $('sAgain').onclick=openSafe; $('sDone').onclick=closeSafe;
+  save();
+}
+bind('bSafe', openSafe);
+bind('safeClose', closeSafe);
+bind('sYes', ()=>safeAnswer(true));
+bind('sNo',  ()=>safeAnswer(false));
 bind('rpsBtn', ()=>location.reload());
 
 /* ============================================================================ *
