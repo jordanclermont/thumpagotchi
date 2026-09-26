@@ -1,5 +1,5 @@
 /* ============================================================================ *
- *  THUMPAGOTCHI TEST SUITE
+ *  LOAFLING (formerly Thumpagotchi) TEST SUITE
  *  Never shipped. tests/run_tests.py copies the game to a temp folder, splices this
  *  file into game.js's closure (so it can reach the game's internals), and loads the
  *  page once per group as index.html#<group> in headless Chrome. Each group starts
@@ -118,13 +118,13 @@ group('migrate', async ()=>{
 group('storage', async ()=>{
   check('the public build is not flagged as the tester build', !BETA);
   check('the public build keeps its save slots', SAVE_KEY==='thumpagotchi.save.v2' && NOTES_KEY==='thumpagotchi.notes'
-    && UNLOCK_KEY==='thumpagotchi.unlocks' && SNAKE_BEST_KEY==='thumpagotchi.snakeBest', SAVE_KEY);
+    && UNLOCK_KEY==='thumpagotchi.unlocks' && SNAKE_BEST_KEY==='thumpagotchi.snakeBest' && CATCH_BEST_KEY==='thumpagotchi.catchBest', SAVE_KEY);
   check('no tester label on the public build', !document.getElementById('betaTag'));
 });
 // run by tests/run_tests.py from a beta/ folder, like the tester link
 group('beta', async ()=>{
   check('served from beta/, it knows it is the tester build', BETA);
-  check('it saves to its own slots', [SAVE_KEY,NOTES_KEY,UNLOCK_KEY,SNAKE_BEST_KEY].every(k=>k.startsWith('thumpagotchi.beta.')), SAVE_KEY);
+  check('it saves to its own slots', [SAVE_KEY,NOTES_KEY,UNLOCK_KEY,SNAKE_BEST_KEY,CATCH_BEST_KEY].every(k=>k.startsWith('thumpagotchi.beta.')), SAVE_KEY);
   fresh();   // (clears storage)
   localStorage.setItem('thumpagotchi.save.v2', JSON.stringify({name:'LiveBun', stats:{}, day:9}));
   save();

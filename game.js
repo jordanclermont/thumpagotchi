@@ -1,7 +1,7 @@
 "use strict";
 (() => {
 /* ============================================================================ *
- *  THUMPAGOTCHI  —  a Holland Lop life sim
+ *  LOAFLING (formerly Thumpagotchi)  —  a Holland Lop life sim
  *  A cozy 2D-canvas digital pet, now with real progression:
  *    · Bond levels & XP        · Carrots economy + Shop
  *    · Life stages (she grows) · Energy + Rest, Illness + Vet, Diet + Weight
@@ -34,6 +34,7 @@ const int=(v,f,lo,hi)=> Math.min(hi, Math.max(lo, Math.round(num(v,f))));
 /* The tester build is published at …/thumpagotchi/beta/ (see .github/workflows/pages.yml). It shares
    the live game's web address, so it keeps its own save slot: a tester's real rabbit is never touched. */
 const BETA = /\/beta\//.test(location.pathname);
+// (storage keys and the save-code tag keep the old 'thump' name on purpose: renaming them would lose saves)
 const STORE = BETA ? 'thumpagotchi.beta.' : 'thumpagotchi.';
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 // A per-frame chance tuned at 60fps, scaled by frame time so 120Hz and 30Hz screens behave the same.
@@ -3558,7 +3559,7 @@ function parseSaveCode(code){
   try{ payload = JSON.parse(decodeURIComponent(escape(atob(code)))); }
   catch(e){ return {ok:false, err:'That code isn’t readable.'}; }
   if(!payload || typeof payload!=='object' || payload.c!=='thump' || payload.v!==2 || !payload.save || typeof payload.save!=='object' || Array.isArray(payload.save))
-    return {ok:false, err:'That code isn’t a Thumpagotchi save.'};
+    return {ok:false, err:'That code isn’t a Loafling save.'};
   const s = payload.save;
   if(num(s.v,2) > SAVE_VERSION) return {ok:false, err:'That save is from a newer version of the game. Reload to update, then try again.'};
   if(typeof s.name!=='string' || !s.name || !s.stats || typeof s.stats!=='object' || typeof s.day!=='number')
@@ -4588,7 +4589,7 @@ bind('tttClose', closeTtt);
  *  CARROT CATCH — slide the bunny to catch falling 🥕, dodge wilted 🥬 (day-4).
  *  A reflex game to balance the cerebral roster; speed + spawn rate ramp with score.
  * ============================================================================ */
-const CATCH_BEST_KEY = 'thumpagotchi.catchBest';
+const CATCH_BEST_KEY = STORE+'catchBest';
 const CC = { on:false, over:false, score:0, best:0, lives:3, items:[], pops:[],
              bx:0, vx:0, spawnT:0, speed:1, W:320, H:416, bw:64, raf:null, lastT:0 };
 let ccCanvas=null, ccCtx=null;

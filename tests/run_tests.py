@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Thumpagotchi test runner.
+"""Loafling (formerly Thumpagotchi) test runner.
 
 Usage:   python3 tests/run_tests.py            # run every group
          python3 tests/run_tests.py health hay # run just these groups

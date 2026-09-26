@@ -1,14 +1,15 @@
-# Thumpagotchi 🐰
+# Loafling 🐰
+
+*Formerly Thumpagotchi. A real rabbit care game, and a work in progress.*
 
 [![Play the live demo](https://img.shields.io/badge/▶%20Play-Live%20Demo-6fbf73?style=for-the-badge&logo=github)](https://jordanclermont.github.io/thumpagotchi/)
 
 Owning a house rabbit, simulated — because rabbits don't get *sad*, they get
-**angry**, and they say it with their feet. Two versions:
+**angry**, and they say it with their feet.
 
 - **`index.html`** — a 2D visual game (HTML5 Canvas). A Holland Lop drawn entirely
   in code, in a cozy living room with a day/night cycle. **Just double-click it** to
   play in any browser — no install, no server. Files: `index.html`, `style.css`, `game.js`.
-- **`thumpagotchi.py`** — the original text/terminal version (below).
 
 ## Run the visual game
 
@@ -134,39 +135,3 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
   Care pays when it's needed: hay for a hungry rabbit, scooping a dirty box, refilling a low bowl.
 - **Daily goals & achievements** — three 🎯 goals refresh each day for carrots and XP,
   plus one-time 🏆 milestones.
-
-## Run the terminal version
-
-Requires Python 3.7+ (standard library only — no installs).
-
-```bash
-python3 thumpagotchi.py
-```
-
-Set `NO_COLOR=1` to disable ANSI colors.
-
-## How it works
-
-The rabbit has four needs that drift in real time (and tick forward with each action):
-
-- **Affection** — decays when ignored; raised by head pets, banana, and just being present.
-- **Hunger** — rises constantly; lowered by fresh Timothy hay (and a little by banana).
-- **Boredom** — rises in the cage; lowered by free-roam time.
-- **Litter box** — gets dirty over time; ignoring it stresses your rabbit out.
-
-Sustained hunger, boredom, neglect, or a filthy litter box feed **The Thump Meter (0–5)**:
-
-- At **3 thumps** your rabbit slams a back foot — a visual warning.
-- At **5 thumps** they turn their back and refuse all commands until you offer an
-  **apology banana** (action `[2]`), which resets the Thumps and restores the bond.
-
-## Rules that bite
-
-- **Banana:** instant joy, but **max 2/day**. Push past it and you trigger a tummy-ache
-  vet event. Banana doubles as the apology treat when your rabbit has turned their back.
-- **Head Scratches:** pick where you pet. The **head** is bliss; the **nose** is risky;
-  the **feet/tail** are sacred — touch them and the Thump Meter jumps.
-- **Free-Roam:** great for boredom, but ~30% chance your rabbit chews a baseboard or phone
-  charger if you glance away.
-
-Keep them fed, entertained, scooped, and scratched (on the head only). Good luck.

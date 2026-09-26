@@ -1,4 +1,7 @@
-# Thumpagotchi — working agreement
+# Loafling (formerly Thumpagotchi) — working agreement
+
+The game was renamed Loafling on 2026-09-26. The repo, folder, web address and storage keys keep the
+old name on purpose (changing the keys would wipe players' saves).
 
 ## Devlog: keep the worklog current (required)
 
