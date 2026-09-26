@@ -31,6 +31,20 @@ pass, a gameplay/balance change, a notable bug fix or decision — **add an entr
 - Headless Chrome won't make a window narrower than 500px. For true phone-width screenshots, load the
   page in a 390px `<iframe>`.
 
+## Saves and shipping
+
+- Everything in a save (storage or a pasted save code) is untrusted. Read fields through `num`, `int`,
+  `str`, `obj` and `has` in `applySave`; never `TABLE[x]` for an enum (inherited keys like `constructor`
+  pass it). The page's Content Security Policy blocks inline script; don't add inline `<script>` or
+  `on…=` handlers.
+- Never change the public storage keys (`thumpagotchi.save.v2` etc.), or every player loses their rabbit.
+  The `storage` test group guards this.
+- When a save's meaning changes: first run `python3 tests/make_fixture.py <last commit> <name>`, then bump
+  `SAVE_VERSION`, and add a `MIGRATIONS` step. Old fixtures must keep passing the `migrate` group.
+- `beta` branch → `/beta/` (tester build, own save slot); `main` → the public demo. A push to either
+  publishes through `.github/workflows/pages.yml` after the tests pass. Both are public, so push only
+  when Jo says so.
+
 ## Art / prop iteration
 
 - Iterate visuals in the gitignored labs (`rabbit-lab.html`, `props-lab.html`) — never edit both the

@@ -81,6 +81,102 @@ group('save', async ()=>{
   await wait(1500);
 });
 
+/* ------------------------------------------------------------------ migrate: real old saves */
+// tests/fixtures/ holds saves written by past versions of the game (made by running each old commit
+// headlessly). Every one must keep loading, forever. When SAVE_VERSION goes up, add a fixture from
+// the last build before the bump.
+group('migrate', async ()=>{
+  const names=Object.keys(__FIXTURES);
+  check('there are old-save fixtures to test', names.length>=4, names.length);
+  for(const n of names){
+    const fx=__FIXTURES[n];
+    let err=null;
+    try{ applySave(JSON.parse(JSON.stringify(fx.save))); }catch(e){ err=e.message; }
+    check(`${n}: loads without errors`, !err, err);
+    check(`${n}: keeps name, day, carrots and bond`, rab.name===fx.save.name && rab.day===6 && rab.carrots===73 && rab.bondLevel===3,
+      `${rab.name} ${rab.day} ${rab.carrots} ${rab.bondLevel}`);
+    check(`${n}: keeps items`, rab.items.medicine===2 && owns('ball'), JSON.stringify(rab.items));
+    check(`${n}: every stat is a finite number`, Object.values(stats).every(finite) && finite(rab.health) && finite(rab.weight));
+    check(`${n}: gets the newer fields`, has(FAV_TREATS,rab.favTreat) && has(TOYS,rab.prefs.toy) && has(HAY_TYPES,rab.hayType) && rab.begMiss===0);
+    try{ drawRabbit(now()); }catch(e){ err=e.message; }
+    check(`${n}: the rabbit draws`, !err, err);
+    started=true; save(); const d=loadRaw();
+    check(`${n}: re-saves as the current version`, d.v===SAVE_VERSION && d.name===fx.save.name && d.carrots===73, d.v);
+  }
+  // the full Continue path, from storage, as a returning player would hit it
+  const fx=__FIXTURES[names[0]];
+  started=false; localStorage.setItem(SAVE_KEY, JSON.stringify(fx.save));
+  let err=null; try{ startGame(true, loadRaw()); frame(); }catch(e){ err=e.message; }
+  check('Continue works on the oldest save', !err && started && rab.name===fx.save.name, err);
+  check('a save from a newer build is refused, not half-loaded',
+    !parseSaveCode(btoa(unescape(encodeURIComponent(JSON.stringify({c:'thump', v:2, save:{...fx.save, v:SAVE_VERSION+1}}))))).ok);
+  await wait(1000);
+});
+
+/* ------------------------------------------------------------------ live vs tester build storage */
+// The public game's storage keys must never change: every player's rabbit lives under them.
+group('storage', async ()=>{
+  check('the public build is not flagged as the tester build', !BETA);
+  check('the public build keeps its save slots', SAVE_KEY==='thumpagotchi.save.v2' && NOTES_KEY==='thumpagotchi.notes'
+    && UNLOCK_KEY==='thumpagotchi.unlocks' && SNAKE_BEST_KEY==='thumpagotchi.snakeBest', SAVE_KEY);
+  check('no tester label on the public build', !document.getElementById('betaTag'));
+});
+// run by tests/run_tests.py from a beta/ folder, like the tester link
+group('beta', async ()=>{
+  check('served from beta/, it knows it is the tester build', BETA);
+  check('it saves to its own slots', [SAVE_KEY,NOTES_KEY,UNLOCK_KEY,SNAKE_BEST_KEY].every(k=>k.startsWith('thumpagotchi.beta.')), SAVE_KEY);
+  fresh();   // (clears storage)
+  localStorage.setItem('thumpagotchi.save.v2', JSON.stringify({name:'LiveBun', stats:{}, day:9}));
+  save();
+  check('a tester build game never touches the live save', JSON.parse(localStorage.getItem('thumpagotchi.save.v2')).name==='LiveBun');
+  check('it shows the TEST BUILD label', !!document.getElementById('betaTag') && /^\[TEST\]/.test(document.title));
+});
+
+/* ------------------------------------------------------------------ save safety: hostile saves */
+group('savesafety', async ()=>{
+  fresh(); save(); const d=loadRaw();
+  const load=x=>{ try{ applySave(x); return null; }catch(e){ return e.message; } };
+  check('the page has a Content Security Policy that blocks injected scripts',
+    /script-src 'self'/.test((document.querySelector('meta[http-equiv="Content-Security-Policy"]')||{}).content||''));
+  // markup through an item count (was a live stored XSS in the Shop)
+  check('a hostile item count loads', !load({...d, items:{medicine:'<img src=x id=pwned>', ball:1, nope:1}}));
+  openPanel('shop'); check('it never reaches the Shop as markup', !document.getElementById('pwned')); closePanel();
+  check('unknown items are dropped and counts are numbers', !('nope' in rab.items) && !('medicine' in rab.items) && rab.items.ball===1, JSON.stringify(rab.items));
+  load({...d, items:{medicine:'5'}}); rab.carrots=999; buy('medicine');
+  check('a string stock count still adds up', rab.items.medicine===6, rab.items.medicine);
+  // inherited object keys must not pass enum checks
+  for(const k of ['constructor','toString','__proto__','valueOf']){
+    const e=load({...d, coatKey:k, breed:k, sex:k, temper:k, favTreat:k, hayType:k, prefs:{pet:k, toy:k, nap:k, dislike:k}});
+    check(`"${k}" in every enum field falls back safely`, !e && has(COATS,coatKey) && has(BREEDS,rab.breed) && has(PRON,rab.sex)
+      && rab.temper===null && has(FAV_TREATS,rab.favTreat) && has(HAY_TYPES,rab.hayType) && has(TOYS,rab.prefs.toy), e||coatKey);
+  }
+  let err=null; try{ drawRabbit(now()); frame(); }catch(e){ err=e.message; } check('and the rabbit still draws', !err, err);
+  load({...d, achievements:{constructor:1, toString:1, firstDay:1}});
+  check('fake achievements are dropped', Object.keys(rab.achievements).every(k=>has(ACHS,k)), Object.keys(rab.achievements).join());
+  // objects that can't become strings
+  check('an object for a name or goal text does not crash loading', !load({...d, name:{toString:1}, goals:[{text:{toString:1}, track:{}}]}) && rab.name==='Mowgli');
+  load({...d, goals:Array.from({length:50},()=>({text:'x', reward:1e308, target:-4, extra:'<b>'}))});
+  check('goals are capped in number and reward, and keep only known fields', rab.goals.length<=6 && rab.goals.every(g=>g.reward<=100 && g.target>=1 && !('extra' in g)));
+  load({...d, bananasToday:-50, pelletsToday:-9, day:1e12, carrots:1e308});
+  check('daily caps and counters cannot go negative or astronomical', rab.bananasToday===0 && rab.pelletsToday===0 && rab.day<=99999 && rab.carrots<=999999);
+  load({...d, mastery:{__proto__:50, spin:'80', fake:100}});
+  check('mastery keeps only real tricks', Object.keys(rab.mastery).every(k=>has(TRICKS,k)), Object.keys(rab.mastery).join());
+  check('a non-object save is survivable', !load(null) && !load('x') && !load([]));
+  // hand-edited storage for notes and unlocks
+  localStorage.setItem(NOTES_KEY, '5'); loadNotes(); err=null; try{ learnNote('thump', true); }catch(e){ err=e.message; }
+  check('a corrupt notes store does not break learning a note', !err && notes.thump, err);
+  localStorage.setItem(NOTES_KEY, JSON.stringify({thump:'<b>', fake:1, constructor:1})); loadNotes();
+  check('stored notes keep only real ids with day numbers', Object.keys(notes).join()==='thump' && notes.thump===1, JSON.stringify(notes));
+  localStorage.setItem(UNLOCK_KEY, '"x"'); loadUnlocks(); check('a corrupt unlocks store loads empty', JSON.stringify(unlocks)==='{}');
+  localStorage.setItem(UNLOCK_KEY, JSON.stringify({lionhead:true, evil:'<b>'})); loadUnlocks();
+  check('unlocks keep only real ones', JSON.stringify(unlocks)==='{"lionhead":true}', JSON.stringify(unlocks));
+  // save codes
+  const code=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+  check('a save code with a non-string name is rejected', !parseSaveCode(code({c:'thump', v:2, save:{...d, name:{a:1}}})).ok);
+  check('a save code whose save is an array is rejected', !parseSaveCode(code({c:'thump', v:2, save:[1]})).ok);
+  await wait(1000);
+});
+
 /* ------------------------------------------------------------------ health */
 group('health', async ()=>{
   fresh();
@@ -95,12 +191,60 @@ group('health', async ()=>{
   check('sick rabbit refuses hay', stats.hunger===h0);
   rab.sick=false; rab.health=30; rab.carrots=50; callVet();
   check('a vet visit while unwell is a cheap early catch', rab.health>=78 && !unwell() && rab.carrots>=40, `${rab.health} ${rab.carrots}`);
+  // emergency vet for stasis: half your carrots (rounded up), always affordable
+  delete rab.items.medicine; unlockAch('nurse');   // its first-cure carrot reward would skew the sums
+  rab.sick=true; rab.carrots=200; callVet();
+  check('emergency vet for stasis costs half your carrots', !rab.sick && rab.carrots===100, rab.carrots);
+  rab.sick=true; rab.carrots=7; callVet();
+  check('half rounds up', !rab.sick && rab.carrots===3, rab.carrots);
+  rab.sick=true; rab.carrots=0; callVet();
+  check('a broke player can still get a sick rabbit treated', !rab.sick && rab.carrots===0, rab.carrots);
+  rab.sick=true; rab.carrots=40; collapse();
+  check('a collapse costs the same half', rab.carrots===20, rab.carrots);
+  rab.sick=true; rab.carrots=500; callVet();
+  check('the emergency vet bill is capped at 100', !rab.sick && rab.carrots===400, rab.carrots);
+  check('paying the emergency vet explains the bill and teaches the vet note', rab.firedCards.vetbill && notes.vetcare);
   // weight
   rab.weight=170; rab.health=100; Object.assign(stats,{hunger:30, hygiene:90, water:90, energy:90});
   for(let i=0;i<200;i++) tickHealth(0.05);
   check('overweight does not drain health (weight is a welfare issue, not illness)', rab.health>=99, rab.health);
   rab.weight=50; rab.health=100; for(let i=0;i<200;i++) tickHealth(0.05);
   check('underweight still drains health', rab.health<99, rab.health);
+  await wait(1500);
+});
+
+/* ------------------------------------------------------------------ beg bubbles */
+group('beg', async ()=>{
+  fresh();
+  const toasts=[]; const realToast=toast; toast=m=>{ toasts.push(m); realToast(m); };
+  const ask=w=>{ rab.begWant=w; rab.begLeft=8; rab.begUntil=now()+8; };
+  ask('💧'); feedLock.water=0; giveWater();
+  check('the matching action answers an ask', rab.begLeft<=0 && rab.begMiss===0, rab.begLeft);
+  ask('💧'); feedLock.hay=0; giveHay();
+  check('a different action does not answer it', rab.begLeft>0);
+  stats.happy=60; tickBeg(9);
+  check('an ignored ask costs a little mood', rab.begMiss===1 && stats.happy===56, `${rab.begMiss} ${stats.happy}`);
+  check('the first miss explains itself once', toasts.some(m=>/gave up/.test(m)));
+  ask('🌾'); openPanel('menu'); tickBeg(20);
+  check('the countdown pauses while a panel is open', rab.begLeft>0, rab.begLeft); closePanel();
+  rab.bondLevel=3; rab.bondXP=20; tickBeg(9);
+  check('two misses in a row leave the bond alone', rab.begMiss===2 && rab.bondXP===20, `${rab.begMiss} ${rab.bondXP}`);
+  ask('✋'); tickBeg(9);
+  check('the third miss in a row wears at the bond', rab.bondXP===17 && rab.bondLevel===3, `${rab.bondXP} ${rab.bondLevel}`);
+  check('and says so', toasts.some(m=>/wearing on your bond/.test(m)));
+  rab.bondXP=1; ask('✋'); tickBeg(9);
+  check('the bond wears down but never un-levels', rab.bondXP===0 && rab.bondLevel===3, `${rab.bondXP} ${rab.bondLevel}`);
+  ask('🌾'); feedLock.hay=0; giveHay();
+  check('answering resets the streak', rab.begMiss===0, rab.begMiss);
+  ask(FAV_TREATS[rab.favTreat].emoji); feedLock.banana=0; offerBanana();
+  check('any treat answers a treat ask', rab.begLeft<=0);
+  ask('💧'); startNight(); endNight(); calm();
+  check('nightfall clears a pending ask without a penalty', rab.begLeft<=0 && rab.begMiss===0);
+  rab.begMiss=2; save(); const d=loadRaw();
+  check('the streak is saved', d.begMiss===2, d.begMiss);
+  applySave({...d, begMiss:'<img src=x>'});
+  check('a junk streak loads as zero', rab.begMiss===0, rab.begMiss);
+  toast=realToast;
   await wait(1500);
 });
 

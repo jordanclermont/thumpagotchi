@@ -94,6 +94,10 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
   - **One dislike** (nose touches, being touched on the haunches, or a toy): found by accident.
   Everything you've learned collects on the **About** tab of 📖, and knowing it pays off: once
   you know a dislike you stop offering it, and you reach for the favourite toy more often.
+- **Asks** — now and then your rabbit asks for something in a speech bubble (water, hay, a
+  clean litter box, a nap, a rub, a toy or a treat). Answer with the matching action. Ignoring
+  an ask costs a little happiness, and after three ignored in a row, each one after that wears
+  at your bond. The countdown pauses while you're in a menu or minigame.
 - **Hay by age** — young rabbits start on **alfalfa**. At Adult, buy **Timothy Hay** in the
   Shop to switch; it mixes in over 2 days. An adult left on alfalfa gains weight.
 - **Energy & Rest** — activity tires your rabbit; **😴 Rest** naps restore energy (night fully
@@ -102,11 +106,12 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
   unwell bun refuses treats (above all their favourite), only nibbles their food, leaves fewer
   and smaller droppings, sits hunched with half-closed eyes, and grinds their teeth loudly.
   Take them to the **🩺 Vet** then and it's caught early at checkup price.
-- **Rabbit Notes 📖** — 21 real rabbit-care notes that unlock when you see the behaviour
+- **Rabbit Notes 📖** — 22 real rabbit-care notes that unlock when you see the behaviour
   yourself. Notes carry over when you rehome.
 - **Illness & the Vet** — sustained neglect or a sugary diet can trigger **GI stasis**.
-  Cure it with **🩺 Vet** (25🥕) or free if you keep **Gut Medicine** stocked; ignore it
-  and your rabbit will need an emergency vet that costs half your carrots.
+  The **🩺 Vet** treats it as an emergency, which costs half your carrots, up to 100🥕
+  (rabbit vet bills are steep). It's free if you keep **Gut Medicine** stocked. Ignore it and your rabbit
+  collapses and needs the same emergency visit, at the same price, and comes home weaker.
 - **Diet & weight** — hay keeps your rabbit trim, pellets/bananas add weight, activity burns
   it (down to their ideal weight, never below). Too much weight brings vet welfare warnings (it doesn't make them ill). Being
   underweight does hurt their health. (Bananas are still capped at 2/day.)

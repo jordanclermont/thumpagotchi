@@ -1,0 +1,56 @@
+# Publishes the game to GitHub Pages:
+#   main → https://jordanclermont.github.io/thumpagotchi/        (the public demo)
+#   beta → https://jordanclermont.github.io/thumpagotchi/beta/   (the tester build: own save slot, not indexed)
+# A push to either branch rebuilds both. Nothing is published unless both pass the test suite.
+# One-time setup: repo Settings → Pages → Source: "GitHub Actions".
+name: Publish site
+
+on:
+  push:
+    branches: [main, beta]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, path: live }
+      - uses: actions/checkout@v4
+        with: { ref: beta, path: beta }
+
+      - name: Test the public build
+        run: cd live && CHROME="$(command -v google-chrome)" python3 tests/run_tests.py
+      - name: Test the tester build
+        run: cd beta && CHROME="$(command -v google-chrome)" python3 tests/run_tests.py
+
+      - name: Assemble the site (shipped files only)
+        run: |
+          mkdir -p _site/beta
+          cp live/index.html live/game.js live/style.css live/og.png live/.nojekyll _site/
+          cp beta/index.html beta/game.js beta/style.css _site/beta/
+          # keep the tester build out of search results
+          sed -i 's|<meta charset="UTF-8">|<meta charset="UTF-8">\n<meta name="robots" content="noindex">|' _site/beta/index.html
+          grep -q 'name="robots"' _site/beta/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

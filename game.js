@@ -21,6 +21,20 @@ const damp=(a,b,k,dt)=>lerp(a,b,1-Math.exp(-k*dt));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
 const now=()=>performance.now()/1000;
+/* Save-data guards. Everything read from storage or a pasted save code is untrusted.
+   num(): numeric fields fall back when non-finite, so nothing can NaN-poison a stat (clamp(NaN) stays NaN).
+   obj(): a field must be a plain object before anything writes into it ("use strict" throws otherwise).
+   has(): enum lookups must be the table's OWN keys: 'constructor' or 'toString' are truthy on any object.
+   str(): only real strings; an object with a hostile toString can't throw or inject. */
+const num=(v,f)=>{ if(typeof v!=='number' && typeof v!=='string') return f; v=+v; return Number.isFinite(v)?v:f; };
+const obj=v=>(v && typeof v==='object' && !Array.isArray(v)) ? v : {};
+const has=(t,k)=> typeof k==='string' && Object.prototype.hasOwnProperty.call(t,k);
+const str=(v,f='')=> typeof v==='string' ? v : f;
+const int=(v,f,lo,hi)=> Math.min(hi, Math.max(lo, Math.round(num(v,f))));
+/* The tester build is published at …/thumpagotchi/beta/ (see .github/workflows/pages.yml). It shares
+   the live game's web address, so it keeps its own save slot: a tester's real rabbit is never touched. */
+const BETA = /\/beta\//.test(location.pathname);
+const STORE = BETA ? 'thumpagotchi.beta.' : 'thumpagotchi.';
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 // A per-frame chance tuned at 60fps, scaled by frame time so 120Hz and 30Hz screens behave the same.
 const perFrame=(p,dt)=>p*dt*60;
@@ -101,9 +115,10 @@ const BREED_COATS = {
 const BREED_DEFAULT_COAT = { holland:'sableGrey', netherland:'ndBlackTan', lionhead:'lhBroken' };
 
 /* Account-wide unlocks (persist across pets, e.g. the Lionhead breed) */
-const UNLOCK_KEY = 'thumpagotchi.unlocks';
+const UNLOCK_KEY = STORE+'unlocks';
 let unlocks = {};
-function loadUnlocks(){ try{ unlocks = JSON.parse(localStorage.getItem(UNLOCK_KEY)) || {}; }catch(e){ unlocks = {}; } }
+function cleanUnlocks(u){ u=obj(u); return BREEDS.lionhead && u.lionhead===true ? {lionhead:true} : {}; }
+function loadUnlocks(){ try{ unlocks = cleanUnlocks(JSON.parse(localStorage.getItem(UNLOCK_KEY))); }catch(e){ unlocks = {}; } }
 function saveUnlocks(){ try{ localStorage.setItem(UNLOCK_KEY, JSON.stringify(unlocks)); }catch(e){} }
 function unlockBreed(id){ if(!unlocks[id]){ unlocks[id]=true; saveUnlocks(); return true; } return false; }
 
@@ -169,7 +184,7 @@ const HAY_TYPES = {alfalfa:{name:'alfalfa hay', emoji:'🌱'}, mixed:{name:'alfa
 
 /* Rabbit Notes — real rabbit knowledge, unlocked by witnessing the behaviour in play.
    Player knowledge, so it's account-wide (survives Rehome), like breed unlocks. */
-const NOTES_KEY = 'thumpagotchi.notes';
+const NOTES_KEY = STORE+'notes';
 const NOTES = [
   {id:'thump',   emoji:'🦶', title:'Thumping',        hint:'Something upsets your rabbit.',
    text:'A hard stamp with a back foot. Wild rabbits thump to warn the warren of danger; pet rabbits also thump when scared or annoyed.'},
@@ -191,6 +206,8 @@ const NOTES = [
    text:'Fewer or smaller droppings mean the gut is slowing down, an early warning of GI stasis.'},
   {id:'stasis',  emoji:'🚑', title:'GI stasis',       hint:'Let’s hope not.',
    text:'The gut stops moving, and it can turn fatal within a day or two. Unlimited hay keeps things moving; the vet handles the rest.'},
+  {id:'vetcare', emoji:'🩺', title:'Rabbit-savvy vets', hint:'Need the emergency vet.',
+   text:'Rabbits count as exotic pets, and not every vet has much rabbit training, so find a rabbit-savvy vet before you need one. In Canada most pet insurers cover only cats and dogs, so rabbit vet bills usually come out of pocket. Rabbits hide illness until they are quite sick, so knowing what is normal for yours is how you catch it early.'},
   {id:'hay',     emoji:'🌾', title:'Hay first',       hint:'Overdo the pellets.',
    text:'Hay should be most of a rabbit’s diet and available at all times. It wears down ever-growing teeth and keeps the gut moving. Pellets are a small supplement.'},
   {id:'sugar',   emoji:'🍌', title:'Easy on treats',  hint:'One banana too many.',
@@ -215,7 +232,9 @@ const NOTES = [
    text:'Rabbits handled gently and often while young tend to grow into confident, friendly adults. Early care shapes the rabbit you end up with.'},
 ];
 let notes = {};
-function loadNotes(){ try{ notes = JSON.parse(localStorage.getItem(NOTES_KEY)) || {}; }catch(e){ notes = {}; } }
+// only known note ids, each a day number: hand-edited or imported junk can't crash learnNote
+function cleanNotes(n){ n=obj(n); const c={}; NOTES.forEach(x=>{ if(has(n,x.id) && n[x.id]) c[x.id]=Math.max(1,Math.round(num(n[x.id],1))); }); return c; }
+function loadNotes(){ try{ notes = cleanNotes(JSON.parse(localStorage.getItem(NOTES_KEY))); }catch(e){ notes = {}; } }
 function saveNotes(){ try{ localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); }catch(e){} }
 loadNotes();
 // Unlock a note the first time its behaviour is witnessed. `quiet` skips the toast (e.g. when a
@@ -359,7 +378,7 @@ const rab = {
   restUntil:0,
   play:null, playAlpha:1, playYOff:0, hidden:false,
   boxT:0, boxYOff:0, hammockSag:0, decor:{rug:null,bed:null}, petReact:0,
-  begUntil:0, begAt:0, begCooldown:0, begWant:'🍌', denUntil:0,
+  begUntil:0, begAt:0, begCooldown:0, begWant:'🍌', begLeft:0, begMiss:0, begHint:false, denUntil:0,
   maxAngerCount:0, weightStrikes:0, pelletsToday:0, _obeseT:0, _obeseWarned:false,
   // v2 "first ten minutes" state — persisted flags + runtime-only scripting timers
   firedCards:{}, gamesRevealed:false, baitDone:false, thumpSeen:false, exitBeatShown:false, lastSeen:0,
@@ -414,12 +433,12 @@ let dayEvent = null, hazardFlash = 0;   // daily event (hide-and-seek / charger 
 /* ============================================================================ *
  *  SAVE / LOAD  (localStorage)
  * ============================================================================ */
-const SAVE_KEY = 'thumpagotchi.save.v2';
+const SAVE_KEY = STORE+'save.v2';
 function save(){
   if(!started) return;
   try{
     const data = {
-      v:2, name:rab.name, sex:rab.sex, breed:rab.breed, coatKey,
+      v:SAVE_VERSION, name:rab.name, sex:rab.sex, breed:rab.breed, coatKey,
       stats:{...stats},
       thumps:rab.thumps, cold:rab.cold, bananasToday:rab.bananasToday,
       day:rab.day, ageDays:rab.ageDays, timeOfDay,
@@ -434,6 +453,7 @@ function save(){
       baitDone:rab.baitDone, thumpSeen:rab.thumpSeen, exitBeatShown:rab.exitBeatShown,
       temper:rab.temper, upbringing:rab.upbringing, favTreat:rab.favTreat, favKnown:rab.favKnown,
       prefs:rab.prefs, prefKnown:rab.prefKnown, prefCount:rab.prefCount, hayType:rab.hayType, haySwitchDay:rab.haySwitchDay, quizPaidDay:rab.quizPaidDay, safePaidDay:rab.safePaidDay, guessPaidDay:rab.guessPaidDay, tttPaidDay:rab.tttPaidDay,
+      begMiss:rab.begMiss, begHint:rab.begHint,
       lastSeen:Date.now(),
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -442,71 +462,89 @@ function save(){
 function loadRaw(){
   try{ return JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){ return null; }
 }
-// numeric fields pass through num() so a corrupt save or hostile import can never
-// NaN-poison a stat (clamp(NaN) stays NaN forever) — non-finite values fall back
-const num=(v,f)=>{ v=+v; return Number.isFinite(v)?v:f; };
-// an imported/corrupt field must be a plain object before anything writes into it ("use strict" throws otherwise)
-const obj=v=>(v && typeof v==='object' && !Array.isArray(v)) ? v : {};
+/* Save versions. Bump SAVE_VERSION whenever a save's meaning changes, and add a step below that
+   upgrades the previous version. Every step must accept anything (fields missing, wrong types):
+   applySave() re-validates the result either way. Old saves must always load (tests: 'migrate').
+     v2: the rebuilt game (July 2026). v3 (Sep 2026): versioned, validated saves; beg streak. */
+const SAVE_VERSION = 3;
+const MIGRATIONS = {
+  2: d => d,   // v3 only added fields, and applySave defaults those
+};
+function migrateSave(d){
+  let v = int(d.v, 2, 1, SAVE_VERSION);   // unversioned or older saves are treated as v2
+  if(v<2) v=2;
+  while(v<SAVE_VERSION){ d = obj(MIGRATIONS[v](d)); v++; }
+  return {...d, v};
+}
 function applySave(d){
-  rab.name=String(d.name||'Mowgli').slice(0,12); rab.sex=PRON[d.sex]?d.sex:'buck';   // only doe/buck: sex reaches the Menu's markup   // match the name input's maxlength
-  rab.breed = d.breed && BREEDS[d.breed] ? d.breed : 'holland';
-  coatKey = d.coatKey && COATS[d.coatKey] ? d.coatKey : (BREED_DEFAULT_COAT[rab.breed]||'sableGrey');
+  d=migrateSave(obj(d));
+  rab.name=str(d.name).slice(0,12)||'Mowgli'; rab.sex=has(PRON,d.sex)?d.sex:'buck';   // only doe/buck: sex reaches the Menu's markup   // match the name input's maxlength
+  rab.breed = has(BREEDS,d.breed) ? d.breed : 'holland';
+  coatKey = has(COATS,d.coatKey) ? d.coatKey : (BREED_DEFAULT_COAT[rab.breed]||'sableGrey');
   coat = COATS[coatKey];
-  const ds=d.stats||{};
+  const ds=obj(d.stats);
   for(const k of Object.keys(stats)) stats[k]=clamp(num(ds[k], stats[k]));
-  rab.thumps=clamp(num(d.thumps,0),0,5); rab.cold=!!d.cold; rab.bananasToday=num(d.bananasToday,0);
-  rab.day=Math.max(1,Math.round(num(d.day,1))); rab.ageDays=Math.max(0,Math.round(num(d.ageDays,0)));
+  rab.thumps=clamp(num(d.thumps,0),0,5); rab.cold=!!d.cold; rab.bananasToday=int(d.bananasToday,0,0,99);
+  rab.day=int(d.day,1,1,99999); rab.ageDays=int(d.ageDays,0,0,99999);
   timeOfDay=clamp(num(d.timeOfDay,0.05),0,1);
-  rab.bondLevel=Math.max(1,Math.round(num(d.bondLevel,1)));
+  rab.bondLevel=int(d.bondLevel,1,1,999);
   rab.bondXP=Math.min(10000,Math.max(0,num(d.bondXP,0)));   // cap so a hostile save can't level-loop addXP() forever
-  rab.carrots=Math.max(0,Math.round(num(d.carrots,12)));
+  rab.carrots=int(d.carrots,12,0,999999);
   rab.weight=clamp(num(d.weight,100),45,175); rab.health=clamp(num(d.health,100)); rab.sick=!!d.sick;
   // scheduled checkups: default an established save to the next day-5 boundary so it isn't retro-overdue
-  rab.nextCheckupDay = Math.max(5, Math.round(num(d.nextCheckupDay, Math.floor(rab.day/5)*5 + 5)));
-  rab.items=obj(d.items);
-  rab.mastery={}; for(const [k,v] of Object.entries(obj(d.mastery))) rab.mastery[k]=clamp(num(v,0),0,100);
-  rab.achievements={}; for(const k of Object.keys(obj(d.achievements))) if(ACHS[k]) rab.achievements[k]=1;
+  rab.nextCheckupDay = int(d.nextCheckupDay, Math.floor(rab.day/5)*5 + 5, 5, 99999);
+  // shop items: known ids only. Stock counts (Gut Medicine) are whole numbers; everything else is owned or not.
+  const di=obj(d.items); rab.items={};
+  for(const it of SHOP){ if(!has(di,it.id) || !di[it.id]) continue;
+    rab.items[it.id] = it.type==='cure' ? int(di[it.id],0,0,99) : 1;
+    if(!rab.items[it.id]) delete rab.items[it.id]; }
+  const dm=obj(d.mastery); rab.mastery={}; for(const k of Object.keys(TRICKS)) if(has(dm,k)) rab.mastery[k]=clamp(num(dm[k],0),0,100);
+  const da=obj(d.achievements); rab.achievements={}; for(const k of Object.keys(ACHS)) if(has(da,k) && da[k]) rab.achievements[k]=1;
   // coerce each saved goal's fields so a corrupt/hostile save can't inject markup (text)
   // or NaN-poison the progress bars (prog/target/reward all pass through num())
-  rab.goals = Array.isArray(d.goals) ? d.goals.map(g=>{
-    g = g && typeof g==='object' ? g : {};
-    return {...g, text:String(g.text||''), track:String(g.track||''),
-            prog:num(g.prog,0), target:Math.max(1,num(g.target,1)), reward:num(g.reward,0), done:!!g.done};
+  // (only the known fields are kept, and there are never more than a day's worth of goals)
+  rab.goals = Array.isArray(d.goals) ? d.goals.slice(0,6).map(g=>{
+    g = obj(g);
+    return {text:str(g.text).slice(0,80), track:str(g.track).slice(0,24),
+            prog:num(g.prog,0), target:int(g.target,1,1,9999), reward:int(g.reward,0,0,100), done:!!g.done};
   }) : [];
-  rab.goalDay=num(d.goalDay,0); rab.goalCounters=obj(d.goalCounters);
-  rab.lifetimePets=num(d.lifetimePets,0);
+  rab.goalDay=num(d.goalDay,0);
+  const gc=obj(d.goalCounters); rab.goalCounters={};
+  for(const k of Object.keys(gc).slice(0,40)) if(k.length<=24 && !has(Object.prototype,k)) rab.goalCounters[k]=num(gc[k],0);
+  rab.lifetimePets=int(d.lifetimePets,0,0,1e7);
   const dd=obj(d.decor); rab.decor={rug: dd.rug==='rose'?'rose':null, bed: dd.bed==='cloud'?'cloud':null};
-  rab.maxAngerCount=num(d.maxAngerCount,0); rab.weightStrikes=num(d.weightStrikes,0); rab.pelletsToday=num(d.pelletsToday,0);
+  rab.maxAngerCount=num(d.maxAngerCount,0); rab.weightStrikes=num(d.weightStrikes,0); rab.pelletsToday=int(d.pelletsToday,0,0,99);
   // v2 flags — migrate with defaults; established (day 2+) saves always have Games revealed
-  rab.firedCards=obj(d.firedCards);
+  const df=obj(d.firedCards); rab.firedCards={}; for(const k of Object.keys(FACTS)) if(has(df,k) && df[k]) rab.firedCards[k]=1;
   rab.gamesRevealed=!!d.gamesRevealed || rab.day>=2;
   rab.baitDone=!!d.baitDone;
   // pre-field saves (e.g. from the root build — same storage key) at day 2+ have surely
   // thumped already; only trust an explicit false from a save this build wrote itself
   rab.thumpSeen = d.thumpSeen===undefined ? rab.day>=2 : !!d.thumpSeen;
   rab.exitBeatShown=!!d.exitBeatShown;
+  rab.begMiss=Math.min(99,Math.max(0,Math.round(num(d.begMiss,0)))); rab.begHint=!!d.begHint; rab.begLeft=0; rab.begUntil=0;
   rab.lastSeen=num(d.lastSeen,0);
   // realism pass — migrate older saves: roll a favourite, and give an existing adult a
   // temperament from the history we do have (rage/obesity strikes → skittish, lots of pets → cuddly)
-  const ub=d.upbringing||{};
+  const ub=obj(d.upbringing);
   rab.upbringing={mistakes:num(ub.mistakes,0), affection:num(ub.affection,0), play:num(ub.play,0)};
-  rab.favTreat = FAV_TREATS[d.favTreat] ? d.favTreat : pick(Object.keys(FAV_TREATS));
+  rab.favTreat = has(FAV_TREATS,d.favTreat) ? d.favTreat : pick(Object.keys(FAV_TREATS));
   rab.favKnown = !!d.favKnown;
   // preferences: keep only valid values, roll anything missing (older saves get a fresh set)
-  const dp = d.prefs||{}, rp = rollPrefs();
-  rab.prefs = { pet: PET_SPOTS[dp.pet]?dp.pet:rp.pet, toy: TOYS[dp.toy]?dp.toy:rp.toy,
-                nap: NAP_SPOTS[dp.nap]?dp.nap:rp.nap, dislike: DISLIKES[dp.dislike]?dp.dislike:rp.dislike };
+  const dp = obj(d.prefs), rp = rollPrefs();
+  rab.prefs = { pet: has(PET_SPOTS,dp.pet)?dp.pet:rp.pet, toy: has(TOYS,dp.toy)?dp.toy:rp.toy,
+                nap: has(NAP_SPOTS,dp.nap)?dp.nap:rp.nap, dislike: has(DISLIKES,dp.dislike)?dp.dislike:rp.dislike };
   if(rab.prefs.dislike===rab.prefs.toy) rab.prefs.dislike='nose';
-  const dk=d.prefKnown||{}, dc=d.prefCount||{};
+  const dk=obj(d.prefKnown), dc=obj(d.prefCount);
   rab.prefKnown = {pet:!!dk.pet, toy:!!dk.toy, nap:!!dk.nap, dislike:!!dk.dislike};
   rab.prefCount = {pet:num(dc.pet,0), toy:num(dc.toy,0), nap:num(dc.nap,0)};
   // hay: an existing adult save was already on "Timothy hay" (the old default); kits start on alfalfa
-  rab.hayType = HAY_TYPES[d.hayType] ? d.hayType : (Math.round(num(d.ageDays,0))>=7 ? 'timothy' : 'alfalfa');
+  rab.hayType = has(HAY_TYPES,d.hayType) ? d.hayType : (Math.round(num(d.ageDays,0))>=7 ? 'timothy' : 'alfalfa');
   rab.haySwitchDay = num(d.haySwitchDay,0);
   rab.quizPaidDay = num(d.quizPaidDay,0);
   rab.safePaidDay = num(d.safePaidDay,0);
   rab.guessPaidDay = num(d.guessPaidDay,0); rab.tttPaidDay = num(d.tttPaidDay,0);
-  rab.temper = TEMPERS[d.temper] ? d.temper : null;
+  rab.temper = has(TEMPERS,d.temper) ? d.temper : null;
   if(!rab.temper && rab.ageDays>=7){
     rab.temper = (rab.maxAngerCount>=1 || rab.weightStrikes>=2) ? 'skittish'
                : rab.lifetimePets>=150 ? 'cuddly' : 'bold';
@@ -616,6 +654,8 @@ const FACTS = {
     text:`Rabbits can't vomit, and a hit of sugar throws their gut right off. That's why treats are capped — a bite of banana is a party; a whole one is a bellyache.`},
   stasis:  {icon:'🚑', title:`This one's serious`,
     text:`GI stasis is a genuine emergency — a gut that stops moving can turn fatal within a day or two. Unlimited hay keeps things moving; the vet handles the rest.`},
+  vetbill: {icon:'🩺', title:'Why the vet costs so much',
+    text:`Rabbits count as exotic pets, and not every vet has much rabbit training. Find a rabbit-savvy vet before you need one. Canadians get public health care, but their rabbits don't, eh? Most Canadian pet insurers cover only cats and dogs, so emergencies like this usually come out of pocket. Rabbits hide illness until they're quite sick, so knowing what's normal for {o} is how you catch it early.`},
   pellet3: {icon:'🌾', title:'Hay first, always',
     text:`Hay should be roughly 80% of a rabbit's diet — it wears down ever-growing teeth and keeps the gut moving. Pellets are a small daily supplement, not the meal.`},
   cold:    {icon:'🥶', title:'{S} remembers',
@@ -630,7 +670,7 @@ function fillPron(str){
            .replace(/\{O\}/g,cap(p.o)).replace(/\{o\}/g,p.o);
 }
 let factQueue = [], factShowing = false;
-const FACT_NOTE = {feet:'thump', banana3:'sugar', stasis:'stasis', pellet3:'hay', cold:'grudge'};
+const FACT_NOTE = {feet:'thump', banana3:'sugar', stasis:'stasis', pellet3:'hay', cold:'grudge', vetbill:'vetcare'};
 function fireFact(id){
   if(FACT_NOTE[id]) learnNote(FACT_NOTE[id], true);   // the card itself explains it — no extra toast
   const f = FACTS[id]; if(!f || rab.firedCards[id]) return;
@@ -1409,6 +1449,37 @@ function hazardShock(){
   toast(`⚡ ZAP! ${rab.name} chewed the charger cord and got a scare! Rabbit-proof your cords.`);
   save();
 }
+/* Beg bubbles: answering an ask is part of knowing your rabbit. Ignoring one costs a little mood;
+   three misses in a row and each further miss wears at the bond. The countdown only runs while the
+   player can actually see the bubble and act on it (not in a panel, a minigame, close-up or the night). */
+const BEG_CATS = {'💧':'water', '🌾':'hay', '🧹':'clean', '😴':'rest', '✋':'pet'};
+function begCat(w){
+  if(BEG_CATS[w]) return BEG_CATS[w];
+  if(Object.values(FAV_TREATS).some(t=>t.emoji===w)) return 'treat';
+  return 'toy';                                   // 🧸 or a TOYS emoji
+}
+function begVisible(){ return !rab.hidden && !rab.play && !rab.cold && !panelOpen && !closeUp.on; }
+function answerBeg(cat){
+  if(rab.begLeft<=0 || begCat(rab.begWant)!==cat) return;
+  rab.begLeft=0; rab.begUntil=0; rab.begMiss=0;
+}
+function tickBeg(dt){
+  if(rab.begLeft<=0) return;
+  if(begVisible()) rab.begLeft-=dt;
+  rab.begUntil = now()+Math.max(rab.begLeft,0);   // the drawn bubble follows the paused countdown
+  if(rab.begLeft<=0) missBeg();
+}
+function missBeg(){
+  rab.begLeft=0; rab.begUntil=0; rab.begMiss++;
+  stats.happy=clamp(stats.happy-4);
+  if(rab.begMiss>=3){
+    rab.bondXP=Math.max(0, rab.bondXP-3);         // wears the bond down, but never un-levels it
+    if(rab.begMiss===3) toast(`${rab.name} has stopped expecting an answer. Ignored asks are wearing on your bond. 💔`);
+  } else if(!rab.begHint){
+    rab.begHint=true;
+    toast(`${rab.name} asked for ${rab.begWant} and gave up. Answering ${P().p} asks keeps ${P().o} happy.`);
+  }
+}
 function drawBegBubble(){
   if(now() >= rab.begUntil || rab.hidden || rab.play || rab.cold) return;
   const p=parts();
@@ -1959,7 +2030,7 @@ function drawThumpFx(dt){
 /* ============================================================================ *
  *  NIGHT CUTSCENE  (zoomies) — also the daily rollover: age, goals, energy
  * ============================================================================ */
-function startNight(){ if(closeUp.on) endCloseUp(); cutscene={type:'night', t:0, dur:5.5}; }
+function startNight(){ if(closeUp.on) endCloseUp(); rab.begLeft=0; rab.begUntil=0; cutscene={type:'night', t:0, dur:5.5}; }
 function endNight(){
   if(!cutscene) return;   // one-shot guard: the daily rollover must never run twice for a single night
   cutscene=null;
@@ -2135,23 +2206,28 @@ function getSick(){
   fireFact('stasis');
   refreshActions();
 }
-function cureSick(free){
+// half your carrots, rounded up, capped at 100: rabbit vet bills are steep, but not ruinous
+const VET_CAP = 100;
+function emergencyVetBill(){ return Math.min(VET_CAP, Math.ceil(rab.carrots/2)); }
+function cureSick(free, bill){
   rab.sick=false; rab.health=clamp(Math.max(rab.health,68));
   if(checkupDueNow()) rab.nextCheckupDay=rab.day+5;   // the emergency visit doubles as the due checkup
   stats.hunger=clamp(stats.hunger-10);
   const p=parts(); for(let i=0;i<5;i++) spawnHeart(p.head.x+rand(-20,20),p.head.y);
   unlockAch('nurse');
   toast(free? `💊 The gut medicine worked — ${rab.name} is recovering. 💚`
-            : `🩺 The vet treated ${rab.name}. Recovering nicely. 💚`);
+            : bill>=VET_CAP ? `🚑 Emergency vet: ${bill}🥕. The vet works on a sliding scale, and ${rab.name} is very cute. Recovering nicely. 💚`
+            : `🚑 Emergency vet: ${bill}🥕, half your carrots. ${rab.name} is recovering. 💚 Gut Medicine 💊 on hand is cheaper.`);
   refreshActions();
 }
 function collapse(){
   // safety net so neglect stings without a hard game-over
-  const lost=Math.floor(rab.carrots*0.5);
+  const lost=emergencyVetBill();
   rab.carrots-=lost; rab.sick=false; rab.health=42; rab.cold=false;
   stats.hunger=40; stats.hygiene=60; rab.thumps=2;
   const p=parts(); spawnStars(p.head.x,p.head.y);
   toast(`🚑 Emergency vet! ${rab.name} pulled through, but it cost ${lost}🥕. Please take better care. 💔`);
+  fireFact('vetbill');
   refreshActions();
 }
 function tickHealth(dt){
@@ -2323,6 +2399,7 @@ function annoyed(key, msg){
 function giveHay(){
   if(hiddenBlock()) return;
   if(now()<feedLock.hay) return;            // still munching the last serving — ignore
+  answerBeg('hay');
   if(rab.cold){                              // sulking rabbits still eat hay: no thanks, no bonuses
     feedLock.hay = now()+FEED_CD; wake();
     if(refusesFood('hay')) return;
@@ -2382,7 +2459,7 @@ function givePellets(){
 }
 function giveWater(){
   if(now()<feedLock.water) return;          // one refill per cooldown — no XP/happy farming on a held button
-  feedLock.water = now()+FEED_CD;
+  feedLock.water = now()+FEED_CD; answerBeg('water');
   wake();
   const needed = stats.water<80;             // topping up a full bowl isn't worth XP or goal credit
   stats.water=100;
@@ -2394,7 +2471,7 @@ function offerBanana(){
   if(hiddenBlock()) return;
   if(now()<feedLock.banana) return;          // one banana at a time: a double-tap can't stack tummy-ache penalties
   feedLock.banana = now()+1.5;
-  wake(); rab.begUntil=0;
+  wake(); answerBeg('treat');
   const p=parts();
   bananas.push({x:rab.x+rand(-10,10), y:rab.baseY-10, life:3});
   if(rab.cold){
@@ -2422,7 +2499,7 @@ function offerBanana(){
 }
 function cleanLitter(){
   if(now()<feedLock.clean) return;          // one scoop per cooldown — no XP/happy farming on a held button
-  feedLock.clean = now()+FEED_CD;
+  feedLock.clean = now()+FEED_CD; answerBeg('clean');
   wake();
   const needed = stats.hygiene<70;           // scooping a clean box isn't worth XP, joy or goal credit
   stats.hygiene=100;
@@ -2550,6 +2627,7 @@ function napAtFavourite(){
 }
 function restRabbit(){
   if(hiddenBlock()) return;
+  answerBeg('rest');
   if(rab.cold){ coldRefuse(); return; }
   if(stats.energy>85){ toast(`${rab.name} isn't sleepy — plenty of energy right now.`); return; }
   if(rab.state==='rest'){ toast(`${rab.name} is already napping. Shh. 😴`); return; }
@@ -2566,6 +2644,7 @@ function restRabbit(){
 }
 function playToy(){
   if(hiddenBlock()) return;
+  answerBeg('toy');
   if(rab.cold){ coldRefuse(); return; }
   if(rab.sick){ toast(`${rab.name} is too poorly to play. See the Vet. 🩺`); return; }
   if(unwell()){ toast(`${rab.name} just watches the toy and stays hunched. Not in the mood.`); return; }
@@ -2678,9 +2757,9 @@ function callVet(){
     if(owns('medicine')){ rab.items.medicine=Math.max(0,(rab.items.medicine|0)-1);
       if(rab.items.medicine<=0) delete rab.items.medicine;
       cureSick(true); refreshActions(); return; }
-    if(spendCarrots(45)){ cureSick(false); return; }
-    toast(`An emergency vet visit is 45🥕 (you have ${rab.carrots})! Cheaper to keep Gut Medicine 💊 stocked.`);
-    return;
+    // always affordable, never cheap: no rabbit goes untreated for want of carrots
+    const bill=emergencyVetBill(); rab.carrots-=bill;
+    cureSick(false, bill); fireFact('vetbill'); return;
   }
   // caught early: an unwell (pre-stasis) bun is treated at checkup price and bounces back
   if(unwell()){
@@ -2816,6 +2895,7 @@ function handlePet(px,py){
   if(onFeet(px,py,p)){ touchFeet(px,p,false); return; }
   const zone=petZone(px,py,p);
   if(!zone) return;
+  answerBeg('pet');
   const tnow=now();
   if(zone==='nose' && rab.prefs.dislike==='nose'){
     flinch(px,p);
@@ -2918,7 +2998,7 @@ function idleBrain(dt,t){
   // occasionally asks for something with a speech bubble. What she wants is contextual
   // (real needs first; treats/attention only when content), and there's a proper
   // cooldown so she isn't a broken banana vending-machine ad.
-  if(now()>=rab.begUntil && now()>=rab.begCooldown && Math.random()<perFrame(0.0012,dt)){
+  if(rab.begLeft<=0 && now()>=rab.begCooldown && Math.random()<perFrame(0.0012,dt)){
     const wants=[];
     if(stats.water<45)   wants.push('💧');
     if(stats.hunger>60)  wants.push('🌾');
@@ -2932,7 +3012,7 @@ function idleBrain(dt,t){
     }
     if(wants.length){
       rab.begWant=pick(wants);
-      rab.begAt=now(); rab.begUntil=now()+rand(4,6);
+      rab.begAt=now(); rab.begLeft=rand(7,9); rab.begUntil=now()+rab.begLeft;
       rab.begCooldown=now()+rand(22,40);                        // quiet time between asks
     }
   }
@@ -3046,6 +3126,7 @@ function frame(){
   tickHealth(dt);
   checkWeight(dt);
   if(!started) return;   // taken away → stop updating behind the game-over overlay
+  tickBeg(dt);
 
   let pressure=0;
   if(stats.hunger>70) pressure++;
@@ -3372,7 +3453,7 @@ function renderShop(){
     const ownedPerm = ((it.type==='toy'||it.type==='decor'||it.type==='tool') && owns(it.id))
                    || (it.id==='timothy' && rab.hayType!=='alfalfa');
     const row=document.createElement('div'); row.className='srow'+(locked?' locked':'');
-    const stock = it.type==='cure' ? ` ×${rab.items[it.id]||0}` : '';
+    const stock = it.type==='cure' ? ` ×${num(rab.items[it.id],0)|0}` : '';
     row.innerHTML=`<div class="semoji">${it.emoji}</div>
       <div class="sinfo"><div class="sname">${it.name}${stock}</div><div class="sdesc">${it.desc}</div></div>`;
     const btn=document.createElement('button'); btn.className='sbuy';
@@ -3406,6 +3487,7 @@ function buy(id){
   if(it.type==='feed' && refusesFood(id==='oxbow' ? 'pellets' : id)){ closePanel(); return; }
   if(!spendCarrots(it.cost)){ toast(`Not enough carrots — need ${it.cost}🥕, have ${rab.carrots}.`); return; }
   if(it.type==='feed'){
+    if(FAV_TREATS[id]) answerBeg('treat');
     if(id==='greens'){ stats.hunger=clamp(stats.hunger-30); stats.water=clamp(stats.water+18);
       rab.health=clamp(rab.health+8); addWeight(-2.5); }                              // second-best to hay
     else if(id==='oxbow'){ stats.hunger=clamp(stats.hunger-40); rab.health=clamp(rab.health+3);
@@ -3475,10 +3557,11 @@ function parseSaveCode(code){
   let payload;
   try{ payload = JSON.parse(decodeURIComponent(escape(atob(code)))); }
   catch(e){ return {ok:false, err:'That code isn’t readable.'}; }
-  if(!payload || payload.c!=='thump' || payload.v!==2 || !payload.save || typeof payload.save!=='object')
+  if(!payload || typeof payload!=='object' || payload.c!=='thump' || payload.v!==2 || !payload.save || typeof payload.save!=='object' || Array.isArray(payload.save))
     return {ok:false, err:'That code isn’t a Thumpagotchi save.'};
   const s = payload.save;
-  if(!s.name || !s.stats || typeof s.day!=='number')
+  if(num(s.v,2) > SAVE_VERSION) return {ok:false, err:'That save is from a newer version of the game. Reload to update, then try again.'};
+  if(typeof s.name!=='string' || !s.name || !s.stats || typeof s.stats!=='object' || typeof s.day!=='number')
     return {ok:false, err:'That save is missing key fields.'};
   return {ok:true, payload};   // ranges are re-clamped by applySave on reload
 }
@@ -3563,12 +3646,8 @@ function renderMenu(){
     if(!confirm(`Import ${s.name} (Day ${s.day||1})? This replaces your current rabbit.`)) return;
     try{
       localStorage.setItem(SAVE_KEY, JSON.stringify(s));
-      if(res.payload.unlocks && typeof res.payload.unlocks==='object')
-        localStorage.setItem(UNLOCK_KEY, JSON.stringify(res.payload.unlocks));
-      if(res.payload.notes && typeof res.payload.notes==='object'){   // keep only known note ids
-        const clean={}; NOTES.forEach(n=>{ if(res.payload.notes[n.id]) clean[n.id]=num(res.payload.notes[n.id],1); });
-        localStorage.setItem(NOTES_KEY, JSON.stringify({...notes, ...clean}));
-      }
+      if(res.payload.unlocks) localStorage.setItem(UNLOCK_KEY, JSON.stringify({...unlocks, ...cleanUnlocks(res.payload.unlocks)}));
+      if(res.payload.notes) localStorage.setItem(NOTES_KEY, JSON.stringify({...notes, ...cleanNotes(res.payload.notes)}));
     }catch(e){ toast('⚠️ Couldn’t write to storage — import cancelled.'); return; }
     location.reload();
   };
@@ -3785,6 +3864,11 @@ function welcomeBack(){
   save();
   toast(`👋 Welcome back! While you were away, ${rab.name} ${colour}. ${cap(P().s)}'s hungry and the box could use a tidy.`);
 }
+if(BETA){
+  document.title = '[TEST] ' + document.title;
+  const tag=document.createElement('div'); tag.id='betaTag'; tag.textContent='TEST BUILD';
+  document.body.appendChild(tag);   // pinned over the wall, outside the HUD's layout
+}
 function startGame(fromSave, saved){
   if(started) return;
   started=true;
@@ -3820,7 +3904,7 @@ function startGame(fromSave, saved){
 /* ============================================================================ *
  *  BUNNY SNAKE — a self-contained minigame (you play as your rabbit)
  * ============================================================================ */
-const SNAKE_BEST_KEY = 'thumpagotchi.snakeBest';
+const SNAKE_BEST_KEY = STORE+'snakeBest';
 const SN = { cols:17, rows:15, cell:22, snake:[], dir:{x:1,y:0}, nextDir:{x:1,y:0},
              food:{x:0,y:0}, score:0, best:0, timer:null, stepMs:150, state:'idle', on:false };
 let snCanvas=null, snCtx=null;
@@ -4041,6 +4125,7 @@ const QUIZ_NOTES = {
   refuse:  {q:'If I stop eating, you should…', a:'Take me to the vet the same day', w:['Wait a few days','Give me more pellets']},
   droppings:{q:'Fewer or smaller droppings can mean…', a:'My gut is slowing down', w:['I’m extra healthy','I drank too much']},
   stasis:  {q:'What keeps my gut moving?', a:'Unlimited hay', w:['Lots of fruit','Extra pellets']},
+  vetcare: {q:'Why find a rabbit-savvy vet before I get sick?', a:'Not every vet has much rabbit training', w:['Rabbits need a vet every week','Any vet treats rabbits like cats']},
   hay:     {q:'What should most of my diet be?', a:'Hay', w:['Pellets','Fruit']},
   sugar:   {q:'Why are sweet treats like banana limited?', a:'Sugar upsets my gut', w:['They make me too bouncy','They dull my fur']},
   grudge:  {q:'After you upset me, trust comes back with…', a:'Space, time and a favourite treat', w:['Picking me up more','Nothing, ever']},

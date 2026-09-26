@@ -1,0 +1,82 @@
+{
+ "save": {
+  "v": 2,
+  "name": "Mochi",
+  "sex": "doe",
+  "breed": "holland",
+  "coatKey": "sableGrey",
+  "stats": {
+   "happy": 84,
+   "hunger": 0,
+   "water": 100,
+   "hygiene": 90,
+   "energy": 69.5
+  },
+  "thumps": 0,
+  "cold": false,
+  "bananasToday": 0,
+  "day": 6,
+  "ageDays": 5,
+  "timeOfDay": 0.05,
+  "bondLevel": 3,
+  "bondXP": 20,
+  "carrots": 73,
+  "weight": 98.4,
+  "health": 100,
+  "sick": false,
+  "nextCheckupDay": 5,
+  "items": {
+   "medicine": 2,
+   "ball": 1
+  },
+  "mastery": {},
+  "achievements": {
+   "firstDay": 1
+  },
+  "goals": [
+   {
+    "track": "hay",
+    "target": 1,
+    "reward": 7,
+    "text": "Serve fresh hay",
+    "prog": 0,
+    "done": false
+   },
+   {
+    "track": "water",
+    "target": 1,
+    "reward": 5,
+    "text": "Refill the water bowl",
+    "prog": 1,
+    "done": true
+   },
+   {
+    "track": "pet",
+    "target": 5,
+    "reward": 7,
+    "text": "Give ×5 head pets",
+    "prog": 0,
+    "done": false
+   }
+  ],
+  "goalDay": 1,
+  "goalCounters": {},
+  "lifetimePets": 42,
+  "decor": {
+   "rug": null,
+   "bed": null
+  },
+  "maxAngerCount": 0,
+  "weightStrikes": 0,
+  "pelletsToday": 0,
+  "firedCards": {},
+  "gamesRevealed": false,
+  "baitDone": false,
+  "thumpSeen": false,
+  "exitBeatShown": false,
+  "lastSeen": 1790437587576
+ },
+ "notes": null,
+ "unlocks": null,
+ "from_commit": "3b9a992"
+}

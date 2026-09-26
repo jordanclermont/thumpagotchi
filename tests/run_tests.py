@@ -24,10 +24,20 @@ def build(tmp):
         shutil.copy(os.path.join(ROOT, f), tmp)
     game = open(os.path.join(tmp, 'game.js'), encoding='utf-8').read()
     tests = open(os.path.join(ROOT, 'tests', 'tests.js'), encoding='utf-8').read()
+    # real saves written by older versions of the game (tests/fixtures/save-*.json), inlined as
+    # __FIXTURES so the 'migrate' group can load them (file:// pages can't fetch)
+    fx_dir = os.path.join(ROOT, 'tests', 'fixtures')
+    fixtures = {f[:-5]: json.load(open(os.path.join(fx_dir, f), encoding='utf-8'))
+                for f in sorted(os.listdir(fx_dir)) if f.endswith('.json')} if os.path.isdir(fx_dir) else {}
+    tests = f'const __FIXTURES = {json.dumps(fixtures, ensure_ascii=False)};\n' + tests
     end = game.rstrip().rfind('})();')          # the closure's final line
     if end < 0:
         sys.exit('Could not find the end of the game.js closure to splice tests into.')
     open(os.path.join(tmp, 'game.js'), 'w', encoding='utf-8').write(game[:end] + tests + '\n' + game[end:])
+    # the same build served from a beta/ folder, as the tester link is: the 'beta' group runs there
+    os.makedirs(os.path.join(tmp, 'beta'), exist_ok=True)
+    for f in ('index.html', 'game.js', 'style.css'):
+        shutil.copy(os.path.join(tmp, f), os.path.join(tmp, 'beta'))
 
 
 def load(tmp, fragment):
@@ -76,7 +86,7 @@ def main():
         passed = failed = 0
         started = time.time()
         for g in groups:
-            res = load(tmp, g)
+            res = load(os.path.join(tmp, 'beta') if g == 'beta' else tmp, g)
             if isinstance(res, str):
                 print(f'\n[{g}]\n  FAIL  {res}'); failed += 1; continue
             print(f'\n[{g}]')
