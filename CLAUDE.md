@@ -25,6 +25,11 @@ pass, a gameplay/balance change, a notable bug fix or decision — **add an entr
   reach the game's internals; the shipped files are never modified. Each group is its own page load
   starting from a fresh adoption.
 - When fixing a bug, add a check that fails without the fix. When adding a system, add a group.
+  Prove it: run the new check against the pre-fix code, and tighten it if it still passes.
+- Under the runner's virtual time, timers run but `requestAnimationFrame` doesn't, so step per-frame
+  systems by hand (e.g. `updateCamera(0.05)`, or call `frame()` between short waits).
+- Headless Chrome won't make a window narrower than 500px. For true phone-width screenshots, load the
+  page in a 390px `<iframe>`.
 
 ## Art / prop iteration
 
