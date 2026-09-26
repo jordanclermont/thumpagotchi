@@ -35,8 +35,10 @@ tiny front teeth, and sable points blended in with canvas gradients.
 - **🥣 Pellets** — a scoop of dry food from the bowl (lowers hunger).
 - **💧 Water** — refills the water bowl (there's a Water bar now).
 - **🍌 Banana** — instant joy + a binky; **max 2/day** (a 3rd = tummy ache).
-- **✋ Pet** — toggle on, then drag over your rabbit. **Head** = happiness; **feet/tail** = an
-  instant angry **THUMP**.
+- **✋ Pet** — the camera zooms in close and your rabbit holds still. Stroke their head, cheeks, ears,
+  back and shoulders: they lean into spots they love (find their favourite!), shrug off "meh" ones, and
+  flinch from things they dislike. The **feet/tail** are sacred: ears go back as a warning, and touching
+  them again gets an angry **THUMP**. Tap **Done** to zoom back out.
 - **🌟 Trick** — your rabbit performs an unlocked trick. Only tricks real rabbits are
   clicker-trained to do: **Spin**, **Stand Up**, **Nose Boop**, **Come**, and **Hop Over**. Costs
   Energy, builds mastery, and pays carrots by skill. (Flops and binkies aren't tricks — rabbits
@@ -86,9 +88,10 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
 - **Likes and dislikes** — every rabbit is different, and you have to find out how:
   - **Favourite treat** (banana, leafy greens or apple chews): try them, watch what they beg
     for, or see which one ends a sulk.
-  - **Favourite place for a rub** (forehead, cheeks or behind the ears): extra hearts and purrs.
+  - **Favourite place for a rub** (forehead, cheeks, behind the ears, or the back and shoulders):
+    they lean in, with extra hearts and purrs.
   - **Favourite toy** and **favourite nap spot**: bigger reactions and deeper naps there.
-  - **One dislike** (nose touches, being brushed on the haunches, or a toy): found by accident.
+  - **One dislike** (nose touches, being touched on the haunches, or a toy): found by accident.
   Everything you've learned collects on the **About** tab of 📖, and knowing it pays off: once
   you know a dislike you stop offering it, and you reach for the favourite toy more often.
 - **Hay by age** — young rabbits start on **alfalfa**. At Adult, buy **Timothy Hay** in the

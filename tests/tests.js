@@ -5,6 +5,9 @@
  *  page once per group as index.html#<group> in headless Chrome. Each group starts
  *  from a fresh adoption and reports JSON into <pre id="thump-test-results">.
  *
+ *  NOTE: under the runner's fast-forwarded (virtual) time, timers run but requestAnimationFrame does
+ *  not advance, so per-frame systems (camera, decay, idle AI) must be stepped by hand, e.g. updateCamera(0.05).
+ *
  *  Add a check:   check('what should be true', condition, 'detail shown on failure')
  *  Add a group:   group('name', async () => { fresh(); ... })
  * ============================================================================ */
@@ -21,7 +24,7 @@ function fresh(){
   startGame(false);
   calm();
 }
-function calm(){ rab.hidden=false; dayEvent=null; rab.cold=false; rab.sick=false; rab.trick=null; rab.binkyT=0; rab.hopping=false; rab.play=null; rab.tummyUntil=0; rab.restUntil=0; rab.state='loaf'; }
+function calm(){ rab.hidden=false; dayEvent=null; rab.cold=false; rab.sick=false; rab.trick=null; rab.binkyT=0; rab.hopping=false; rab.play=null; rab.tummyUntil=0; rab.restUntil=0; rab.state='loaf'; rab.boxT=0; rab.denUntil=0; }
 function nextDay(){ startNight(); endNight(); calm(); }
 const finite = v => typeof v==='number' && Number.isFinite(v);
 const hexOK = s => /^#[0-9a-f]{6}$/i.test(s);
@@ -308,7 +311,7 @@ group('fixes', async ()=>{
   await wait(300); rab.state='loaf'; stats.energy=50; restRabbit();
   check('Rest can’t be chained back-to-back', rab.restUntil===firstUntil);
   calm(); stats.happy=90; stats.energy=90; rab.bondLevel=6; let comeSet=false;
-  for(let i=0;i<30 && !comeSet;i++){ calm(); doTrick(); if(rab.trick && rab.trick.name==='come') comeSet=true; }
+  for(let i=0;i<60 && !comeSet;i++){ calm(); stats.energy=90; stats.happy=90; doTrick(); if(rab.trick && rab.trick.name==='come') comeSet=true; }   // energy reset each try, or she gets too tired and the check turns flaky
   check('the Come trick counts as a trick in progress', comeSet);
   calm(); stats.hunger=10; const cx=rab.carrots, xp=rab.bondXP; feedLock.hay=0; giveHay();
   check('hay for a full rabbit earns nothing', rab.carrots===cx && rab.bondXP===xp);
@@ -341,6 +344,62 @@ group('fixes', async ()=>{
   notesTab='about'; openPanel('notes');
   check('About hints can’t reveal the favourite by elimination', !/toy you don't have yet/.test($('panelBody').textContent)); closePanel();
   toast=realToast;
+});
+
+/* ------------------------------------------------------------------ close-up petting & grooming */
+group('closeup', async ()=>{
+  fresh(); stats.happy=50; await wait(300);
+  // real mouse events on the canvas, at a point given in room coordinates
+  const mouse=(type,wx,wy)=>{ const sp=toScreen(wx,wy), r=canvas.getBoundingClientRect();
+    canvas.dispatchEvent(new MouseEvent(type,{clientX:sp.x+r.left, clientY:sp.y+r.top, bubbles:true})); };
+  const stroke=(wx,wy,n=1)=>{ for(let i=0;i<n;i++){ lastPetGain=-1; lastGroomGain=-1; mouse('mousedown',wx,wy); mouse('mousemove',wx,wy); window.dispatchEvent(new MouseEvent('mouseup')); } };
+  const settle=()=>{ for(let i=0;i<80;i++) updateCamera(0.05); };   // step the camera ~4s (rAF doesn't run under virtual time)
+  $('bPet').click(); settle();
+  check('Pet zooms the camera in on her', closeUp.on && closeUp.z>1.25, closeUp.z.toFixed(2));
+  check('the close-up bar with Done is shown', !$('closeUpBar').hidden);
+  const r=toWorld(...Object.values(toScreen(123,45)));
+  check('touch positions map back into the room exactly', Math.abs(r.x-123)<1e-6 && Math.abs(r.y-45)<1e-6);
+  const x0=rab.x; for(let i=0;i<400;i++) idleBrain(0.05, now()+i);
+  check('she holds still in close-up (no idle hops)', !rab.hopping && rab.x===x0);
+  // favourite spot found with real (zoomed) pointer events
+  rab.prefs.pet='back'; rab.prefKnown.pet=false; rab.prefCount.pet=0; rab.prefs.dislike='ball';
+  let p=parts(); const bz=[p.body.x+p.body.rx*0.72, p.body.y-p.body.ry*0.05];   // the shoulder beside and below her head
+  check('the shoulder area is a body (back) zone', petZone(bz[0],bz[1],p)==='back', petZone(bz[0],bz[1],p));
+  stroke(bz[0], bz[1], 60);
+  check('stroking the back finds a back-and-shoulders favourite (through the zoom)', rab.prefKnown.pet===true, rab.prefCount.pet);
+  check('she leans into the favourite spot', rab.lean>0.2 || rab.prefKnown.pet);
+  // meh zone: the belly gives no content squint
+  rab.petReact=0; p=parts(); stroke(p.body.x, p.body.y+p.body.ry*0.5); check('a belly stroke is "meh" (no content squint)', rab.petReact===0);
+  // disliked haunches flinch when petted
+  rab.prefs.dislike='rump'; rab.prefKnown.dislike=false; rab.lastAnnoyed=-9; p=parts();
+  stroke(p.body.x+p.body.rx*0.7, p.body.y+p.body.ry*0.35);
+  check('petting disliked haunches flinches and is discovered', rab.prefKnown.dislike===true);
+  p=parts();
+  check('the belly and lower chest are not "feet"', !onFeet(p.cx, p.body.y+p.body.ry*0.45, p) && !onFeet(p.cx, p.body.y+p.body.ry*0.2, p));
+  check('the drawn feet are "feet"', onFeet(p.cx-p.body.rx*0.5, p.body.y+p.body.ry-8*p.s, p) && onFeet(p.cx+p.body.rx*0.5, p.body.y+p.body.ry-8*p.s, p));
+  // the feet: a warning first, then a thump
+  rab.thumps=0; rab.feetWarnUntil=0; lastFeetPet=-9; p=parts();
+  const fx=p.cx+p.body.rx*0.5, fy=p.body.y+p.body.ry-8*p.s;
+  stroke(fx, fy);
+  check('first touch on the feet is only a warning', rab.thumps===0 && rab.feetWarnUntil>now());
+  lastFeetPet=-9; stroke(fx, fy);
+  check('touching them again soon after THUMPs', rab.thumps>0);
+  // Done / actions end the close-up
+  $('closeUpDone').click(); settle();
+  check('Done ends the close-up and the camera returns', !closeUp.on && closeUp.z<1.01 && !pettingMode, closeUp.z.toFixed(3));
+  $('bGroom').click(); await wait(300); check('Groom also zooms in', closeUp.on && groomMode);
+  feedLock.hay=0; stats.hunger=80; giveHay(); check('an action that moves her (hay) ends the close-up', !closeUp.on && !groomMode);
+  calm(); rab.hidden=true; $('bPet').click(); check('no close-up while she’s hiding', !closeUp.on && !pettingMode); calm();
+  // Jo's bug: grooming while she's in the hutch den (or mid-tunnel) zoomed in on an invisible rabbit
+  endCloseUp(); calm(); rab.items.hutch=1; rab.x=world.hutch.x; rab.denUntil=now()+30; rab.playAlpha=0.12;
+  $('bGroom').click();
+  for(let i=0;i<40;i++){ await wait(20); frame(); }   // step real frames (rAF doesn't run under virtual time)
+  check('grooming at the hutch brings her out, fully visible', rab.playAlpha>0.9, rab.playAlpha.toFixed(2));
+  endCloseUp(); calm(); rab.items.tunnel=1; stats.energy=90; playToy();
+  check('(setup) she is playing in the tunnel', !!rab.play);
+  $('bPet').click();
+  check('petting mid-tunnel ends the play so she’s visible', !rab.play && closeUp.on);
+  endCloseUp();
 });
 
 /* ------------------------------------------------------------------ soak (fuzz) */

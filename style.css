@@ -108,6 +108,14 @@ button.act.urgent{background:linear-gradient(180deg,#ffb0a0,#e0603a);color:#fff;
 /* anchored to the bottom (above the hint/controls) so it never covers the HUD stat bars */
 /* Anchored just under the HUD (top is set from JS to the measured HUD height) so it
    clears the stat bars AND stays clear of the rabbit and the bottom controls. */
+/* close-up petting/grooming bar: sits just above the dock (JS sets bottom from the dock's height) */
+#closeUpBar{position:absolute;left:50%;transform:translateX(-50%);bottom:140px;z-index:6;display:flex;align-items:center;gap:10px;
+  max-width:calc(100vw - 24px);padding:8px 8px 8px 14px;border-radius:14px;background:rgba(40,28,40,.82);color:#fbeedd;
+  font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.3);}
+#closeUpBar[hidden]{display:none;}
+#closeUpDone{appearance:none;border:none;cursor:pointer;font-weight:800;font-size:14px;color:#231810;padding:8px 16px;border-radius:10px;
+  background:linear-gradient(180deg,#fbe9c4,#e6c078);box-shadow:0 2px 0 #a9803e;flex-shrink:0;}
+#closeUpDone:focus-visible{outline:2px solid #fff;outline-offset:2px;}
 #toast{position:absolute;top:120px;left:50%;transform:translateX(-50%) translateY(-8px);
   width:max-content;max-width:min(86vw,520px);
   background:var(--panel);padding:9px 18px;border-radius:20px;font-size:13px;line-height:1.35;

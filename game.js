@@ -147,11 +147,12 @@ const FAV_TREATS = {banana:{name:'Banana', emoji:'🍌'}, greens:{name:'Leafy Gr
 
 /* Preferences — what makes THIS rabbit theirs. Rolled at adoption, never shown until the player
    discovers them in play; collected on the "About" tab of 📖 and quizzed in the Quiz game. */
-const PET_SPOTS = {forehead:{name:'the forehead', emoji:'💆'}, cheeks:{name:'the cheeks', emoji:'☺️'}, ears:{name:'behind the ears', emoji:'👂'}};
+const PET_SPOTS = {forehead:{name:'the forehead', emoji:'💆'}, cheeks:{name:'the cheeks', emoji:'☺️'}, ears:{name:'behind the ears', emoji:'👂'},
+                   back:{name:'the back and shoulders', emoji:'🫳'}};
 const TOYS      = {ball:{name:'Treat Ball', emoji:'🧸'}, tunnel:{name:'Play Tunnel', emoji:'🕳️'}, tower:{name:'Climbing Tower', emoji:'🪜'}};
 const NAP_SPOTS = {bed:{name:'the bed', emoji:'🛏️'}, hutch:{name:'the wooden hutch', emoji:'🛖'},
                    castle:{name:'the cardboard castle', emoji:'🏰'}, hammock:{name:'the hammock', emoji:'🪢'}};
-const DISLIKES  = {rump:{name:'being brushed on the haunches', emoji:'🪮'}, nose:{name:'having their nose touched', emoji:'👃'},
+const DISLIKES  = {rump:{name:'being touched on the haunches', emoji:'🪮'}, nose:{name:'having their nose touched', emoji:'👃'},
                    ball:{name:'the Treat Ball', emoji:'🧸'}, tunnel:{name:'the Play Tunnel', emoji:'🕳️'}, tower:{name:'the Climbing Tower', emoji:'🪜'}};
 const PREF_FIND = {pet:40, toy:2, nap:2};   // stroke ticks (~6s of rubbing) / plays / naps before it's "discovered"
 function rollPrefs(){
@@ -375,7 +376,7 @@ const rab = {
   prefs:{pet:'forehead', toy:'ball', nap:'bed', dislike:'nose'}, prefKnown:{}, prefCount:{}, quizPaidDay:0, safePaidDay:0, guessPaidDay:0, tttPaidDay:0,
   hayType:'alfalfa', haySwitchDay:0, napSpot:'bed', lastAnnoyed:0,
   lastEngaged:0, restCooldown:0, mischiefCooldown:0, digUntil:0, chewUntil:0, chinUntil:0, chinAt:0,
-  purrCooldown:0, grindAt:0, flopCooldown:0, mischiefAt:0, mischiefKind:null, chinName:null, hurdle:false,
+  purrCooldown:0, grindAt:0, flopCooldown:0, lean:0, leanDX:0, feetWarnUntil:0, mischiefAt:0, mischiefKind:null, chinName:null, hurdle:false,
 };
 const PRON={doe:{s:'she',o:'her',p:'her'}, buck:{s:'he',o:'him',p:'his'}};
 const P=()=>PRON[rab.sex]||PRON.doe;
@@ -397,6 +398,12 @@ let hayFresh = 0;
 let thumpFx = 0, thumpRipples = [], thumpTextT = 0;
 
 let pettingMode = false;
+/* Close-up: petting or grooming zooms the camera in on the rabbit, who holds still, so every spot is easy
+   to reach (on a phone too) and stray jumps can't land your hand on the feet. The camera is a transform
+   around the existing drawing; toWorld() maps a touch back into room coordinates. */
+const closeUp = { on:false, k:0, z:1, ox:0, oy:0, fx:0, fy:0 };
+const toWorld  = (x,y)=>({x:(x-closeUp.ox)/closeUp.z, y:(y-closeUp.oy)/closeUp.z});
+const toScreen = (x,y)=>({x:x*closeUp.z+closeUp.ox, y:y*closeUp.z+closeUp.oy});
 let groomMode = false;                 // comb-drag mode: restores Hygiene (mutually exclusive with petting)
 let pointer = {x:-999,y:-999,down:false};
 let lastPetGain = 0, lastFeetPet = 0, lastGroomGain = 0, groomGoalAt = 0;
@@ -672,9 +679,9 @@ function parts(){
   const headR  = 60*s*(B.headScale||1)*(1+0.14*boop);   // big head on a compact body — chibi proportions
   const beg = rab.trick && rab.trick.name==='beg';
   const alert = rab.state==='alert';
-  const headCx = cx + (alert? 6*s:0);
+  const headCx = cx + (alert? 6*s:0) + (rab.lean||0)*(rab.leanDX||0)*8*s;   // leans into / away from your hand
   const headCy = bodyCy - bodyRy*0.55 - headR*0.22 + (alert? -8*s:4*s) + (beg? -34*s:0) + loaf*headR*0.18   // nestled low into the body
-               + boop*14*s + chin*12*s;
+               + boop*14*s + chin*12*s + (rab.lean||0)*2*s;
   return {
     s, cx, cy, loaf,
     body:{x:cx, y:bodyCy, rx:bodyRx, ry:bodyRy},
@@ -1427,7 +1434,7 @@ function tickEvent(dt,t){
     if(dayEvent.nearT > 1.6) hazardShock();
   } else {
     dayEvent.nearT = Math.max(0, dayEvent.nearT-dt);
-    if(t>dayEvent.nextTemptt && !rab.hopping && !rab.play && !rab.trick && !rab.cold && rab.state!=='rest' && rab.state!=='tummy'){
+    if(t>dayEvent.nextTemptt && !closeUp.on && !rab.hopping && !rab.play && !rab.trick && !rab.cold && rab.state!=='rest' && rab.state!=='tummy'){
       dayEvent.nextTemptt = t + rand(5,10);
       hopTo(c.x+22);   // curiosity: hops toward the tempting cord
     }
@@ -1952,7 +1959,7 @@ function drawThumpFx(dt){
 /* ============================================================================ *
  *  NIGHT CUTSCENE  (zoomies) — also the daily rollover: age, goals, energy
  * ============================================================================ */
-function startNight(){ cutscene={type:'night', t:0, dur:5.5}; }
+function startNight(){ if(closeUp.on) endCloseUp(); cutscene={type:'night', t:0, dur:5.5}; }
 function endNight(){
   if(!cutscene) return;   // one-shot guard: the daily rollover must never run twice for a single night
   cutscene=null;
@@ -2245,6 +2252,7 @@ function startBinky(){ rab.binkyT=rab.binkyDur; rab.hurdle=false; const p=parts(
 function startHurdle(){ rab.binkyT=rab.binkyDur; rab.hurdle=true; stats.energy=clamp(stats.energy-4); }
 const HOP_CROUCH = 0.11;   // anticipation: she compresses for a beat before launching
 function hopTo(x){
+  if(closeUp.on) endCloseUp();             // any action that sends her hopping ends the close-up
   rab.hopToX=clamp(x, 80, W-80); rab.hopFromX=rab.x; rab.hopT0=now()+HOP_CROUCH; rab.hopping=true;
   rab.crouchT=1;                                   // deepen the pre-hop crouch until takeoff
   rab.lookXTarget=Math.sign(rab.hopToX-rab.x);
@@ -2429,13 +2437,49 @@ function cleanLitter(){
     ? 'Scooped & groomed — spotless coat, extra-happy bun. ✨🪮'
     : 'Litter box scooped & fresh. Hygiene restored. ✨');
 }
+function startCloseUp(){
+  // come out of any hideout or toy first: the hutch den and the tunnel fade her nearly invisible
+  if(rab.play) endPlay();
+  rab.denUntil=0; rab.bedNapAt=0; rab.mischiefAt=0; rab.digUntil=0; rab.chewUntil=0; rab.chinAt=0;
+  rab.playAlpha=Math.max(rab.playAlpha??1, 0.6);
+  if(!closeUp.on){ const p=parts(); closeUp.fx=p.cx; closeUp.fy=p.cy; }
+  closeUp.on=true; showCloseUpBar();
+}
+function endCloseUp(){
+  closeUp.on=false;
+  if(pettingMode){ pettingMode=false; $('bPet').classList.remove('armed'); }
+  if(groomMode) setGroom(false);
+  $('game').style.cursor='default';
+  showCloseUpBar();
+}
+function showCloseUpBar(){
+  const b=$('closeUpBar'); if(!b) return;
+  b.hidden=!closeUp.on;
+  if(!closeUp.on) return;
+  $('closeUpTip').textContent = groomMode ? `Brush ${P().p} coat. Watch how ${P().s} reacts.`
+                                          : `Find ${P().p} favourite spot: ${P().s} leans in.`;
+  const c=$('controls'); b.style.bottom=((c?c.offsetHeight:120)+10)+'px';
+}
+// Ease the camera toward the close-up (or back out). Focus follows her gently, never jitters with breathing.
+function updateCamera(dt){
+  closeUp.k = damp(closeUp.k, closeUp.on?1:0, 5, dt); if(!closeUp.on && closeUp.k<0.002) closeUp.k=0;
+  const e = closeUp.k*closeUp.k*(3-2*closeUp.k);
+  const p=parts(), top=p.head.y-p.head.r*1.7, bot=p.cy, span=Math.max(1,bot-top);
+  closeUp.fx = damp(closeUp.fx, p.cx, 3, dt); closeUp.fy = damp(closeUp.fy, (top+bot)/2, 3, dt);
+  const Z = clamp(0.6*H/span, 1.3, 3.2);
+  closeUp.z  = 1+(Z-1)*e;
+  closeUp.ox = (W/2 - closeUp.fx*Z)*e;
+  closeUp.oy = (H*0.42 - closeUp.fy*Z)*e;   // a little above centre, clear of the tip bar above the dock
+}
 function togglePetting(){
+  if(!pettingMode && hiddenBlock()) return;
   pettingMode=!pettingMode;
   if(pettingMode && groomMode) setGroom(false);   // the two drag modes are mutually exclusive
   $('bPet').classList.toggle('armed',pettingMode);
   $('game').classList.remove('grooming');
   $('game').style.cursor = pettingMode ? 'grab' : 'default';   // hand cursor while petting
-  toast(pettingMode? 'Petting ON — drag over the HEAD (never the feet!).' : 'Petting off.');
+  if(pettingMode) startCloseUp(); else if(!groomMode) endCloseUp();
+  toast(pettingMode? 'Petting: stroke the head and back — never the feet!' : 'Petting off.');
   // Day-1 bait: once she's been armed for petting, arm one scripted feet-out flop (item 3a)
   if(pettingMode && !rab.petArmedOnce){
     rab.petArmedOnce=true;
@@ -2451,8 +2495,11 @@ function setGroom(on){
   else if(!pettingMode){ $('game').style.cursor='default'; }
 }
 function toggleGrooming(){
+  if(!groomMode && hiddenBlock()) return;
   if(!groomMode && pettingMode){ pettingMode=false; $('bPet').classList.remove('armed'); $('game').style.cursor=''; }
   setGroom(!groomMode);
+  if(groomMode) startCloseUp(); else if(!pettingMode) endCloseUp();
+  showCloseUpBar();
   toast(groomMode
     ? (owns('groom') ? `Grooming ON — drag the comb over ${P().p} coat. The Grooming Kit makes it extra soothing. 🪮`
                      : `Grooming ON — drag over ${P().p} coat to tidy ${P().p} fur and lift Hygiene. 🪮`)
@@ -2461,21 +2508,9 @@ function toggleGrooming(){
 function handleGroom(px,py){
   if(!groomMode || rab.cold || rab.hidden || rab.state==='tummy') return;
   const p=parts();
-  const dFeet=Math.hypot(px-p.feet.x, py-p.feet.y);
-  const dTail=Math.hypot(px-p.tail.x, py-p.tail.y);
   const tnow=now();
-  // the feet stay sacred even with a comb in hand
-  if((dFeet<p.feet.r && py>p.head.y+p.head.r*0.6) || dTail<p.tail.r*1.3){
-    if(tnow-lastFeetPet>0.8){
-      lastFeetPet=tnow;
-      const dmg = rab.bondLevel>=8? 0.9 : 1.4;
-      rab.thumps=clamp(rab.thumps+dmg,0,5); stats.happy=clamp(stats.happy-8);
-      raiseMistake(0.5);
-      triggerThump(); toast('You combed the SACRED back feet! 😾 *THUMP*'); checkThreshold();
-      fireFact('feet');
-    }
-    return;
-  }
+  // the feet stay sacred even with a comb in hand (a warning first, then a thump)
+  if(onFeet(px,py,p)){ touchFeet(px,p,true); return; }
   // grooming the coat: the point is inside the body ellipse (or over the head/mane)
   const inBody = ((px-p.body.x)**2)/(p.body.rx*p.body.rx) + ((py-p.body.y)**2)/(p.body.ry*p.body.ry) <= 1.15;
   const inHead = Math.hypot(px-p.head.x, py-p.head.y) < p.head.r*1.2;
@@ -2483,6 +2518,7 @@ function handleGroom(px,py){
     // the haunches: lower body, out toward the sides
     const haunch = inBody && !inHead && py>p.body.y && Math.abs(px-p.body.x)>p.body.rx*0.45;
     if(haunch && rab.prefs.dislike==='rump'){
+      flinch(px,p);
       annoyed('rump', `${rab.name} twists away from the comb — ${P().s} doesn't like being brushed on the haunches. Noted in 📖.`);
       return;
     }
@@ -2565,6 +2601,7 @@ function playToy(){
 
 /* --- Toy-play animation: she actually chases the ball / runs the tunnel --- */
 function startPlay(){
+  if(closeUp.on) endCloseUp();
   let toys=['ball','tunnel','tower'].filter(owns);
   // knowing her pays off: once you've learned what she dislikes you stop offering it,
   // and once you know her favourite you reach for it more often
@@ -2722,59 +2759,98 @@ function coldRefuse(){
 }
 
 /* ---------------- Petting ---------------- */
+// Where on the rabbit a stroke lands. Head: nose (muzzle), ears (far sides), forehead (top), cheeks (lower
+// sides), or just 'head'. Body: 'back' (shoulders / upper back), 'haunch' (lower sides), 'belly' (lower middle).
+function petZone(px,py,p){
+  const hdx=px-p.head.x, hdy=py-p.head.y, hr=p.head.r;
+  const inBody = ((px-p.body.x)**2)/(p.body.rx*p.body.rx) + ((py-p.body.y)**2)/(p.body.ry*p.body.ry) <= 1.1;
+  // She faces you with a big head that covers most of her upper body, so anything on the body below the
+  // middle of her head counts as body (shoulders/back), or the back spot could never be reached.
+  const onBody = inBody && hdy > hr*0.5 && Math.abs(hdx) > hr*0.45;
+  if(!onBody && Math.hypot(hdx,hdy)<hr*1.3){
+    return (hdy>hr*0.12 && Math.abs(hdx)<hr*0.3) ? 'nose'
+         : Math.abs(hdx)>hr*0.62 ? 'ears'
+         : hdy<-hr*0.2 ? 'forehead'
+         : Math.abs(hdx)>hr*0.28 ? 'cheeks' : 'head';
+  }
+  if(!inBody) return null;
+  if(py < p.body.y + p.body.ry*0.15) return 'back';
+  return Math.abs(px-p.body.x) > p.body.rx*0.45 ? 'haunch' : 'belly';
+}
+// Body language instead of a meter: lean toward a stroke she likes, flinch away from one she doesn't.
+function leanTo(px,p){ rab.lean=1; rab.leanDX=clamp((px-p.head.x)/p.head.r,-1,1); }
+function flinch(px,p){ rab.lean=1; rab.leanDX=-Math.sign(px-p.head.x||1); rab.landSquash=0.7; rab.earJiggle=1;
+  spawnWord(p.head.x+p.head.r*0.9, p.head.y-p.head.r*0.8, '!', '#ffd6c9'); }
+// The sacred feet (and tail). First touch is a WARNING: ears back and a flinch. Touch again within a few
+// seconds and she THUMPS. Real body language, and a stray stroke no longer costs a thump.
+function touchFeet(px,p,withComb){
+  const tnow=now();
+  if(tnow-lastFeetPet<=0.8) return;
+  lastFeetPet=tnow;
+  if(tnow > rab.feetWarnUntil){
+    rab.feetWarnUntil = tnow+3;
+    flinch(px,p);
+    toast(`${rab.name}'s ears go back. Those feet are off-limits — touch them again and ${P().s}'ll THUMP.`);
+    return;
+  }
+  rab.feetWarnUntil=0;
+  const dmg = rab.bondLevel>=8? 0.9 : 1.4;             // trust softens the feet reaction a little at high Bond
+  rab.thumps=clamp(rab.thumps+dmg,0,5); stats.happy=clamp(stats.happy-8);
+  raiseMistake(0.5);                                  // rough handling while young makes a warier adult
+  triggerThump(); toast(withComb ? 'You combed the SACRED back feet! 😾 *THUMP*' : 'You touched the SACRED back feet! 😾 *THUMP*');
+  checkThreshold();
+  fireFact('feet');
+}
+// The hit area matches the feet as DRAWN (two 24×15 ovals at the base of the body, see drawFoot) plus the
+// tail. The old test was one big circle that covered her whole lower front, so strokes on the belly or
+// chest counted as touching the feet.
+function onFeet(px,py,p){
+  const s=p.s, fy=p.body.y+p.body.ry-8*s;
+  const inFoot = fx => ((px-fx)/(24*s*1.25))**2 + ((py-fy)/(15*s*1.4))**2 <= 1;
+  return inFoot(p.cx-p.body.rx*0.5) || inFoot(p.cx+p.body.rx*0.5) || Math.hypot(px-p.tail.x, py-p.tail.y)<p.tail.r*1.1;
+}
+const LIKED_ZONES = ['forehead','cheeks','ears','head','back'];   // most rabbits enjoy these; belly and haunches are "meh"
 function handlePet(px,py){
   if(!pettingMode || rab.cold || rab.hidden || rab.state==='tummy') return;
   const p=parts();
-  const dHead=Math.hypot(px-p.head.x, py-p.head.y);
-  const dFeet=Math.hypot(px-p.feet.x, py-p.feet.y);
-  const dTail=Math.hypot(px-p.tail.x, py-p.tail.y);
+  if(onFeet(px,py,p)){ touchFeet(px,p,false); return; }
+  const zone=petZone(px,py,p);
+  if(!zone) return;
   const tnow=now();
-  if((dFeet<p.feet.r && py>p.head.y+p.head.r*0.6) || dTail<p.tail.r*1.3){
-    if(tnow-lastFeetPet>0.8){
-      lastFeetPet=tnow;
-      // trust softens the feet reaction a little at high Bond
-      const dmg = rab.bondLevel>=8? 0.9 : 1.4;
-      rab.thumps=clamp(rab.thumps+dmg,0,5); stats.happy=clamp(stats.happy-8);
-      raiseMistake(0.5);                                  // rough handling while young makes a warier adult
-      triggerThump(); toast('You touched the SACRED back feet! 😾 *THUMP*'); checkThreshold();
-      fireFact('feet');
-    }
+  if(zone==='nose' && rab.prefs.dislike==='nose'){
+    flinch(px,p);
+    annoyed('nose', `${rab.name} shakes ${P().p} head and pulls back — ${P().s} doesn't like ${P().p} nose touched. Noted in 📖.`);
     return;
   }
-  if(dHead<p.head.r*1.3){
-    // which part of the head: nose (muzzle), ears (far sides), forehead (top), cheeks (lower sides)
-    const hdx=px-p.head.x, hdy=py-p.head.y, hr=p.head.r;
-    const zone = (hdy>hr*0.12 && Math.abs(hdx)<hr*0.3) ? 'nose'
-               : Math.abs(hdx)>hr*0.62 ? 'ears'
-               : hdy<-hr*0.2 ? 'forehead'
-               : Math.abs(hdx)>hr*0.28 ? 'cheeks' : null;
-    if(zone==='nose' && rab.prefs.dislike==='nose'){
-      annoyed('nose', `${rab.name} shakes ${P().p} head and pulls back — ${P().s} doesn't like ${P().p} nose touched. Noted in 📖.`);
-      return;
+  if(zone==='haunch' && rab.prefs.dislike==='rump'){
+    flinch(px,p);
+    annoyed('rump', `${rab.name} twists away — ${P().s} doesn't like ${P().p} haunches touched. Noted in 📖.`);
+    return;
+  }
+  const favSpot = zone===rab.prefs.pet;
+  const liked = favSpot || LIKED_ZONES.includes(zone);
+  if(tnow-lastPetGain>0.14){
+    lastPetGain=tnow; wake();
+    stats.happy=clamp(stats.happy+3*temper().petJoy*(favSpot?1.7 : liked?1 : 0.35)); rab.thumps=clamp(rab.thumps-(liked?0.2:0.05),0,5);
+    if(favSpot){
+      leanTo(px,p);                                     // warmest: she leans right into your hand
+      if(Math.random()<0.3) spawnHeart(px+rand(-14,14), py-p.head.r*0.6);
+      prefHit('pet', `💛 ${rab.name} leans right into it — ${PET_SPOTS[rab.prefs.pet].name} ${rab.prefs.pet==='back'?'are':'is'} ${P().p} favourite place for a rub.`);
     }
-    const favSpot = zone && zone===rab.prefs.pet;
-    if(tnow-lastPetGain>0.14){
-      lastPetGain=tnow; wake();
-      stats.happy=clamp(stats.happy+3*temper().petJoy*(favSpot?1.7:1)); rab.thumps=clamp(rab.thumps-0.2,0,5);
-      if(favSpot){
-        if(Math.random()<0.3) spawnHeart(p.head.x+rand(-18,18), p.head.y-p.head.r*1.2);
-        prefHit('pet', `💛 ${rab.name} leans right into it — ${PET_SPOTS[rab.prefs.pet].name} is ${P().p} favourite place for a rub.`);
-      }
-      rab.petReact=0.6;                                   // obvious happy reaction
-      rab.lastEngaged=tnow; raiseAffection(0.5);   // per stroke tick (~7/s) — weighed against play in settleTemperament
-      rab.digUntil=rab.chewUntil=rab.mischiefAt=0;        // attention ends the mischief
-      // tooth purr: soft grinding when a content bun is being stroked (never when she's unwell)
-      if(stats.happy>70 && !unwell() && !rab.sick && tnow>=rab.purrCooldown && Math.random()<0.07*temper().purr*(favSpot?3:1)){
-        rab.purrCooldown = tnow+3;
-        spawnWord(p.head.x+p.head.r*0.9, p.head.y+p.head.r*0.3, 'prrr', '#fff3c4');
-        learnNote('purr');
-      }
-      rab.lifetimePets++; if(rab.lifetimePets%30===0) addXP(4);
-      if(rab.lifetimePets>=100) unlockAch('pets100');
-      incGoal('pet',1);                                   // counts every pet now
-      spawnHeart(p.head.x+rand(-12,12), p.head.y - p.head.r*1.35);   // above the mane, always visible
-      if(!rab.trick) rab.state='loaf';
+    if(liked) rab.petReact=0.6;                         // content squint for any stroke she enjoys; nothing much for "meh"
+    rab.lastEngaged=tnow; raiseAffection(0.5);   // per stroke tick (~7/s) — weighed against play in settleTemperament
+    rab.digUntil=rab.chewUntil=rab.mischiefAt=0;        // attention ends the mischief
+    // tooth purr: soft grinding when a content bun is being stroked (never when she's unwell)
+    if(liked && stats.happy>70 && !unwell() && !rab.sick && tnow>=rab.purrCooldown && Math.random()<0.07*temper().purr*(favSpot?3:1)){
+      rab.purrCooldown = tnow+3;
+      spawnWord(p.head.x+p.head.r*0.9, p.head.y+p.head.r*0.3, 'prrr', '#fff3c4');
+      learnNote('purr');
     }
+    rab.lifetimePets++; if(rab.lifetimePets%30===0) addXP(4);
+    if(rab.lifetimePets>=100) unlockAch('pets100');
+    incGoal('pet',1);                                   // counts every pet now
+    if(liked) spawnHeart(px+rand(-12,12), py - p.head.r*0.9);
+    if(!rab.trick) rab.state='loaf';
   }
 }
 
@@ -2821,6 +2897,7 @@ function idleBrain(dt,t){
   if(rab.cold||rab.state==='tummy'||rab.state==='rest'||rab.hopping||rab.trick||rab.binkyT>0) return;
   if(pettingMode && pointer.down) return;
   if(rab.mischiefAt || t<rab.digUntil || t<rab.chewUntil || rab.chinAt || t<rab.chinUntil) return;   // busy
+  if(closeUp.on) return;                    // held close: she stays put while you pet or groom
   const T = temper(), act = activity(), ill = unwell() || rab.sick;
   if(stats.energy<18 && Math.random()<perFrame(0.01,dt)){ rab.restUntil=now()+rand(2,4); rab.state='rest'; rab.napSpot=null;
     spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r); return; }
@@ -3084,7 +3161,8 @@ function frame(){
     rab.inBed = rab.state==='rest' && !rab.inHammock && !rab.hopping && Math.abs(rab.x-world.bed.x)<world.bed.r*0.6;
     rab.playYOff = damp(rab.playYOff||0,
       rab.inHammock? (hm.nap - rab.baseY) : rab.inBed? (world.bed.y - rab.baseY)*0.55 : 0, 5, dt);
-    const inDen = t<rab.denUntil && owns('hutch') && !rab.hopping && Math.abs(rab.x-world.hutch.x)<world.hutch.r*0.5;
+    const inDen = !closeUp.on && t<rab.denUntil && owns('hutch')   // never fade her out while you're up close
+                  && !rab.hopping && Math.abs(rab.x-world.hutch.x)<world.hutch.r*0.5;
     rab.playAlpha = damp(rab.playAlpha!==undefined?rab.playAlpha:1, inDen? 0.12 : 1, 5, dt);
   }
 
@@ -3101,15 +3179,19 @@ function frame(){
     const p=parts(); spawnZ(p.head.x+p.head.r*0.6,p.head.y-p.head.r);
   }
 
+  updateCamera(dt);
+  rab.lean = damp(rab.lean||0, 0, 3, dt);
   /* render — everything on the single canvas, sharing one screen-shake offset */
   let shx=0, shy=0;
   if(thumpFx>0){ const m=thumpFx*8; shx=rand(-m,m); shy=rand(-m,m); }
 
   ctx = bgCtx;
   ctx.save(); ctx.translate(shx, shy);
+  ctx.translate(closeUp.ox, closeUp.oy); ctx.scale(closeUp.z, closeUp.z);   // close-up camera (identity when out)
   // room + props + FX
   drawSky();
   drawRoom();
+  if(closeUp.k>0.01){ ctx.fillStyle=`rgba(30,20,35,${0.3*closeUp.k})`; ctx.fillRect(-W,-H,W*3,H*3); }   // room dims behind her
   drawHazard();
   drawParticles(dt);
   drawThumpFx(dt);
@@ -3240,7 +3322,7 @@ function renderAbout(body){
     ['💛','Favourite treat', rab.favKnown ? `${FAV_TREATS[rab.favTreat].emoji} ${FAV_TREATS[rab.favTreat].name}` : null,
       `Try different treats, or watch what ${S} begs for.`],
     ['💆','Favourite place for a rub', k.pet ? `${PET_SPOTS[pr.pet].emoji} ${cap(PET_SPOTS[pr.pet].name)}` : null,
-      `Try stroking different parts of ${Pp} head: forehead, cheeks, behind the ears.`],
+      `Try stroking ${Pp} forehead, cheeks, behind the ears, and down ${Pp} back.`],
     ['🧸','Favourite toy', k.toy ? `${TOYS[pr.toy].emoji} ${TOYS[pr.toy].name}` : null,
       notOwned(pr.toy) ? `Maybe a toy you don't have yet.` : `Play together and watch which toy gets the biggest reaction.`],
     ['😴','Favourite nap spot', k.nap ? `${NAP_SPOTS[pr.nap].emoji} ${cap(NAP_SPOTS[pr.nap].name)}` : null,
@@ -3501,12 +3583,12 @@ function canvasPos(e){
   const cy=(e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY)-r.top;
   return {x:cx,y:cy};
 }
-function onDown(e){pointer.down=true;const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;
+function onDown(e){pointer.down=true;const s=canvasPos(e);const p=toWorld(s.x,s.y);pointer.x=p.x;pointer.y=p.y;
   if(pettingMode) $('game').style.cursor='grabbing';
   if(findRabbit(p.x,p.y)) return;
   if(tapCord(p.x,p.y)) return;
   handlePet(p.x,p.y); handleGroom(p.x,p.y);}
-function onMove(e){const p=canvasPos(e);pointer.x=p.x;pointer.y=p.y;if(pointer.down){handlePet(p.x,p.y); handleGroom(p.x,p.y);}}
+function onMove(e){const s=canvasPos(e);const p=toWorld(s.x,s.y);pointer.x=p.x;pointer.y=p.y;if(pointer.down){handlePet(p.x,p.y); handleGroom(p.x,p.y);}}
 function onUp(){pointer.down=false; if(pettingMode) $('game').style.cursor='grab';}
 // Register pointer handlers exactly once. Reset/import reload the page today, but guarding here
 // means a future reload-free reset can't stack duplicate handlers (every pet would fire twice).
@@ -3529,6 +3611,7 @@ bind('bBanana',offerBanana); bind('bPet',togglePetting); bind('bTrick',doTrick);
 bind('bClean',cleanLitter); bind('bGroom',toggleGrooming); bind('bRest',restRabbit); bind('bPlay',playToy); bind('bVet',callVet);
 bind('tbShop',()=>openPanel('shop')); bind('tbGoals',()=>openPanel('goals')); bind('tbMenu',()=>openPanel('menu'));
 bind('tbNotes',()=>openPanel('notes')); updateNotesBadge();
+bind('closeUpDone', endCloseUp);
 
 // Games tab stays hidden until it's revealed (day 2, or immediately for established saves) — item 5.
 // Individual games unlock on a schedule after that: Snake/Guess with the tab, Tic-Tac-Toe on day 3,
@@ -3970,7 +4053,7 @@ const QUIZ_NOTES = {
   safefoods:{q:'Which of these is poisonous to me?', a:'Avocado', w:['Romaine lettuce','Cilantro']},
   haytypes:{q:'Which hay suits a grown-up rabbit?', a:'Grass hay, like timothy', w:['Alfalfa','No hay, just pellets']},
 };
-const QUIZ_DISLIKE = {rump:'Being brushed on my haunches', nose:'Having my nose touched',
+const QUIZ_DISLIKE = {rump:'Being touched on my haunches', nose:'Having my nose touched',
                       ball:'The Treat Ball', tunnel:'The Play Tunnel', tower:'The Climbing Tower'};
 function quizOthers(all, right, n){ return all.filter(x=>x!==right).sort(()=>Math.random()-0.5).slice(0,n); }
 // Build every question the player could fairly be asked right now.
