@@ -166,8 +166,8 @@ const FAV_TREATS = {banana:{name:'Banana', emoji:'🍌'}, greens:{name:'Leafy Gr
 const PET_SPOTS = {forehead:{name:'the forehead', emoji:'💆'}, cheeks:{name:'the cheeks', emoji:'☺️'}, ears:{name:'behind the ears', emoji:'👂'},
                    back:{name:'the back and shoulders', emoji:'🫳'}};
 const TOYS      = {ball:{name:'Treat Ball', emoji:'🧸'}, tunnel:{name:'Play Tunnel', emoji:'🕳️'}, tower:{name:'Climbing Tower', emoji:'🪜'}};
-const NAP_SPOTS = {bed:{name:'the bed', emoji:'🛏️'}, hutch:{name:'the wooden hutch', emoji:'🛖'},
-                   castle:{name:'the cardboard castle', emoji:'🏰'}, hammock:{name:'the hammock', emoji:'🪢'}};
+const NAP_SPOTS = {bed:{name:'the bed', emoji:'🛏️'}, hutch:{name:'the wooden hideaway', emoji:'🛖'},
+                   castle:{name:'the cardboard castle', emoji:'🏰'}, hammock:{name:'the lookout platform', emoji:'🪵'}};
 const DISLIKES  = {rump:{name:'being touched on the haunches', emoji:'🪮'}, nose:{name:'having their nose touched', emoji:'👃'},
                    ball:{name:'the Treat Ball', emoji:'🧸'}, tunnel:{name:'the Play Tunnel', emoji:'🕳️'}, tower:{name:'the Climbing Tower', emoji:'🪜'}};
 const PREF_FIND = {pet:40, toy:2, nap:2};   // stroke ticks (~6s of rubbing) / plays / naps before it's "discovered"
@@ -259,14 +259,14 @@ const SHOP = [   // type: feed(instant) · cure(stock) · toy/decor(permanent) �
   {id:'groom',   name:'Grooming Kit',    emoji:'🪮', cost:16, type:'tool', unlock:1, desc:'Cleaning also grooms: extra happiness + Bond, less molt.'},
   {id:'ball',    name:'Treat Ball',      emoji:'🧸', cost:18, type:'toy',  unlock:1, desc:'Enrichment: unlocks Play, slows happiness decay.'},
   {id:'tunnel',  name:'Play Tunnel',     emoji:'🕳️', cost:26, type:'toy',  unlock:2, desc:'More Play value and energy from zoomies.'},
-  {id:'castle',  name:'Cardboard Castle',emoji:'🏰', cost:44, type:'decor',unlock:3, desc:'Cosy hideout — a little happiness every day.'},
+  {id:'castle',  name:'Cardboard Castle',emoji:'🏰', cost:44, type:'decor',unlock:3, desc:'Cosy hideout — a little happiness every day. One hideout shows at a time (switch in the Menu).'},
   {id:'timothy', name:'Timothy Hay',     emoji:'🌾', cost:6,  type:'tool', unlock:1, adult:true, desc:'Grass hay for grown-up rabbits. Mixes in over 2 days to switch from alfalfa.'},
   {id:'chews',   name:'Apple Chew Sticks',emoji:'🥢',cost:10, type:'feed', unlock:1, desc:'A good chew: happiness + a little hunger, healthy teeth.'},
   {id:'bottle',  name:'Deluxe Water Bottle',emoji:'🚰',cost:16,type:'tool',unlock:2, desc:'Fresh water lasts longer — the Water need drains slower.'},
   {id:'rug_rose',name:'Rose Shag Rug',   emoji:'🟥', cost:24, type:'decor',unlock:2, desc:'Re-carpets the room in plush rose.'},
-  {id:'tower',   name:'Climbing Tower',   emoji:'🪜', cost:34, type:'toy',  unlock:3, desc:'A multi-level lookout — enrichment + happiness.'},
-  {id:'hutch',   name:'Wooden Hutch',     emoji:'🛖', cost:50, type:'decor',unlock:4, desc:'A rustic hidey-hutch. Décor + a daily happiness boost.'},
-  {id:'hammock', name:'Bunny Hammock',    emoji:'🛏️', cost:40, type:'toy',  unlock:6, desc:'Lounge in style — a big daily happiness boost.'},
+  {id:'tower',   name:'Climbing Tower',   emoji:'🪜', cost:34, type:'toy',  unlock:3, desc:'A multi-level lookout — enrichment + happiness. One up-high spot shows at a time (switch in the Menu).'},
+  {id:'hutch',   name:'Wooden Hideaway',  emoji:'🛖', cost:50, type:'decor',unlock:4, desc:'A pine hideout with two doorways, so your rabbit never feels cornered. A daily happiness boost.'},
+  {id:'hammock', name:'Lookout Platform', emoji:'🪵', cost:40, type:'toy',  unlock:6, desc:'A sturdy wooden platform with a fleece pad. Rabbits like a raised spot to watch from and nap on. A big daily happiness boost.'},
   {id:'bed_cloud',name:'Cloud Bed',       emoji:'☁️', cost:30, type:'decor',unlock:2, desc:'Upgrade the basic bed to a plush cloud bed (switch it in the Menu).'},
 ];
 const shopItem = id => SHOP.find(s=>s.id===id);
@@ -326,26 +326,10 @@ function resize(){
   // so nothing sits dead-behind her and her hop-to-nap / hop-to-den reads as real motion.
   // On a portrait (mobile) frame the wall is shortened and the window enlarged so the room
   // fills more of the screen; landscape (desktop) keeps the original proportions.
-  const mobile = (H/W > 1.15);
-  world.mobile = mobile;
-  world.floorY = H*(mobile? 0.50 : 0.56);
-  world.rug   = {x:W*0.5,  y:H*0.76, rx:W*0.45, ry:H*0.15};
-  world.litter= {x:W*0.14, y:H*0.66, w:Math.min(230,W*0.30)*bs, h:Math.min(118,H*0.19)*bs};
-  world.food  = {x:W*0.27, y:H*0.79, r:Math.min(32,W*0.05)};
-  world.water = {x:W*0.365,y:H*0.80, r:Math.min(30,W*0.045)};
-  world.hammock={x:W*0.355,y:H*0.725,w:Math.min(232,W*0.31)*bs}; // left-of-centre, in the open; cradles her
-  world.hammock.postH = world.hammock.w*0.46;
-  world.hammock.sy  = world.hammock.y - world.hammock.postH;      // back rim of the sling (behind her)
-  world.hammock.nap = world.hammock.sy + world.hammock.w*0.215;   // where she settles into the pouch
-  world.tower = {x:W*0.145,y:H*0.63, r:Math.min(72,W*0.108)*bs};  // far-left corner (thin, clears the litter)
-  world.hutch = {x:W*0.665,y:H*0.605,r:Math.min(80,W*0.12)*bs};   // right-of-centre — she hops here to den
-  world.tube  = {x:W*0.86, y:H*0.65, w:Math.min(230,W*0.30)*bs, h:Math.min(116,H*0.19)*bs};
-  world.bed   = {x:W*0.585,y:H*0.795,r:Math.min(84,W*0.125)*bs};  // front, right of centre
-  world.castle= {x:W*0.875,y:H*0.835,r:Math.min(80,W*0.12)*bs};   // front-far-right, below the tunnel mouth
-  world.ball  = {x:W*0.305,y:H*0.815,r:Math.min(27,W*0.042)*bs};
-  world.win   = mobile
-    ? {x:W*0.5-W*0.165, y:H*0.045, w:W*0.33, h:H*0.31}   // bigger window fills the shorter wall
-    : {x:W*0.5-W*0.11,  y:H*0.06,  w:W*0.22, h:H*0.28};
+  const ctl=document.getElementById('controls');
+  let dockTop = ctl && ctl.offsetHeight ? ctl.getBoundingClientRect().top - canvas.getBoundingClientRect().top : H*0.86;
+  if(!(dockTop > H*0.4)) dockTop = H*0.86;
+  layoutWorld(dockTop, bs);
   rab.baseY = world.rug.y - 6;
   // Re-clamp her — and any in-flight hop — to the new floor bounds. A device rotation mid-hop
   // changes W, so hopFromX/hopToX (absolute pixels for the OLD width) can point off the new rug
@@ -359,6 +343,55 @@ function resize(){
   if(dayEvent && dayEvent.type==='hazard'){ const o=outletPos(); dayEvent.cord.x=o.x+78; dayEvent.cord.y=H*0.80; }
 }
 window.addEventListener('resize', resize);
+/* Where everything sits, for the current W×H and the top of the control dock (tests call this
+   directly at other screen sizes). */
+/* One scale for the whole room — the rabbit, her hops and every piece of furniture — so they stay
+   in proportion on any screen. Limited by width on phones and by the floor's height on wide screens. */
+function roomU(){ return world.U || Math.min(W,H)/560; }
+function layoutWorld(dockTop, bs){
+  const mobile = (H/W > 1.15);
+  world.mobile = mobile;
+  // The floor is laid out in the BAND between the wall and the top of the control dock, so no
+  // furniture ever sits under the buttons. On short screens (a laptop browser) the wall gives
+  // up height to the floor: it's mostly behind the stat bars there anyway.
+  world.dockTop = dockTop;
+  world.floorY = Math.min(H*(mobile? 0.50 : 0.56), dockTop - Math.max(200, dockTop*0.45));
+  const top = world.floorY, band = dockTop - 6 - top;
+  world.band = band;
+  const U = world.U = Math.min(W/560, band/300);           // sizes below are in U (a phone is U≈0.7)
+  world.rug   = {x:W*0.5,  y:top+band*0.62, rx:W*0.45, ry:Math.min(H*0.15, band*0.40)};
+  world.litter= {x:W*0.14, y:0, w:168*U*bs, h:100*U*bs};
+  /* Two rows, drawn back to front (see drawRoom). Nothing may overlap on any screen: the 'layout'
+     test group checks every item's bounds at phone, tablet, laptop and desktop sizes.
+     BACK row, a little smaller for depth: litter · up-high spot (platform OR tower) · hideout (hideaway OR castle).
+     FRONT row: ball · food · water · bed · tunnel. */
+  const back = top+band*0.44, depthK = 0.85;                       // back-row floor line and size
+  world.litter.y = back - world.litter.h*0.52;
+  world.litter.x = Math.max(W*0.14, world.litter.w/2 + 6);                // fully on screen
+  world.food  = {x:W*0.27, y:top+band*0.79, r:28*U};
+  world.water = {x:W*0.365,y:top+band*0.80, r:25*U};
+  const perchX = W*0.42, hideX = W*0.68;
+  world.hammock={x:perchX, y:back, w:174*U*bs*depthK};   // the lookout platform (id kept: saves)
+  world.hammock.postH = world.hammock.w*0.46;
+  world.hammock.top = world.hammock.y - world.hammock.postH*0.62;      // top board
+  world.hammock.nap = world.hammock.top - world.hammock.w*0.075;       // where she lies, on the pad
+  world.hammock.sy  = world.hammock.top;
+  const towerR = 60*U*bs*depthK;
+  world.tower = {x:perchX, y:back-towerR*0.2, r:towerR};
+  const hutR = 67*U*bs*depthK;
+  world.hutch = {x:hideX, y:back-hutR*0.7, r:hutR};                   // the wooden hideaway — she dens here
+  world.castle= {x:hideX, y:back-hutR*0.2, r:hutR};
+  world.tube  = {x:0, y:0, w:168*U*bs, h:0};                          // lying along the front, side-on
+  world.tube.h = world.tube.w*0.52;
+  world.tube.y = top + band*0.93 - world.tube.h/2;
+  world.tube.x = Math.min(W*0.86, W - world.tube.w/2 - 6);
+  world.bed   = {x:W*0.57, y:0, r:70*U*bs};   // the cushion, front, right of centre
+  world.bed.y = top + band*0.95 - world.bed.r*0.56;
+  world.ball  = {x:W*0.17, y:top+band*0.82, r:23.5*U*bs};
+  world.win   = mobile
+    ? {x:W*0.5-W*0.165, y:H*0.045, w:W*0.33, h:H*0.31}   // bigger window fills the shorter wall
+    : {x:W*0.5-W*0.11,  y:H*0.06,  w:W*0.22, h:H*0.28};
+}
 
 /* ============================================================================ *
  *  GAME STATE
@@ -378,7 +411,7 @@ const rab = {
   trick:null,
   restUntil:0,
   play:null, playAlpha:1, playYOff:0, hidden:false,
-  boxT:0, boxYOff:0, hammockSag:0, decor:{rug:null,bed:null}, petReact:0,
+  boxT:0, boxYOff:0, hammockSag:0, decor:{rug:null,bed:null,hideout:null,perch:null}, petReact:0,
   begUntil:0, begAt:0, begCooldown:0, begWant:'🍌', begLeft:0, begMiss:0, begHint:false, denUntil:0,
   maxAngerCount:0, weightStrikes:0, pelletsToday:0, _obeseT:0, _obeseWarned:false,
   // v2 "first ten minutes" state — persisted flags + runtime-only scripting timers
@@ -513,7 +546,8 @@ function applySave(d){
   const gc=obj(d.goalCounters); rab.goalCounters={};
   for(const k of Object.keys(gc).slice(0,40)) if(k.length<=24 && !has(Object.prototype,k)) rab.goalCounters[k]=num(gc[k],0);
   rab.lifetimePets=int(d.lifetimePets,0,0,1e7);
-  const dd=obj(d.decor); rab.decor={rug: dd.rug==='rose'?'rose':null, bed: dd.bed==='cloud'?'cloud':null};
+  const dd=obj(d.decor); rab.decor={rug: dd.rug==='rose'?'rose':null, bed: dd.bed==='cloud'?'cloud':null,
+    hideout: SLOTS.hideout.includes(dd.hideout)?dd.hideout:null, perch: SLOTS.perch.includes(dd.perch)?dd.perch:null};
   rab.maxAngerCount=num(d.maxAngerCount,0); rab.weightStrikes=num(d.weightStrikes,0); rab.pelletsToday=int(d.pelletsToday,0,0,99);
   // v2 flags — migrate with defaults; established (day 2+) saves always have Games revealed
   const df=obj(d.firedCards); rab.firedCards={}; for(const k of Object.keys(FACTS)) if(has(df,k) && df[k]) rab.firedCards[k]=1;
@@ -700,7 +734,7 @@ $('factCard').addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){
  * ============================================================================ */
 function parts(){
   const B = BREEDS[rab.breed] || BREEDS.holland;
-  const s = rab.curScale * (B.scale||1) * Math.min(W,H)/560 * 0.88;   // ~12% smaller so toys fit
+  const s = rab.curScale * (B.scale||1) * roomU() * 0.88;   // ~12% smaller so toys fit
   const cx = rab.x;
   const cr = rab.crouch||0;   // pre-hop anticipation crouch: compress down & wide before launch
   const cy = rab.baseY + rab.hopOff + rab.binkyHop + (rab.playYOff||0) + (rab.boxYOff||0) + cr*5*s;
@@ -1000,17 +1034,39 @@ function drawRoom(){
   drawOutlet();   // permanent wall outlet (the charger plugs in here when the hazard event fires)
   drawFloor();
   drawRug();
+  // painter's order: whatever stands further back (higher up the floor) is drawn first
+  for(const p of roomProps().sort((a,b)=>a.y-b.y)) prop(p.x, p.y, p.rx, p.draw);
+}
+/* every piece of furniture in the room: its floor contact (x, y), shadow width, and how to draw it */
+function roomProps(){
+  const w=world, cloud=rab.decor && rab.decor.bed==='cloud', L=[];
+  if(shown('tower'))   L.push({id:'tower',  x:w.tower.x,  y:w.tower.y+w.tower.r*0.24, rx:w.tower.r*0.95, draw:drawTower});
+  if(shown('hutch'))   L.push({id:'hutch',  x:w.hutch.x,  y:w.hutch.y+w.hutch.r*0.73, rx:w.hutch.r*1.15, draw:drawHutch});
+  if(shown('hammock')) L.push({id:'hammock',x:w.hammock.x,y:w.hammock.y+3, rx:w.hammock.w*0.42, draw:drawHammock});
+  if(shown('castle'))  L.push({id:'castle', x:w.castle.x, y:w.castle.y+w.castle.r*0.24, rx:w.castle.r*1.05, draw:drawCastle});
+  if(owns('tunnel'))   L.push({id:'tunnel', x:w.tube.x,   y:w.tube.y+w.tube.h*0.52, rx:w.tube.w*0.46, draw:drawTube});
+  L.push({id:'bed', x:w.bed.x, y:w.bed.y+w.bed.r*(cloud?0.62:0.44), rx:w.bed.r*(cloud?0.95:0.85), draw:drawBed});
+  L.push({id:'litter', x:w.litter.x, y:w.litter.y+w.litter.h*0.5, rx:w.litter.w*0.5, draw:drawLitter});
+  L.push({id:'food',  x:w.food.x,  y:w.food.y+w.food.r*0.5,   rx:w.food.r*1.05,  draw:drawFoodBowl});
+  L.push({id:'water', x:w.water.x, y:w.water.y+w.water.r*0.5, rx:w.water.r*1.05, draw:drawWaterBowl});
+  if(owns('ball'))     L.push({id:'ball',   x:w.ball.x,   y:w.ball.y+w.ball.r*0.9, rx:w.ball.r*1.1, draw:drawBall});
+  return L;
+}
+/* on-screen bounds of each item as drawn (used by the layout tests): [x0, y0, x1, y1] */
+function propBounds(id){
   const w=world;
-  if(owns('tower'))  prop(w.tower.x,  w.tower.y+w.tower.r*0.24, w.tower.r*0.95, drawTower);
-  if(owns('hutch'))  prop(w.hutch.x,  w.hutch.y+w.hutch.r*0.73, w.hutch.r*1.15, drawHutch);
-  if(owns('hammock'))prop(w.hammock.x,w.hammock.y+3, w.hammock.w*0.16, drawHammock);
-  if(owns('tunnel')) prop(w.tube.x,   w.tube.y+w.tube.h*0.52, w.tube.w*0.46, drawTube);
-  prop(w.bed.x, w.bed.y+w.bed.r*0.62, w.bed.r*0.95, drawBed);
-  prop(w.litter.x, w.litter.y+w.litter.h*0.5, w.litter.w*0.5, drawLitter);
-  prop(w.food.x, w.food.y+w.food.r*0.5, w.food.r*1.05, drawFoodBowl);
-  prop(w.water.x, w.water.y+w.water.r*0.5, w.water.r*1.05, drawWaterBowl);
-  if(owns('castle')) prop(w.castle.x, w.castle.y+w.castle.r*0.24, w.castle.r*1.05, drawCastle);
-  if(owns('ball'))   prop(w.ball.x, w.ball.y+w.ball.r*0.9, w.ball.r*1.1, drawBall);
+  switch(id){
+    case 'litter':  { const L=w.litter; return [L.x-L.w/2, L.y-L.h/2, L.x+L.w/2, L.y+L.h*0.52]; }
+    case 'food':    { const b=w.food;  return [b.x-b.r, b.y-b.r*0.55, b.x+b.r, b.y+b.r*0.85]; }
+    case 'water':   { const b=w.water; return [b.x-b.r, b.y-b.r*0.55, b.x+b.r, b.y+b.r*0.85]; }
+    case 'ball':    { const b=w.ball;  return [b.x-b.r, b.y-b.r, b.x+b.r, b.y+b.r]; }
+    case 'bed':     { const b=w.bed, R=b.r; return [b.x-R*0.88, b.y-R*0.45, b.x+R*0.88, b.y+R*0.56]; }
+    case 'tunnel':  { const t=w.tube;  return [t.x-t.w/2, t.y-t.h/2, t.x+t.w/2, t.y+t.h/2]; }
+    case 'hutch':   { const c=w.hutch, r=c.r; return [c.x-r*1.19, c.y-r*0.52, c.x+r*1.19, c.y+r*0.70]; }
+    case 'castle':  { const c=w.castle,r=c.r; return [c.x-r, c.y-r*1.3, c.x+r, c.y+r*0.2]; }
+    case 'tower':   { const c=w.tower, r=c.r; return [c.x-r*0.75, c.y-r*1.7, c.x+r*0.75, c.y+r*0.2]; }
+    case 'hammock': { const h=w.hammock, pw=h.w*0.78; return [h.x-pw*0.52, h.top-pw*0.085*1.2, h.x+pw*0.52, h.y]; }
+  }
 }
 function prop(x,y,rx,fn){ castShadow(x,y,rx); fn(); }
 // soft contact shadow so furniture reads as sitting ON the floor, not floating
@@ -1020,8 +1076,9 @@ function groundShadow(x,y,rx){
 }
 function drawLitterFront(){
   const L=world.litter;
-  ctx.fillStyle='#3f6fae'; roundRect(L.x-L.w/2, L.y+L.h*0.02, L.w, L.h*0.5, 8); ctx.fill();
-  ctx.fillStyle='#5a86c2'; roundRect(L.x-L.w/2+6, L.y+L.h*0.08, L.w-12, L.h*0.36, 6); ctx.fill();
+  ctx.fillStyle='#d9dde2'; roundRect(L.x-L.w/2, L.y+L.h*0.02, L.w, L.h*0.5, 8); ctx.fill();   // grey-white plastic
+  ctx.strokeStyle='#a9b0b8'; ctx.lineWidth=2; roundRect(L.x-L.w/2, L.y+L.h*0.02, L.w, L.h*0.5, 8); ctx.stroke();
+  ctx.fillStyle='#eceef1'; roundRect(L.x-L.w/2+6, L.y+L.h*0.08, L.w-12, L.h*0.36, 6); ctx.fill();
   ctx.strokeStyle='#cbb24e'; ctx.lineWidth=2;
   for(let i=0;i<9;i++){const bx=L.x-L.w*0.32+i*L.w*0.08; ctx.beginPath();ctx.moveTo(bx,L.y+L.h*0.05);ctx.lineTo(bx+3,L.y+L.h*0.05-9);ctx.stroke();}
 }
@@ -1041,105 +1098,62 @@ function drawTower(){
   }
   // celLight removed: an unclipped highlight ellipse overhangs the prop and reads as a halo/bubble
 }
+/* WOODEN HIDEAWAY (id 'hutch', kept for saves): a low pine box with two arched doorways — real
+   hideaways have two exits so a rabbit never feels cornered — and a flat overhanging lid they can sit on. */
 function drawHutch(){
   const c=world.hutch, r=c.r;
-  const baseY=c.y+r*0.7;
-  ctx.fillStyle='#b58a5a'; roundRect(c.x-r*0.95, c.y-r*0.6, r*1.9, r*1.3, 6); ctx.fill();
-  ctx.strokeStyle=shade('#b58a5a',0.45); ctx.lineWidth=2; roundRect(c.x-r*0.95, c.y-r*0.6, r*1.9, r*1.3, 6); ctx.stroke();
-  ctx.strokeStyle='rgba(90,60,30,.3)';ctx.lineWidth=1.5;
-  for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(c.x-r*0.95,c.y-r*0.6+i*r*0.43);ctx.lineTo(c.x+r*0.95,c.y-r*0.6+i*r*0.43);ctx.stroke();}
-  /* vertical grain ticks between the plank lines */
-  ctx.strokeStyle='rgba(90,60,30,.16)';ctx.lineWidth=1;
-  for(const gx of [-0.62,-0.2,0.33,0.7]){
-    ctx.beginPath();ctx.moveTo(c.x+gx*r, c.y-r*0.56);ctx.lineTo(c.x+gx*r+2, c.y+r*0.66);ctx.stroke();
+  const base=c.y+r*0.70, top=c.y-r*0.28, L=c.x-r*1.05, Rr=c.x+r*1.05;
+  const PINE='#d8b784', PINE_D='#b8925c';
+  ctx.fillStyle=PINE; roundRect(L, top, Rr-L, base-top, 5); ctx.fill();
+  ctx.strokeStyle='rgba(120,85,40,.22)'; ctx.lineWidth=1.3;             // vertical boards
+  for(let i=1;i<6;i++){ const x=L+(Rr-L)*i/6; ctx.beginPath(); ctx.moveTo(x, top+3); ctx.lineTo(x, base-2); ctx.stroke(); }
+  ctx.strokeStyle='rgba(120,85,40,.12)'; ctx.lineWidth=1;                // grain
+  for(let i=0;i<9;i++){ const x=L+6+((i*37)%100)/100*(Rr-L-12), y=top+8+((i*53)%100)/100*(base-top-16);
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.quadraticCurveTo(x+2,y+6,x,y+12); ctx.stroke(); }
+  ctx.strokeStyle=shade(PINE,0.40); ctx.lineWidth=2; roundRect(L, top, Rr-L, base-top, 5); ctx.stroke();
+  for(const dx of [-0.48, 0.48]){                                         // two arched doorways
+    const dxp=c.x+dx*r, dw=r*0.30, dt=c.y+r*0.10;
+    ctx.fillStyle='#5a3f26';
+    ctx.beginPath(); ctx.moveTo(dxp-dw, base); ctx.lineTo(dxp-dw, dt); ctx.arc(dxp, dt, dw, Math.PI, 0); ctx.lineTo(dxp+dw, base); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(40,25,12,.45)';                                   // shadow inside the top of the arch
+    ctx.beginPath(); ctx.arc(dxp, dt, dw, Math.PI, 0); ctx.lineTo(dxp+dw, dt+dw*0.5); ctx.lineTo(dxp-dw, dt+dw*0.5); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle=shade(PINE,0.30); ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(dxp-dw, base); ctx.lineTo(dxp-dw, dt); ctx.arc(dxp, dt, dw, Math.PI, 0); ctx.lineTo(dxp+dw, base); ctx.stroke();
   }
-  ctx.fillStyle='#8a5f38';
-  ctx.beginPath();ctx.moveTo(c.x-r*1.1, c.y-r*0.55);ctx.lineTo(c.x, c.y-r*1.3);ctx.lineTo(c.x+r*1.1, c.y-r*0.55);ctx.closePath();ctx.fill();
-  ctx.strokeStyle=shade('#8a5f38',0.5); ctx.lineWidth=2; ctx.stroke();
-  /* shingle courses on the roof */
-  ctx.strokeStyle='rgba(50,32,16,.28)'; ctx.lineWidth=1.5;
-  for(const t of [0.33,0.66]){
-    const hw=r*1.1*(1-t), yy=c.y-r*0.55-r*0.75*t;
-    ctx.beginPath();ctx.moveTo(c.x-hw,yy);ctx.lineTo(c.x+hw,yy);ctx.stroke();
-  }
-  ctx.fillStyle='#2a1f16';
-  ctx.beginPath();
-  ctx.moveTo(c.x-r*0.42, baseY);
-  ctx.lineTo(c.x-r*0.42, c.y-r*0.05);
-  ctx.arc(c.x, c.y-r*0.05, r*0.42, Math.PI, 0);
-  ctx.lineTo(c.x+r*0.42, baseY);
-  ctx.closePath(); ctx.fill();
-  ctx.strokeStyle='rgba(200,170,90,.8)'; ctx.lineWidth=2;
-  for(let i=0;i<5;i++){const sx=c.x-r*0.3+i*r*0.15;
-    ctx.beginPath();ctx.moveTo(sx,baseY+4);ctx.lineTo(sx+4,baseY+9);ctx.stroke();}
-  // celLight removed: an unclipped highlight ellipse overhangs the prop and reads as a halo/bubble
+  // the lid: a thick board overhanging both ends, seen slightly from above
+  ctx.fillStyle=PINE_D; roundRect(L-r*0.14, top-r*0.14, (Rr-L)+r*0.28, r*0.20, 4); ctx.fill();
+  ctx.fillStyle='#e6c99a'; roundRect(L-r*0.14, top-r*0.24, (Rr-L)+r*0.28, r*0.14, 4); ctx.fill();
+  ctx.strokeStyle=shade(PINE_D,0.35); ctx.lineWidth=1.5; roundRect(L-r*0.14, top-r*0.24, (Rr-L)+r*0.28, r*0.30, 4); ctx.stroke();
+  ctx.strokeStyle='rgba(120,85,40,.25)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(L, top-r*0.17); ctx.lineTo(Rr, top-r*0.17); ctx.stroke();
 }
 // The hammock renders in two passes so she can lie INSIDE it: drawHammock() is the
 // stand + the pouch (drawn behind her in the room pass); drawHammockFront() is the
 // near lip, drawn over her lower body after the rabbit so she reads as tucked in.
-function hammockGeo(){
-  const hm=world.hammock, w=hm.w, px=hm.x, py=hm.y, sy=hm.sy;
-  const occupied = !!rab.inHammock;
-  // the sling sags deeper under her weight and springs back up when empty (damped
-  // in the tick as rab.hammockSag; the lab has no tick, so it falls back to state)
-  const sag = (rab.hammockSag!=null) ? rab.hammockSag : (occupied?1:0);
-  const low = w*(0.31 + 0.06*sag);
-  return {hm,w,px,py,sy,low,occupied,legSpread:w*0.15};
+/* LOOKOUT PLATFORM (id 'hammock', kept for saves; it replaced the hammock — hammocks suit rats and
+   ferrets, not rabbits). A sturdy low wooden platform with a fleece pad: she hops up to watch and nap. */
+function platformGeo(){
+  const hm=world.hammock, w=hm.w*0.78;
+  return {w, x:hm.x, foot:hm.y, topY:hm.top, board:w*0.085};
 }
 function drawHammock(){
-  const {w,px,py,sy,low,occupied}=hammockGeo();
-  const capR=w*0.05, ty=sy-w*0.05;
-  /* stands: solid A-legs with a low crossbar for structure */
-  ctx.strokeStyle='#7a5a38'; ctx.lineCap='round';
-  for(const dir of [-1,1]){
-    const topx=px+dir*w/2;
-    ctx.lineWidth=Math.max(5,w*0.055);
-    ctx.beginPath();ctx.moveTo(topx-w*0.13, py);ctx.lineTo(topx, ty);ctx.lineTo(topx+w*0.13, py);ctx.stroke();
-    ctx.lineWidth=Math.max(3,w*0.03);
-    ctx.beginPath();ctx.moveTo(topx-w*0.09, py-w*0.09);ctx.lineTo(topx+w*0.09, py-w*0.09);ctx.stroke();
+  const {w,x,foot,topY,board}=platformGeo();
+  const PINE='#c9a06a', LEG='#a57c47';
+  for(const dx of [-0.36, 0.36]){                                        // back legs, set in
+    ctx.fillStyle=shade(LEG,0.15); roundRect(x+dx*w-w*0.04, topY, w*0.08, foot-topY-w*0.04, 3); ctx.fill();
   }
-  ctx.lineCap='butt';
-  /* cloth: one deep sling anchored AT the caps */
-  const grad=ctx.createLinearGradient(0,ty,0,ty+low*1.7);
-  grad.addColorStop(0,'#c86a80'); grad.addColorStop(1,'#a3465c');
-  ctx.fillStyle=grad;
-  ctx.beginPath();
-  ctx.moveTo(px-w/2, ty);
-  ctx.quadraticCurveTo(px, ty+low*1.85, px+w/2, ty);
-  ctx.quadraticCurveTo(px, ty+low*0.95, px-w/2, ty);
-  ctx.fill();
-  /* fabric fold lines */
-  ctx.strokeStyle='rgba(255,255,255,.16)'; ctx.lineWidth=2;
-  for(const k of [0.45,0.75]){
-    ctx.beginPath();
-    ctx.moveTo(px-w*0.33, ty+low*0.5*k);
-    ctx.quadraticCurveTo(px, ty+low*1.55*k, px+w*0.33, ty+low*0.5*k);
-    ctx.stroke();
+  for(const dx of [-0.44, 0.44]){                                        // front legs
+    ctx.fillStyle=LEG; roundRect(x+dx*w-w*0.05, topY+board*0.5, w*0.10, foot-topY-board*0.5, 3); ctx.fill();
+    ctx.strokeStyle=shade(LEG,0.4); ctx.lineWidth=1.3; roundRect(x+dx*w-w*0.05, topY+board*0.5, w*0.10, foot-topY-board*0.5, 3); ctx.stroke();
   }
-  /* post caps ON TOP of the cloth ends — the cloth visibly wraps them */
-  for(const dir of [-1,1]){
-    const topx=px+dir*w/2;
-    ctx.fillStyle='#5f4526'; ctx.beginPath();ctx.arc(topx,ty,capR,0,7);ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.25)'; ctx.beginPath();ctx.arc(topx-capR*0.3,ty-capR*0.3,capR*0.35,0,7);ctx.fill();
-  }
-  // empty sling shows the SAME near lip it has when she's in it, so the hammock
-  // always reads as a deep pouch (not a shallow cloth with a floating pillow)
-  if(!occupied) drawHammockFront();
+  ctx.fillStyle=shade(LEG,0.1); ctx.fillRect(x-w*0.40, foot-(foot-topY)*0.38, w*0.80, w*0.035);   // cross brace
+  ctx.fillStyle='#b88d55'; roundRect(x-w*0.52, topY, w*1.04, board, 4); ctx.fill();               // board front edge
+  ctx.fillStyle=PINE; roundRect(x-w*0.52, topY-board*0.9, w*1.04, board*1.0, 4); ctx.fill();      // board top
+  ctx.strokeStyle=shade(PINE,0.40); ctx.lineWidth=1.5; roundRect(x-w*0.52, topY-board*0.9, w*1.04, board*1.9, 4); ctx.stroke();
+  ctx.fillStyle='#9fb7c9'; roundRect(x-w*0.36, topY-board*1.15, w*0.72, board*0.75, board*0.35); ctx.fill();   // fleece pad
+  ctx.fillStyle='rgba(255,255,255,.28)'; roundRect(x-w*0.32, topY-board*1.10, w*0.50, board*0.22, board*0.11); ctx.fill();
 }
-function drawHammockFront(){
-  const {w,px,sy,low}=hammockGeo();
-  const ty=sy-w*0.05;
-  const grad=ctx.createLinearGradient(0,ty+low*0.5,0,ty+low*1.9);
-  grad.addColorStop(0,'#d67d92'); grad.addColorStop(1,'#a3465c');
-  ctx.fillStyle=grad;
-  ctx.beginPath();
-  ctx.moveTo(px-w/2, ty);
-  ctx.quadraticCurveTo(px, ty+low*1.9, px+w/2, ty);
-  ctx.quadraticCurveTo(px, ty+low*1.16, px-w/2, ty);
-  ctx.fill();
-  ctx.strokeStyle='#e493a4'; ctx.lineWidth=Math.max(3,w*0.028);
-  ctx.beginPath();ctx.moveTo(px-w/2, ty);ctx.quadraticCurveTo(px, ty+low*1.16, px+w/2, ty);ctx.stroke();
-}
+function drawHammockFront(){}   // she lies ON the platform: nothing wraps over her
 
 function drawLitter(){
   // The box is ALWAYS shown from the front — the same 3/4 view you get when she
@@ -1148,9 +1162,9 @@ function drawLitter(){
   // called at the end here when she's OUTSIDE, or over her when she's inside.
   const L=world.litter, x=L.x, w=L.w, h=L.h, top=L.y-L.h/2;
   // interior back wall, with a lit top rim
-  ctx.fillStyle='#2c4a7c'; roundRect(x-w/2, top, w, h*0.64, 8); ctx.fill();
-  ctx.strokeStyle=shade('#3f6fae',0.5); ctx.lineWidth=2; roundRect(x-w/2, top, w, h*0.64, 8); ctx.stroke();
-  ctx.fillStyle='#5a86c2'; roundRect(x-w/2+3, top+2, w-6, h*0.07, 5); ctx.fill();
+  ctx.fillStyle='#b4bbc3'; roundRect(x-w/2, top, w, h*0.64, 8); ctx.fill();
+  ctx.strokeStyle=shade('#d9dde2',0.4); ctx.lineWidth=2; roundRect(x-w/2, top, w, h*0.64, 8); ctx.stroke();
+  ctx.fillStyle='#eceef1'; roundRect(x-w/2+3, top+2, w-6, h*0.07, 5); ctx.fill();
   // hay bed rising against the back wall — alfalfa (young rabbits) is greener and leafier than
   // timothy; the mix sits in between
   const bright=hayFresh>0?1:0.75;
@@ -1182,15 +1196,20 @@ function drawLitter(){
   if(!(now() < rab.boxT)) drawLitterFront();   // near wall — unless she's inside (drawn over her instead)
 }
 function drawFoodBowl(){
-  const b=world.food;
-  ctx.fillStyle='#7d5230'; ctx.beginPath();ctx.ellipse(b.x,b.y+b.r*0.35,b.r,b.r*0.5,0,0,7);ctx.fill();
-  ctx.fillStyle='#9a6a3e'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.fill();
-  ctx.strokeStyle=shade('#9a6a3e',0.4); ctx.lineWidth=1.5; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.stroke();
-  ctx.fillStyle='#6a4527'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r*0.78,b.r*0.42,0,0,7);ctx.fill();
-  for(let i=0;i<14;i++){
-    const a=i/14*Math.PI*2, rr=b.r*0.5*Math.sqrt(((i*7)%10)/10);
-    ctx.fillStyle=`hsl(28,45%,${34+((i*5)%16)}%)`;
-    ctx.beginPath();ctx.ellipse(b.x+Math.cos(a)*rr,b.y+Math.sin(a)*rr*0.55,3.2,4.4,a,0,7);ctx.fill();
+  const b=world.food, GLAZE='#e7a54a', RIM='#f3c878';                    // mustard-glazed stoneware
+  ctx.fillStyle=shade(GLAZE,0.30); ctx.beginPath();ctx.ellipse(b.x,b.y+b.r*0.35,b.r,b.r*0.5,0,0,7);ctx.fill();
+  ctx.fillStyle=GLAZE; ctx.beginPath();ctx.ellipse(b.x,b.y+b.r*0.18,b.r,b.r*0.5,0,0,Math.PI);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.22)'; ctx.fillRect(b.x-b.r*0.7, b.y+b.r*0.22, b.r*1.4, b.r*0.06);   // glaze band
+  ctx.fillStyle=RIM; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.fill();
+  ctx.strokeStyle=shade(GLAZE,0.35); ctx.lineWidth=1.5; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*0.55,0,0,7);ctx.stroke();
+  ctx.fillStyle='#f6ecd8'; ctx.beginPath();ctx.ellipse(b.x,b.y,b.r*0.80,b.r*0.43,0,0,7);ctx.fill();    // pale inside
+  for(let i=0;i<16;i++){                                                   // pellets: short brown cylinders
+    const a=i/16*Math.PI*2+((i*7)%5)*0.2, rr=b.r*0.55*Math.sqrt(((i*7)%10+1)/11);
+    const px=b.x+Math.cos(a)*rr, py=b.y+Math.sin(a)*rr*0.52, rot=((i*53)%10)/10*Math.PI;
+    ctx.save(); ctx.translate(px,py); ctx.rotate(rot);
+    ctx.fillStyle=`hsl(${26+((i*5)%10)},${38+((i*3)%10)}%,${34+((i*5)%14)}%)`;
+    roundRect(-b.r*0.13, -b.r*0.055, b.r*0.26, b.r*0.11, b.r*0.05); ctx.fill();
+    ctx.restore();
   }
 }
 function drawWaterBowl(){
@@ -1217,31 +1236,58 @@ function bedGeo(){
   const b=world.bed;
   return { b, oy:b.y-b.r*0.18, R:b.r };   // oy = the rim opening plane
 }
-const BED_ROSE='#c85f78';
-// short strokes ACROSS a bolster tube at intervals → tufted fabric, not a smooth ring.
-function bolsterTufts(cx0,cy0,rx,ry,th0,th1,nr){
-  ctx.strokeStyle='rgba(120,45,65,.26)'; ctx.lineWidth=Math.max(1.2,rx*0.035); ctx.lineCap='round';
-  const steps=5;
-  for(let i=0;i<steps;i++){
-    const th=th0+(th1-th0)*(i+0.5)/steps, c=Math.cos(th), s=Math.sin(th);
-    const cx=cx0+rx*c, cy=cy0+ry*s;
-    ctx.beginPath();ctx.moveTo(cx-c*nr, cy-s*nr*0.85);ctx.lineTo(cx+c*nr, cy+s*nr*0.85);ctx.stroke();
-  }
-  ctx.lineCap='butt';
+/* SQUARE CUSHION PILLOW, the basic bed (after the cushions Jo's partner sewed for their rabbits):
+   a lighter domed TOP with four puffy corners, and a darker puffy SIDE bulging below it. */
+const CUSH = {top:'#b8cbe0', topHi:'#dde7f2', side:'#8aa2bf', sideDk:'#6f88a6', dot:'rgba(255,255,255,.6)', pipe:'#6f88a6'};
+function pillowGeo(){ const {b,R}=bedGeo(); return {b, R, cx:b.x, cy:b.y-R*0.16, a:R*0.84, d:R*0.26, h:R*0.26}; }
+function pillowTop(){
+  const {cx,cy,a,d}=pillowGeo(), p=new Path2D();
+  p.moveTo(cx-a, cy-d);
+  p.quadraticCurveTo(cx, cy-d*0.62, cx+a, cy-d);          // back edge, pinched between the corners
+  p.quadraticCurveTo(cx+a*0.86, cy, cx+a*1.04, cy+d);      // right
+  p.quadraticCurveTo(cx, cy+d*0.72, cx-a*1.04, cy+d);      // front edge (the seam)
+  p.quadraticCurveTo(cx-a*0.86, cy, cx-a, cy-d);           // left
+  return p;
 }
-// FRONT bolster — the near padded rim, also redrawn over the napping rabbit
-function drawBasicBedWall(){
-  const {b,oy,R}=bedGeo();
-  ctx.lineCap='round';
-  ctx.strokeStyle=shade(BED_ROSE,0.22); ctx.lineWidth=R*0.25;                                  // base
-  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.12, R*0.82, R*0.30, 0, 0.03*Math.PI, 0.97*Math.PI);ctx.stroke();
-  ctx.strokeStyle=BED_ROSE; ctx.lineWidth=R*0.17;                                              // rounded face
-  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.10, R*0.82, R*0.30, 0, 0.06*Math.PI, 0.94*Math.PI);ctx.stroke();
-  ctx.strokeStyle='rgba(255,214,224,.36)'; ctx.lineWidth=R*0.045;                              // soft matte sheen
-  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.075, R*0.82, R*0.30, 0, 0.15*Math.PI, 0.85*Math.PI);ctx.stroke();
-  ctx.lineCap='butt';
-  bolsterTufts(b.x, oy+R*0.10, R*0.82, R*0.30, 0.14*Math.PI, 0.86*Math.PI, R*0.12);            // tufted seams
+function pillowSide(){
+  const {cx,cy,a,d,h}=pillowGeo(), p=new Path2D();
+  p.moveTo(cx-a*1.04, cy+d);
+  p.quadraticCurveTo(cx, cy+d*0.72, cx+a*1.04, cy+d);      // along the seam
+  p.quadraticCurveTo(cx+a*0.98, cy+d+h*0.9, cx+a*0.70, cy+d+h*1.15);
+  p.quadraticCurveTo(cx, cy+d+h*1.75, cx-a*0.70, cy+d+h*1.15);   // the puffy belly
+  p.quadraticCurveTo(cx-a*0.98, cy+d+h*0.9, cx-a*1.04, cy+d);
+  return p;
 }
+function printDots(path, x0, y0, w, hgt, R){
+  ctx.save(); ctx.clip(path); ctx.fillStyle=CUSH.dot;
+  for(let i=0;i<30;i++){ const u=((i*37)%100)/100, v=((i*61)%100)/100;
+    ctx.beginPath(); ctx.arc(x0+u*w, y0+v*hgt, R*0.02, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
+function drawCushionSide(){
+  const {R,cx,cy,a,d,h}=pillowGeo(), side=pillowSide();
+  const g=ctx.createLinearGradient(0, cy+d, 0, cy+d+h*1.7);
+  g.addColorStop(0, CUSH.side); g.addColorStop(1, CUSH.sideDk);
+  ctx.fillStyle=g; ctx.fill(side);
+  printDots(side, cx-a, cy+d*0.7, a*2, h*1.8, R);
+  ctx.strokeStyle='rgba(50,70,100,.35)'; ctx.lineWidth=1.2; ctx.stroke(side);
+}
+function drawCushionBed(){
+  const {R,cx,cy,a,d}=pillowGeo(), top=pillowTop();
+  drawCushionSide();
+  const g=ctx.createRadialGradient(cx-a*0.15, cy-d*0.2, R*0.05, cx, cy, a*1.05);
+  g.addColorStop(0, CUSH.topHi); g.addColorStop(1, CUSH.top);             // domed: brightest in the middle
+  ctx.fillStyle=g; ctx.fill(top);
+  printDots(top, cx-a, cy-d, a*2, d*2, R);
+  ctx.strokeStyle='rgba(70,95,130,.28)'; ctx.lineWidth=1;                  // creases from the button to each corner
+  for(const [kx,ky] of [[-1,-1],[1,-1],[1,1],[-1,1]]){
+    ctx.beginPath(); ctx.moveTo(cx+kx*R*0.05, cy+ky*R*0.02); ctx.quadraticCurveTo(cx+kx*a*0.35, cy+ky*d*0.15, cx+kx*a*0.72, cy+ky*d*0.72); ctx.stroke(); }
+  ctx.fillStyle=CUSH.pipe; ctx.beginPath(); ctx.ellipse(cx, cy, R*0.05, R*0.035, 0,0,7); ctx.fill();   // button
+  ctx.strokeStyle=CUSH.pipe; ctx.lineWidth=Math.max(2,R*0.035); ctx.stroke(top);                     // piped edge
+}
+// where she lies in the bed: ON the flat cushion's top, or sunk into the cloud bed's hollow
+function bedNapY(){ const b=world.bed; return (rab.decor && rab.decor.bed==='cloud') ? rab.baseY+(b.y-rab.baseY)*0.55 : b.y-b.r*0.10; }
+function drawBasicBedWall(){ drawCushionSide(); }   // the cushion's puffy side, redrawn over a napping rabbit
 // FRONT bolster for the cloud bed — a scalloped lip of merged puffs
 function drawCloudFrontPuffs(){
   const {b,oy,R}=bedGeo();
@@ -1292,53 +1338,27 @@ function drawBed(){
     drawCloudFrontPuffs();
     return;
   }
-  // BASIC bed — BACK bolster (fat arc across the top, raised taller than the front)
-  ctx.lineCap='round';
-  ctx.strokeStyle=shade(BED_ROSE,0.36); ctx.lineWidth=R*0.32;                                  // base (recedes)
-  ctx.beginPath();ctx.ellipse(b.x, oy-R*0.03, R*0.82, R*0.30, 0, Math.PI, 2*Math.PI);ctx.stroke();
-  ctx.strokeStyle=shade(BED_ROSE,0.10); ctx.lineWidth=R*0.23;                                  // face
-  ctx.beginPath();ctx.ellipse(b.x, oy-R*0.05, R*0.82, R*0.30, 0, 1.04*Math.PI, 1.96*Math.PI);ctx.stroke();
-  ctx.strokeStyle='#ec91a6'; ctx.lineWidth=R*0.07;                                             // top highlight
-  ctx.beginPath();ctx.ellipse(b.x, oy-R*0.08, R*0.82, R*0.30, 0, 1.10*Math.PI, 1.90*Math.PI);ctx.stroke();
-  ctx.lineCap='butt';
-  bolsterTufts(b.x, oy-R*0.05, R*0.82, R*0.30, 1.14*Math.PI, 1.86*Math.PI, R*0.11);            // tufted seams
-  // CUSHION — a soft cream pillow, wide so the bolster reads as a rim (not a tube)
-  ctx.fillStyle='#e6cba8';
-  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.09, R*0.66, R*0.25, 0,0,7);ctx.fill();
-  ctx.fillStyle='#f4e6cf';
-  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.06, R*0.61, R*0.22, 0,0,7);ctx.fill();
-  ctx.fillStyle='rgba(150,110,70,.20)';                                                        // back-bolster overhang
-  ctx.beginPath();ctx.ellipse(b.x, oy-R*0.03, R*0.57, R*0.15, 0, Math.PI, 2*Math.PI);ctx.fill();
-  ctx.fillStyle='rgba(255,250,240,.5)';
-  ctx.beginPath();ctx.ellipse(b.x-R*0.14, oy+R*0.10, R*0.32, R*0.10, 0,0,7);ctx.fill();
-  ctx.strokeStyle='rgba(150,110,70,.16)';ctx.lineWidth=1.2;                                    // pillow seam ring
-  ctx.beginPath();ctx.ellipse(b.x, oy+R*0.07, R*0.40, R*0.12, 0,0,7);ctx.stroke();
-  drawBasicBedWall();
+  drawCushionBed();
 }
 /* the bed's near side, redrawn over the rabbit while she naps in it (cf. drawHammockFront) */
 function drawBedFront(){
   if(rab.decor && rab.decor.bed==='cloud'){ drawCloudFrontPuffs(); return; }
   drawBasicBedWall();
 }
+/* PLAY TUNNEL, side view: a ribbed fabric tube lying along the floor. The ends are just its rims —
+   she hops in one end and out the other. */
 function drawTube(){
-  const tb=world.tube;
-  const g=ctx.createLinearGradient(0,tb.y-tb.h/2,0,tb.y+tb.h/2);
-  g.addColorStop(0,'#7ea9d6'); g.addColorStop(0.5,'#5b83b4'); g.addColorStop(1,'#3f5f8c');
-  ctx.fillStyle=g; roundRect(tb.x-tb.w/2,tb.y-tb.h/2,tb.w,tb.h,tb.h*0.5); ctx.fill();
-  ctx.strokeStyle=shade('#3f5f8c',0.35); ctx.lineWidth=2; roundRect(tb.x-tb.w/2,tb.y-tb.h/2,tb.w,tb.h,tb.h*0.5); ctx.stroke();
-  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=3;
-  for(let i=1;i<4;i++){const x=tb.x-tb.w/2+i*tb.w/4;
-    ctx.beginPath();ctx.ellipse(x,tb.y,tb.h*0.22,tb.h*0.48,0,-1.35,1.35);ctx.stroke();}
-  for(const dir of [-1,1]){
-    const ex=tb.x+dir*(tb.w/2-tb.h*0.30);
-    ctx.fillStyle='#31517e';
-    ctx.beginPath();ctx.ellipse(ex,tb.y,tb.h*0.30,tb.h*0.485,0,0,7);ctx.fill();
-    ctx.fillStyle='#1c1426';
-    ctx.beginPath();ctx.ellipse(ex,tb.y,tb.h*0.24,tb.h*0.42,0,0,7);ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.10)';
-    ctx.beginPath();ctx.ellipse(ex-dir*tb.h*0.05,tb.y-tb.h*0.10,tb.h*0.10,tb.h*0.22,0,0,7);ctx.fill();
-  }
-  // celLight removed: an unclipped highlight ellipse overhangs the prop and reads as a halo/bubble
+  const tb=world.tube, x0=tb.x-tb.w/2, y0=tb.y-tb.h/2, h=tb.h, w=tb.w;
+  const g=ctx.createLinearGradient(0,y0,0,y0+h);
+  g.addColorStop(0,'#a9c49a'); g.addColorStop(0.55,'#86a577'); g.addColorStop(1,'#627f55');   // sage
+  ctx.fillStyle=g; roundRect(x0, y0, w, h, h*0.42); ctx.fill();
+  ctx.strokeStyle='rgba(40,60,30,.28)'; ctx.lineWidth=2;                  // wire ribs
+  const n=Math.max(5, Math.round(w/(h*0.35)));
+  for(let i=1;i<n;i++){ const x=x0+w*i/n; ctx.beginPath(); ctx.moveTo(x, y0+h*0.06); ctx.quadraticCurveTo(x+h*0.06, y0+h*0.5, x, y0+h*0.94); ctx.stroke(); }
+  ctx.fillStyle='rgba(255,255,255,.18)'; roundRect(x0+h*0.25, y0+h*0.14, w-h*0.5, h*0.12, h*0.06); ctx.fill();   // sheen
+  ctx.fillStyle='#55704a';                                                 // the two rims
+  for(const ex of [x0, x0+w-h*0.16]) { roundRect(ex, y0, h*0.16, h, h*0.08); ctx.fill(); }
+  ctx.strokeStyle=shade('#627f55',0.35); ctx.lineWidth=2; roundRect(x0, y0, w, h, h*0.42); ctx.stroke();
 }
 function drawCastle(){
   const c=world.castle, r=c.r;
@@ -1349,7 +1369,11 @@ function drawCastle(){
   for(let i=1;i<10;i++){const fx=c.x-r+i*r*0.2;
     ctx.beginPath();ctx.moveTo(fx, c.y-r*1.05);ctx.lineTo(fx, c.y+r*0.15);ctx.stroke();}
   ctx.fillStyle='#b0824a'; for(let i=0;i<4;i++){ctx.fillRect(c.x-r+i*r*0.55, c.y-r*1.3, r*0.32, r*0.28);}
-  ctx.fillStyle='#3a2a1c'; ctx.beginPath();ctx.ellipse(c.x,c.y-r*0.2,r*0.42,r*0.5,0,0,7);ctx.fill();
+  const dw=r*0.36, db=c.y+r*0.20, dt=c.y-r*0.30;                        // arched doorway, standing on the floor
+  ctx.fillStyle='#4a3524';
+  ctx.beginPath(); ctx.moveTo(c.x-dw, db); ctx.lineTo(c.x-dw, dt); ctx.arc(c.x, dt, dw, Math.PI, 0); ctx.lineTo(c.x+dw, db); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle=shade('#c79a5e',0.35); ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(c.x-dw, db); ctx.lineTo(c.x-dw, dt); ctx.arc(c.x, dt, dw, Math.PI, 0); ctx.lineTo(c.x+dw, db); ctx.stroke();
   // celLight removed: an unclipped highlight ellipse overhangs the prop and reads as a halo/bubble
 }
 function drawBall(){
@@ -1386,9 +1410,9 @@ function startHideEvent(){
   ];
   // she only hides behind furniture that actually exists in the room
   if(owns('tunnel')) spots.push({x:world.tube.x,   y:world.tube.y-6,   name:'the play tunnel'});
-  if(owns('castle')) spots.push({x:world.castle.x, y:world.castle.y-6, name:'the cardboard castle'});
-  if(owns('tower'))  spots.push({x:world.tower.x,  y:world.tower.y-6,  name:'the climbing tower'});
-  if(owns('hutch'))  spots.push({x:world.hutch.x,  y:world.hutch.y+world.hutch.r*0.4, name:'the wooden hutch'});
+  if(shown('castle')) spots.push({x:world.castle.x, y:world.castle.y-6, name:'the cardboard castle'});
+  if(shown('tower'))  spots.push({x:world.tower.x,  y:world.tower.y-6,  name:'the climbing tower'});
+  if(shown('hutch'))  spots.push({x:world.hutch.x,  y:world.hutch.y+world.hutch.r*0.4, name:'the wooden hideaway'});
   dayEvent={type:'hide', spot:pick(spots), found:false};
   rab.hidden=true; rab.x=dayEvent.spot.x; rab.hopping=false; rab.loaf=0;
 }
@@ -2144,7 +2168,7 @@ function drawNight(dt){
   ctx.fillStyle='rgba(60,70,140,.25)';
   ctx.beginPath();ctx.ellipse(world.rug.x,world.rug.y,world.rug.rx,world.rug.ry,0,0,7);ctx.fill();
 
-  const s = Math.min(W,H)/560 * 0.9 * rab.curScale;
+  const s = roomU() * 0.9 * rab.curScale;
   const spd = 5.5;
   for(let k=5;k>=0;k--){
     const tt = ct - k*0.045;
@@ -2175,6 +2199,16 @@ function drawNight(dt){
  *  ILLNESS / DIET / HEALTH
  * ============================================================================ */
 function owns(id){ return !!rab.items[id]; }
+/* Furniture slots: the room shows ONE hideout and ONE up-high spot at a time, picked in the Menu
+   (like the bed). Owning both keeps both; only the picked one is in the room. */
+const SLOTS = {hideout:['hutch','castle'], perch:['hammock','tower']};
+const slotOf = id => Object.keys(SLOTS).find(k=>SLOTS[k].includes(id)) || null;
+function shown(id){
+  if(!owns(id)) return false;
+  const k=slotOf(id); if(!k) return true;
+  const pick=rab.decor[k];
+  return owns(pick) ? pick===id : SLOTS[k].find(owns)===id;
+}
 // Losses stop at the ideal (100): hay, play and the resting burn trim EXTRA weight, but the diet the game
 // recommends can never starve her underweight. Gains are unlimited (that's the welfare-warning path).
 function addWeight(n){ rab.weight = clamp(n<0 ? Math.max(rab.weight+n, Math.min(rab.weight,100)) : rab.weight+n, 45, 175); }
@@ -2618,8 +2652,8 @@ function handleGroom(px,py){
 // Where she naps: her favourite spot if it's in the room, else the hammock if owned, else the bed.
 function napTarget(){
   const fav=rab.prefs.nap;
-  if(fav==='bed' || owns(fav)) return fav;
-  return owns('hammock') ? 'hammock' : 'bed';
+  if(fav==='bed' || shown(fav)) return fav;
+  return shown('hammock') ? 'hammock' : 'bed';
 }
 function napSpotPos(k){ return k==='bed' ? world.bed : (furnitureSpot(k) || world.bed); }
 function napAtFavourite(){
@@ -2638,7 +2672,7 @@ function restRabbit(){
   hopTo(napSpotPos(k).x);                       // she settles in her chosen spot
   rab.restUntil=now()+4.5; rab.state='rest'; rab.trick=null;
   spawnZ(parts().head.x+parts().head.r*0.6, parts().head.y-parts().head.r);
-  toast(k==='hammock' ? `${rab.name} settles into the hammock for a deluxe nap. 😴🪢`
+  toast(k==='hammock' ? `${rab.name} stretches out on the lookout platform for a nap. 😴🪵`
       : k==='bed'     ? `${rab.name} curls into a cozy nap. 😴`
                       : `${rab.name} tucks into ${NAP_SPOTS[k].name} for a nap. 😴`);
   napAtFavourite();
@@ -2682,7 +2716,7 @@ function playToy(){
 /* --- Toy-play animation: she actually chases the ball / runs the tunnel --- */
 function startPlay(){
   if(closeUp.on) endCloseUp();
-  let toys=['ball','tunnel','tower'].filter(owns);
+  let toys=['ball','tunnel','tower'].filter(shown);
   // knowing her pays off: once you've learned what she dislikes you stop offering it,
   // and once you know her favourite you reach for it more often
   if(rab.prefKnown.dislike && toys.length>1) toys=toys.filter(k=>k!==rab.prefs.dislike);
@@ -2699,7 +2733,7 @@ function endPlay(){
   rab.state='loaf';
 }
 function updatePlay(dt){
-  const pl=rab.play; pl.t+=dt; const k=pl.t/pl.dur; const sc=Math.min(W,H)/560;
+  const pl=rab.play; pl.t+=dt; const k=pl.t/pl.dur; const sc=roomU();
   rab.state='play';
   if(pl.type==='ball'){
     // the ball rolls back and forth; she scampers just behind it, nudging it on
@@ -3023,14 +3057,14 @@ function idleBrain(dt,t){
     if(ill){ nextIdle*=2.5; if(Math.random()<0.7) return; }   // hunched and reluctant to move
     const roll=Math.random();
     if(T.hide && Math.random()<T.hide){        // skittish: retreats to cover
-      if(owns('hutch')){ hopTo(world.hutch.x); rab.denUntil=now()+rand(3.5,5.5); }
+      if(shown('hutch')){ hopTo(world.hutch.x); rab.denUntil=now()+rand(3.5,5.5); }
       else { rab.napSpot='bed'; hopTo(world.bed.x); rab.bedNapAt=now()+0.9; }
     }
     else if(roll<0.4){ hopTo(rand(world.rug.x-world.rug.rx*0.6, world.rug.x+world.rug.rx*0.6)); }
     else if(roll<0.62){ rab.groomUntil=t+rand(1.4,2.6); }
     else if(roll<0.74 && stats.happy>75 && stats.energy>30 && !ill){ if(Math.random()<T.binkyMul) startBinky(); }
     else if(roll<0.77){ chinSomething(); }
-    else if(roll<0.82 && owns('hutch')){ hopTo(world.hutch.x); rab.denUntil=now()+rand(3.5,5.5); }  // pops into her hutch
+    else if(roll<0.82 && shown('hutch')){ hopTo(world.hutch.x); rab.denUntil=now()+rand(3.5,5.5); }  // pops into her hutch
     else if(roll<0.9){ rab.napSpot=napTarget(); hopTo(napSpotPos(rab.napSpot).x); rab.bedNapAt=now()+0.9; }   // wander to her nap spot → maybe curl up
     else { rab.groomUntil=0; }
   }
@@ -3118,7 +3152,7 @@ function frame(){
   stats.happy=clamp(stats.happy - happyDecay*dt);
   if(rab.state==='rest'){
     const favNap = rab.napSpot===rab.prefs.nap;
-    stats.energy=clamp(stats.energy + (owns('hammock')?15:11)*(favNap?1.3:1)*dt);   // hammock = cushier naps; her favourite spot = deeper sleep
+    stats.energy=clamp(stats.energy + (shown('hammock')?15:11)*(favNap?1.3:1)*dt);   // hammock = cushier naps; her favourite spot = deeper sleep
     if(favNap) stats.happy=clamp(stats.happy + 0.6*dt);
   }
   else { stats.energy=clamp(stats.energy - stage.energy*0.5*dt); }
@@ -3158,7 +3192,7 @@ function frame(){
   if(rab.legStomp>0) rab.legStomp=Math.max(0,rab.legStomp-dt*2.2);
   if(thumpFx>0) thumpFx=Math.max(0,thumpFx-dt);
   if(rab.binkyT>0){ rab.binkyT=Math.max(0,rab.binkyT-dt);
-    const pr=1-rab.binkyT/rab.binkyDur; rab.binkyHop=-Math.sin(pr*Math.PI)*72*(Math.min(W,H)/560); }
+    const pr=1-rab.binkyT/rab.binkyDur; rab.binkyHop=-Math.sin(pr*Math.PI)*72*(roomU()); }
   else rab.binkyHop=0;
   if(rab.trick){ rab.trick.t+=dt; if(rab.trick.t>=rab.trick.dur) rab.trick=null; }
   // blink variation: varied duration + an occasional quick double-blink
@@ -3214,7 +3248,7 @@ function frame(){
       const k=(t-rab.hopT0)/rab.hopDur;
       if(k<0){ rab.hopOff=0; rab.x=rab.hopFromX; }                                    // anticipation crouch (holds at takeoff spot)
       else if(k>=1){rab.hopping=false;rab.hopOff=0;rab.x=rab.hopToX; rab.landSquash=1; rab.earJiggle=1; rab.crouchT=0;}   // touchdown → squash + ears bounce
-      else{rab.x=lerp(rab.hopFromX,rab.hopToX,k); rab.hopOff=-Math.sin(k*Math.PI)*46*(Math.min(W,H)/560); rab.crouchT=0;} // launch → release crouch
+      else{rab.x=lerp(rab.hopFromX,rab.hopToX,k); rab.hopOff=-Math.sin(k*Math.PI)*46*(roomU()); rab.crouchT=0;} // launch → release crouch
     }
     idleBrain(dt,t);
     updateState(t);
@@ -3228,7 +3262,7 @@ function frame(){
      into the hutch doorway when she pops in for a den visit */
   if(!rab.play){
     const hm=world.hammock;
-    rab.inHammock = rab.state==='rest' && owns('hammock') && !rab.hopping && Math.abs(rab.x-hm.x)<hm.w*0.5;
+    rab.inHammock = rab.state==='rest' && shown('hammock') && !rab.hopping && Math.abs(rab.x-hm.x)<hm.w*0.5;
     rab.hammockSag = damp(rab.hammockSag||0, rab.inHammock?1:0, 6, dt);   // sling sags under her weight, springs up when empty
     // she sometimes curls up in her bed after wandering to it (short nap, interruptible)
     if(rab.bedNapAt && t>rab.bedNapAt){
@@ -3242,8 +3276,8 @@ function frame(){
     }
     rab.inBed = rab.state==='rest' && !rab.inHammock && !rab.hopping && Math.abs(rab.x-world.bed.x)<world.bed.r*0.6;
     rab.playYOff = damp(rab.playYOff||0,
-      rab.inHammock? (hm.nap - rab.baseY) : rab.inBed? (world.bed.y - rab.baseY)*0.55 : 0, 5, dt);
-    const inDen = !closeUp.on && t<rab.denUntil && owns('hutch')   // never fade her out while you're up close
+      rab.inHammock? (hm.nap - rab.baseY) : rab.inBed? bedNapY() - rab.baseY : 0, 5, dt);
+    const inDen = !closeUp.on && t<rab.denUntil && shown('hutch')   // never fade her out while you're up close
                   && !rab.hopping && Math.abs(rab.x-world.hutch.x)<world.hutch.r*0.5;
     rab.playAlpha = damp(rab.playAlpha!==undefined?rab.playAlpha:1, inDen? 0.12 : 1, 5, dt);
   }
@@ -3511,6 +3545,7 @@ function buy(id){
       learnNote('haytypes', true); addXP(2); renderShop(); save(); return;
     }
     if(id==='rug_rose') rab.decor.rug='rose';         // room customization
+    if(slotOf(id)) rab.decor[slotOf(id)]=id;          // a new hideout / up-high spot goes straight into the room
     if(id==='bed_cloud') rab.decor.bed='cloud';       // upgraded bed
     toast(`Bought ${it.name}! ${it.emoji}`);
     const spot = furnitureSpot(id);
@@ -3597,6 +3632,8 @@ function renderMenu(){
       <button id="bedBasic" class="mbtn${!(rab.decor&&rab.decor.bed==='cloud')?' on':''}">Basic Bed</button>
       <button id="bedCloud" class="mbtn${(rab.decor&&rab.decor.bed==='cloud')?' on':''}" ${owns('bed_cloud')?'':'disabled'}>Cloud Bed${owns('bed_cloud')?'':' 🔒'}</button>
     </div>
+    ${Object.values(SLOTS).map(ids=>`<div class="mbtns">${ids.map(id=>{ const it=shopItem(id);
+      return `<button data-slot="${id}" class="mbtn${shown(id)?' on':''}" ${owns(id)?'':'disabled'}>${it.name}${owns(id)?'':' 🔒'}</button>`; }).join('')}</div>`).join('')}
     <div class="mhdr">Trick mastery</div>${masteryList}
     <div class="mbtns">
       <button id="mSave" class="mbtn">💾 Save now</button>
@@ -3618,6 +3655,8 @@ function renderMenu(){
   $('rugRose').onclick=()=>{ if(owns('rug_rose')){ rab.decor.rug='rose'; save(); renderMenu(); } };
   $('bedBasic').onclick=()=>{ rab.decor.bed=null; save(); renderMenu(); };
   $('bedCloud').onclick=()=>{ if(owns('bed_cloud')){ rab.decor.bed='cloud'; save(); renderMenu(); } };
+  body.querySelectorAll('[data-slot]').forEach(b=>b.onclick=()=>{ const id=b.dataset.slot;
+    if(owns(id)){ rab.decor[slotOf(id)]=id; rab.denUntil=0; save(); renderMenu(); } });
   $('mSave').onclick=()=>{ save(); toast('Game saved. 💾'); };
   $('mReset').onclick=()=>{
     if(confirm('Rehome your rabbit and start over? This erases your save.')){

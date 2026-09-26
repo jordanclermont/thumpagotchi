@@ -80,7 +80,9 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
   (Nose Boop → Come → Hop Over) and higher Shop tiers, and slowly earns their trust.
 - **Carrots 🥕 + Shop** — earn carrots from care, tricks, and goals; spend them in the
   **🛒 Shop** on healthy foods, a **Treat Ball / Play Tunnel** (unlocks the **Play**
-  action), a **Grooming Kit**, **Gut Medicine**, a **Cardboard Castle**, and more.
+  action), a **Grooming Kit**, **Gut Medicine**, a **Cardboard Castle** or **Wooden Hideaway**,
+  a **Climbing Tower** or **Lookout Platform**, and more. The room shows one hideout and one
+  up-high spot at a time; if you own both, pick which in the **Menu** (like the bed and rug).
 - **Life stages** — Kit → Junior → Adult → Senior as your rabbit ages; they visibly grow.
 - **Personality** — how you raise your rabbit as a Kit and Junior quietly decides who they
   become at Adult: **Cuddly** (lots of affection), **Bold** (lots of play) or **Skittish** (too

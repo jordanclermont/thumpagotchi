@@ -113,6 +113,56 @@ group('migrate', async ()=>{
   await wait(1000);
 });
 
+/* ------------------------------------------------------------------ room layout */
+// Lays the room out at real screen sizes (with the control dock's usual height) and checks that no
+// furniture overlaps another piece or sits under the buttons, for both hideout/up-high choices and
+// the biggest breed (furniture scales with breed).
+group('layout', async ()=>{
+  fresh();
+  const sizes=[[390,844],[360,640],[430,932],[820,1180],[972,473],[1280,720],[1440,820],[1920,1080],[844,390]];
+  const keep=[W,H], bsMax=Math.max(...Object.values(BREEDS).map(b=>(1+b.scale)/2));
+  Object.assign(rab.items,{ball:1,tunnel:1,hutch:1,hammock:1,castle:1,tower:1});
+  const bad=[];
+  for(const [w,h] of sizes) for(const pick of [['hutch','hammock'],['castle','tower']]){
+    W=w; H=h; rab.decor.hideout=pick[0]; rab.decor.perch=pick[1];
+    layoutWorld(h-112, bsMax);
+    const ids=roomProps().map(p=>p.id), B={};
+    for(const id of ids) B[id]=propBounds(id);
+    for(const id of ids){ const [x0,,x1,y1]=B[id];
+      if(x0<-1 || x1>w+1 || y1>world.dockTop+1) bad.push(`${w}×${h} ${id} off screen or under the buttons`); }
+    for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){ const a=B[ids[i]], b=B[ids[j]];
+      if(a[0]<b[2]-2 && b[0]<a[2]-2 && a[1]<b[3]-2 && b[1]<a[3]-2) bad.push(`${w}×${h} ${ids[i]} overlaps ${ids[j]}`); }
+  }
+  W=keep[0]; H=keep[1]; resize();
+  check('no furniture overlaps or sits under the buttons, at any screen size', !bad.length, [...new Set(bad)].slice(0,30).join('; '));
+  check('only one hideout and one up-high spot are in the room', roomProps().filter(p=>['hutch','castle'].includes(p.id)).length===1
+    && roomProps().filter(p=>['hammock','tower'].includes(p.id)).length===1);
+});
+
+/* ------------------------------------------------------------------ furniture choices */
+group('slots', async ()=>{
+  fresh();
+  rab.carrots=999; rab.bondLevel=10;
+  buy('castle');
+  check('a castle on its own is in the room', shown('castle'));
+  buy('hutch');
+  check('buying the hideaway puts it in the room instead', shown('hutch') && !shown('castle') && owns('castle'));
+  openPanel('menu'); document.querySelector('[data-slot="castle"]').click();
+  check('the Menu switches the hideout back to the castle', shown('castle') && !shown('hutch')); closePanel();
+  rab.prefs.nap='hutch';
+  check('a favourite nap spot that is put away falls back to the bed', napTarget()==='bed', napTarget());
+  buy('hammock'); buy('tower');
+  check('only one up-high spot at a time', shown('tower') && !shown('hammock'));
+  rab.decor.perch='hammock';
+  check('napping goes to the platform when it is out', napTarget()==='hammock' || rab.prefs.nap==='bed', napTarget());
+  save(); const d=loadRaw();
+  check('the choices are saved', d.decor.hideout==='castle' && d.decor.perch==='hammock', JSON.stringify(d.decor));
+  applySave({...d, decor:{hideout:'<b>', perch:'constructor'}});
+  check('junk choices load as "none picked"', rab.decor.hideout===null && rab.decor.perch===null);
+  check('...and something owned still shows', shown('castle')||shown('hutch'));
+  await wait(500);
+});
+
 /* ------------------------------------------------------------------ live vs tester build storage */
 // The public game's storage keys must never change: every player's rabbit lives under them.
 group('storage', async ()=>{
