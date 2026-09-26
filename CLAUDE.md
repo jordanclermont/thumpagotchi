@@ -17,6 +17,15 @@ pass, a gameplay/balance change, a notable bug fix or decision — **add an entr
 - A `Stop` hook in `.claude/settings.local.json` reminds us when the current HEAD commit isn't yet
   referenced in the worklog; treat that reminder as a prompt to write the entry.
 
+## Tests (run before every commit that touches game.js)
+
+- `python3 tests/run_tests.py` runs the whole suite in headless Chrome (about 10 seconds); name groups
+  to run just those, e.g. `python3 tests/run_tests.py health hay`. It exits 1 if anything fails.
+- The tests live in `tests/tests.js` and are spliced into a temp copy of game.js's closure, so they can
+  reach the game's internals; the shipped files are never modified. Each group is its own page load
+  starting from a fresh adoption.
+- When fixing a bug, add a check that fails without the fix. When adding a system, add a group.
+
 ## Art / prop iteration
 
 - Iterate visuals in the gitignored labs (`rabbit-lab.html`, `props-lab.html`) — never edit both the

@@ -56,7 +56,7 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
   a dirty box, empty bowl, or neglect all feed the **Thump Meter** (5 paw icons).
 - At **3 thumps** your rabbit stomps with a screen-shaking "THUMP!"; at **5** they give the
   **Cold Shoulder** (back turned, sable tail to you) until you offer their **favourite
-  treat**, whichever that is for your rabbit.
+  treat**, whichever that is for your rabbit. A sulking rabbit still eats hay.
 - **Binkies**: your rabbit leaps for joy when very happy. **Flops**: once they trust you
   enough, they drop onto their side on their own.
 - **Real rabbit body language**: a soft tooth **purr** during head pets; **chinning** new
@@ -105,7 +105,7 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
   Cure it with **🩺 Vet** (25🥕) or free if you keep **Gut Medicine** stocked; ignore it
   and your rabbit will need an emergency vet that costs half your carrots.
 - **Diet & weight** — hay keeps your rabbit trim, pellets/bananas add weight, activity burns
-  it. Too much weight brings vet welfare warnings (it doesn't make them ill). Being
+  it (down to their ideal weight, never below). Too much weight brings vet welfare warnings (it doesn't make them ill). Being
   underweight does hurt their health. (Bananas are still capped at 2/day.)
 - **Trick mastery** — tricks improve with practice and pay more carrots the better your
   rabbit gets.
@@ -114,13 +114,16 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
   - Day 2: **Bunny Snake**, **Guess My Number**, **🥣 Forage** (follow the treat under three
     shuffling cups; 3 rounds, each faster)
   - Day 3: **Bunny Tic-Tac-Toe**, **📦 Dig Box** (dig a 4×4 box of shredded paper for 5
-    buried treats in 20 seconds; empty spots show 👃 how many treats are next to them)
+    buried treats in 20 seconds; empty spots show 👃 how many treats are next to them, and
+    5 empty digs end the round)
   - Day 4: **Carrot Catch**, **🥬 Safe or Not?** (is this food OK for rabbits? each answer
     explains why; food list checked against RSPCA, PDSA, House Rabbit Society and RWAF)
   - Day 5: **🧠 How well do you know me?** Your rabbit asks about their likes and dislikes
     and the Rabbit Notes you've unlocked. Wrong answers show the right one and why.
 
-  The Quiz and Safe or Not? pay carrots on the first round each day; the rest pay every time.
+  Guess My Number, Tic-Tac-Toe, the Quiz and Safe or Not? pay carrots on the first round each day
+  (later rounds are for fun); the skill games (Snake, Forage, Dig Box, Carrot Catch) pay every time.
+  Care pays when it's needed: hay for a hungry rabbit, scooping a dirty box, refilling a low bowl.
 - **Daily goals & achievements** — three 🎯 goals refresh each day for carrots and XP,
   plus one-time 🏆 milestones.
 
