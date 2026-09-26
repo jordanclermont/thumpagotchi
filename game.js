@@ -358,36 +358,47 @@ function layoutWorld(dockTop, bs){
   world.floorY = Math.min(H*(mobile? 0.50 : 0.56), dockTop - Math.max(200, dockTop*0.45));
   const top = world.floorY, band = dockTop - 6 - top;
   world.band = band;
-  const U = world.U = Math.min(W/560, band/300);           // sizes below are in U (a phone is U≈0.7)
+  // Everything in the room is sized in RABBITS: RW is an adult Holland's body width on screen, and
+  // each piece of furniture is a multiple of it (a hideaway is ~1.6 rabbits wide, its doorways ~¾ of
+  // her height). Each row is packed left to right, so if a row can't fit at full size, the whole
+  // room — rabbit included — scales down together. That only happens on narrow phones.
+  const Uroom = Math.min(W/560, band/300);
+  const BACK  = [['litter',1.26],['perch',1.2],['hideout',1.6]];
+  const FRONT = [['ball',0.44],['food',0.6],['water',0.54],['bed',1.35],['tunnel',1.75]];
+  const edge=8, gap=10, sum = row => row.reduce((a,[,w])=>a+w,0);
+  const fit = row => (W - 2*edge - gap*(row.length-1)) / (sum(row)*bs);
+  const RW = world.RW = Math.min(162*Uroom, fit(BACK), fit(FRONT));
+  const U = world.U = RW/162;                                     // the rabbit's own scale (parts())
+  const pack = row => {                                           // centres, evenly spaced, never overlapping
+    const ws=row.map(([,w])=>w*RW*bs), tot=ws.reduce((x,y)=>x+y,0);
+    const g=Math.min(RW*1.1, (W-2*edge-tot)/(row.length-1));
+    let x=(W-tot-g*(row.length-1))/2; const out={};
+    row.forEach(([k],i)=>{ out[k]=x+ws[i]/2; x+=ws[i]+g; }); return out;
+  };
+  const bx=pack(BACK), fx=pack(FRONT), K=RW*bs;
   world.rug   = {x:W*0.5,  y:top+band*0.62, rx:W*0.45, ry:Math.min(H*0.15, band*0.40)};
-  world.litter= {x:W*0.14, y:0, w:168*U*bs, h:100*U*bs};
-  /* Two rows, drawn back to front (see drawRoom). Nothing may overlap on any screen: the 'layout'
-     test group checks every item's bounds at phone, tablet, laptop and desktop sizes.
-     BACK row, a little smaller for depth: litter · up-high spot (platform OR tower) · hideout (hideaway OR castle).
-     FRONT row: ball · food · water · bed · tunnel. */
-  const back = top+band*0.44, depthK = 0.85;                       // back-row floor line and size
+  /* Two rows, drawn back to front (see drawRoom). The 'layout' test group checks every item's bounds
+     at phone, tablet, laptop and desktop sizes. */
+  const back = top+band*0.44;                                     // back-row floor line
+  world.litter= {x:bx.litter, y:0, w:1.26*K, h:0.72*K};
   world.litter.y = back - world.litter.h*0.52;
-  world.litter.x = Math.max(W*0.14, world.litter.w/2 + 6);                // fully on screen
-  world.food  = {x:W*0.27, y:top+band*0.79, r:28*U};
-  world.water = {x:W*0.365,y:top+band*0.80, r:25*U};
-  const perchX = W*0.42, hideX = W*0.68;
-  world.hammock={x:perchX, y:back, w:174*U*bs*depthK};   // the lookout platform (id kept: saves)
+  world.hammock={x:bx.perch, y:back, w:1.2*K/(0.78*1.04)};        // the lookout platform (id kept: saves)
   world.hammock.postH = world.hammock.w*0.46;
-  world.hammock.top = world.hammock.y - world.hammock.postH*0.62;      // top board
-  world.hammock.nap = world.hammock.top - world.hammock.w*0.075;       // where she lies, on the pad
+  world.hammock.top = world.hammock.y - world.hammock.postH*0.62; // top board
+  world.hammock.nap = world.hammock.top - world.hammock.w*0.075;  // where she lies, on the pad
   world.hammock.sy  = world.hammock.top;
-  const towerR = 60*U*bs*depthK;
-  world.tower = {x:perchX, y:back-towerR*0.2, r:towerR};
-  const hutR = 67*U*bs*depthK;
-  world.hutch = {x:hideX, y:back-hutR*0.7, r:hutR};                   // the wooden hideaway — she dens here
-  world.castle= {x:hideX, y:back-hutR*0.2, r:hutR};
-  world.tube  = {x:0, y:0, w:168*U*bs, h:0};                          // lying along the front, side-on
-  world.tube.h = world.tube.w*0.52;
-  world.tube.y = top + band*0.93 - world.tube.h/2;
-  world.tube.x = Math.min(W*0.86, W - world.tube.w/2 - 6);
-  world.bed   = {x:W*0.57, y:0, r:70*U*bs};   // the cushion, front, right of centre
+  const towerR = 0.8*K;
+  world.tower = {x:bx.perch, y:back-towerR*0.2, r:towerR};
+  const hutR = 1.6*K/2.38;
+  world.hutch = {x:bx.hideout, y:back-hutR*0.7, r:hutR};          // the wooden hideaway — she dens here
+  world.castle= {x:bx.hideout, y:back-hutR*0.2, r:hutR};
+  world.ball  = {x:fx.ball,  y:top+band*0.82, r:0.22*K};
+  world.food  = {x:fx.food,  y:top+band*0.79, r:0.30*K};
+  world.water = {x:fx.water, y:top+band*0.80, r:0.27*K};
+  world.bed   = {x:fx.bed, y:0, r:1.35*K/1.75};                   // the cushion
   world.bed.y = top + band*0.95 - world.bed.r*0.56;
-  world.ball  = {x:W*0.17, y:top+band*0.82, r:23.5*U*bs};
+  world.tube  = {x:fx.tunnel, y:0, w:1.75*K, h:0.62*K};            // lying along the front, side-on
+  world.tube.y = top + band*0.93 - world.tube.h/2;
   world.win   = mobile
     ? {x:W*0.5-W*0.165, y:H*0.045, w:W*0.33, h:H*0.31}   // bigger window fills the shorter wall
     : {x:W*0.5-W*0.11,  y:H*0.06,  w:W*0.22, h:H*0.28};
@@ -1112,7 +1123,7 @@ function drawHutch(){
     ctx.beginPath(); ctx.moveTo(x,y); ctx.quadraticCurveTo(x+2,y+6,x,y+12); ctx.stroke(); }
   ctx.strokeStyle=shade(PINE,0.40); ctx.lineWidth=2; roundRect(L, top, Rr-L, base-top, 5); ctx.stroke();
   for(const dx of [-0.48, 0.48]){                                         // two arched doorways
-    const dxp=c.x+dx*r, dw=r*0.30, dt=c.y+r*0.10;
+    const dxp=c.x+dx*r, dw=r*0.34, dt=c.y+r*0.06;
     ctx.fillStyle='#5a3f26';
     ctx.beginPath(); ctx.moveTo(dxp-dw, base); ctx.lineTo(dxp-dw, dt); ctx.arc(dxp, dt, dw, Math.PI, 0); ctx.lineTo(dxp+dw, base); ctx.closePath(); ctx.fill();
     ctx.fillStyle='rgba(40,25,12,.45)';                                   // shadow inside the top of the arch
