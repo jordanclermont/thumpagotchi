@@ -167,6 +167,19 @@ group('slots', async ()=>{
   applySave({...d, decor:{hideout:'<b>', perch:'constructor'}});
   check('junk choices load as "none picked"', rab.decor.hideout===null && rab.decor.perch===null);
   check('...and something owned still shows', shown('castle')||shown('hutch'));
+  // a climbing tower put away for the platform is the only toy: Play has nothing in the room to use
+  rab.items={tower:1, hammock:1}; rab.decor.perch='tower'; refreshActions();
+  openPanel('menu'); document.querySelector('[data-slot="hammock"]').click(); closePanel();
+  check('with the only toy put away, Play is hidden', $('bPlay').style.display==='none', $('bPlay').style.display);
+  calm(); stats.energy=90; playToy();
+  check('...and she never chases a ball you don’t own', !rab.play, rab.play && rab.play.type);
+  openPanel('menu'); document.querySelector('[data-slot="tower"]').click(); closePanel();
+  check('switching the tower back brings Play back', $('bPlay').style.display!=='none');
+  // daily bonuses come only from what's in the room
+  rab.items={castle:1, hutch:1, hammock:1, tower:1}; rab.decor.hideout='castle'; rab.decor.perch='tower';
+  check('morning joy counts only the hideout in the room', morningJoy()===18+4, morningJoy());
+  rab.decor.hideout='hutch'; rab.decor.perch='hammock';
+  check('...and the platform once it is out', morningJoy()===18+5+8, morningJoy());
   await wait(500);
 });
 
@@ -246,20 +259,30 @@ group('health', async ()=>{
   check('refused shop treat costs no carrots', rab.carrots===100, rab.carrots);
   rab.health=5; getSick(); feedLock.hay=0; const h0=stats.hunger; giveHay();
   check('sick rabbit refuses hay', stats.hunger===h0);
-  rab.sick=false; rab.health=30; rab.carrots=50; callVet();
-  check('a vet visit while unwell is a cheap early catch', rab.health>=78 && !unwell() && rab.carrots>=40, `${rab.health} ${rab.carrots}`);
-  // emergency vet for stasis: half your carrots (rounded up), always affordable
+  rab.sick=false; rab.health=30; rab.carrots=50; rab.nextCheckupDay=rab.day+5; callVet();
+  check('a vet visit while unwell is an early catch at the early price', rab.health>=78 && !unwell() && rab.carrots===50-VET.early, `${rab.health} ${rab.carrots}`);
+  rab.health=30; rab.carrots=0; rab.vetOwed=0; callVet();
+  check('a broke player is never turned away early: it goes on the tab', !unwell() && rab.vetOwed===VET.early, rab.vetOwed);
+  // emergency vet for stasis: a fixed price, and whatever you can't pay goes on the tab
   delete rab.items.medicine; unlockAch('nurse');   // its first-cure carrot reward would skew the sums
-  rab.sick=true; rab.carrots=200; callVet();
-  check('emergency vet for stasis costs half your carrots', !rab.sick && rab.carrots===100, rab.carrots);
-  rab.sick=true; rab.carrots=7; callVet();
-  check('half rounds up', !rab.sick && rab.carrots===3, rab.carrots);
-  rab.sick=true; rab.carrots=0; callVet();
-  check('a broke player can still get a sick rabbit treated', !rab.sick && rab.carrots===0, rab.carrots);
-  rab.sick=true; rab.carrots=40; collapse();
-  check('a collapse costs the same half', rab.carrots===20, rab.carrots);
-  rab.sick=true; rab.carrots=500; callVet();
-  check('the emergency vet bill is capped at 100', !rab.sick && rab.carrots===400, rab.carrots);
+  rab.sick=true; rab.carrots=500; rab.vetOwed=0; callVet();
+  check('emergency vet for stasis costs the emergency price', !rab.sick && rab.carrots===500-VET.emergency && rab.vetOwed===0, rab.carrots);
+  rab.sick=true; rab.carrots=50; callVet();
+  check('short on carrots: pay what you have, owe the rest', !rab.sick && rab.carrots===0 && rab.vetOwed===VET.emergency-50, `${rab.carrots} ${rab.vetOwed}`);
+  rab.vetOwed=0; rab.sick=true; rab.carrots=0; collapse();
+  check('a collapse costs more than going to the vet', VET.collapse>VET.emergency && rab.vetOwed===VET.collapse, rab.vetOwed);
+  rab.sick=true; collapse(); rab.sick=true; collapse();
+  check('the tab is capped', rab.vetOwed===VET_DEBT_CAP, rab.vetOwed);
+  // the vet tax: half of every carrot earned pays the tab down
+  rab.vetOwed=10; rab.carrots=0; addCarrots(7);
+  check('half of what you earn (rounded up) goes to the vet', rab.carrots===3 && rab.vetOwed===6, `${rab.carrots} ${rab.vetOwed}`);
+  addCarrots(30);
+  check('the tax stops once the bill is paid', rab.vetOwed===0 && rab.carrots===3+24, `${rab.carrots} ${rab.vetOwed}`);
+  rab.vetOwed=33; save(); applySave(loadRaw());
+  check('the tab is saved', rab.vetOwed===33, rab.vetOwed);
+  applySave({...loadRaw(), vetOwed:'1e9'}); check('a hostile tab is capped on load', rab.vetOwed===VET_DEBT_CAP, rab.vetOwed);
+  applySave({...loadRaw(), vetOwed:undefined}); check('older saves owe nothing', rab.vetOwed===0, rab.vetOwed);
+  rab.vetOwed=0;
   check('paying the emergency vet explains the bill and teaches the vet note', rab.firedCards.vetbill && notes.vetcare);
   // weight
   rab.weight=170; rab.health=100; Object.assign(stats,{hunger:30, hygiene:90, water:90, energy:90});
@@ -461,6 +484,7 @@ group('fixes', async ()=>{
   check('a sulking rabbit still eats hay', stats.hunger<=50 && rab.cold, stats.hunger);
   rab.cold=true; rab.carrots=10; rab.sick=true; rab.health=0; collapse();
   check('a collapse ends the sulk', !rab.cold);
+  rab.vetOwed=0;   // the collapse's vet tab would tax the payouts checked below
   rab.cold=true; rab.lastSeen=Date.now()-2*864e5; welcomeBack();
   check('coming back after a long absence ends an old sulk', !rab.cold);
   // 2. imported saves can't inject markup or crash

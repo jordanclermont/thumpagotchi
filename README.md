@@ -108,13 +108,14 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
 - **Spotting illness** — like real rabbits, they hide it. There's no warning chip: an
   unwell bun refuses treats (above all their favourite), only nibbles their food, leaves fewer
   and smaller droppings, sits hunched with half-closed eyes, and grinds their teeth loudly.
-  Take them to the **🩺 Vet** then and it's caught early at checkup price.
+  Take them to the **🩺 Vet** then and it's caught early for 40🥕.
 - **Rabbit Notes 📖** — 22 real rabbit-care notes that unlock when you see the behaviour
   yourself. Notes carry over when you rehome.
 - **Illness & the Vet** — sustained neglect or a sugary diet can trigger **GI stasis**.
-  The **🩺 Vet** treats it as an emergency, which costs half your carrots, up to 100🥕
-  (rabbit vet bills are steep). It's free if you keep **Gut Medicine** stocked. Ignore it and your rabbit
-  collapses and needs the same emergency visit, at the same price, and comes home weaker.
+  The **🩺 Vet** treats it as an emergency for 150🥕. It's free if you keep **Gut Medicine** stocked.
+  Ignore it and your rabbit collapses: a 250🥕 emergency, and they come home weaker. The vet never turns
+  you away. Whatever you can't pay goes on a tab (up to 400🥕), and half of every carrot you earn goes
+  to the vet until it's paid off.
 - **Diet & weight** — hay keeps your rabbit trim, pellets/bananas add weight, activity burns
   it (down to their ideal weight, never below). Too much weight brings vet welfare warnings (it doesn't make them ill). Being
   underweight does hurt their health. (Bananas are still capped at 2/day.)

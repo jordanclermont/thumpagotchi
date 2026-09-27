@@ -285,7 +285,7 @@ const GOAL_POOL = [
   () => ({track:'pet',    target:10, reward:7,  text:'Give ×10 head pets'}),
   () => ({track:'binky',  target:2,  reward:9,  text:'Spark ×2 binkies'}),
   () => ({track:'groom',  target:3,  reward:7,  text:'Groom {name}’s coat ×3'}),
-  () => ({track:'play',   target:2,  reward:8,  text:'Play together ×2',            avail:()=>owns('ball')||owns('tunnel')||owns('tower')}),
+  () => ({track:'play',   target:2,  reward:8,  text:'Play together ×2',            avail:()=>toyInRoom()}),
   () => ({track:'g_snake',target:1,  reward:10, text:`Score ${SNAKE_GOAL}+ in Bunny Snake`, avail:()=>gameUnlocked('snake')}),
   () => ({track:'g_guess',target:1,  reward:10, text:'Win at Guess My Number',      avail:()=>gameUnlocked('guess')}),
   () => ({track:'g_forage',target:1, reward:9,  text:'Win all 3 rounds of Forage',   avail:()=>gameUnlocked('forage')}),
@@ -430,7 +430,7 @@ const rab = {
   restUntil:0,
   play:null, playAlpha:1, playYOff:0, hidden:false,
   boxT:0, boxYOff:0, hammockSag:0, decor:{rug:null,bed:null,hideout:null,perch:null}, petReact:0,
-  begUntil:0, begAt:0, begCooldown:0, begWant:'🍌', begLeft:0, begMiss:0, begHint:false, denUntil:0,
+  begUntil:0, begAt:0, begCooldown:0, begWant:'🍌', begLeft:0, begMiss:0, begHint:false, denUntil:0, vetOwed:0,
   maxAngerCount:0, weightStrikes:0, pelletsToday:0, _obeseT:0, _obeseWarned:false,
   // v2 "first ten minutes" state — persisted flags + runtime-only scripting timers
   firedCards:{}, gamesRevealed:false, baitDone:false, thumpSeen:false, exitBeatShown:false, lastSeen:0,
@@ -505,7 +505,7 @@ function save(){
       baitDone:rab.baitDone, thumpSeen:rab.thumpSeen, exitBeatShown:rab.exitBeatShown,
       temper:rab.temper, upbringing:rab.upbringing, favTreat:rab.favTreat, favKnown:rab.favKnown,
       prefs:rab.prefs, prefKnown:rab.prefKnown, prefCount:rab.prefCount, hayType:rab.hayType, haySwitchDay:rab.haySwitchDay, quizPaidDay:rab.quizPaidDay, safePaidDay:rab.safePaidDay, guessPaidDay:rab.guessPaidDay, tttPaidDay:rab.tttPaidDay,
-      begMiss:rab.begMiss, begHint:rab.begHint,
+      begMiss:rab.begMiss, begHint:rab.begHint, vetOwed:rab.vetOwed,
       lastSeen:Date.now(),
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -541,7 +541,7 @@ function applySave(d){
   timeOfDay=clamp(num(d.timeOfDay,0.05),0,1);
   rab.bondLevel=int(d.bondLevel,1,1,999);
   rab.bondXP=Math.min(10000,Math.max(0,num(d.bondXP,0)));   // cap so a hostile save can't level-loop addXP() forever
-  rab.carrots=int(d.carrots,12,0,999999);
+  rab.carrots=int(d.carrots,12,0,999999); rab.vetOwed=int(d.vetOwed,0,0,VET_DEBT_CAP);
   rab.weight=clamp(num(d.weight,100),45,175); rab.health=clamp(num(d.health,100)); rab.sick=!!d.sick;
   // scheduled checkups: default an established save to the next day-5 boundary so it isn't retro-overdue
   rab.nextCheckupDay = int(d.nextCheckupDay, Math.floor(rab.day/5)*5 + 5, 5, 99999);
@@ -637,6 +637,10 @@ function onLevelUp(){
   if(lv>=10) unlockAch('bond10');
 }
 function addCarrots(n, x, y){
+  if(n>0 && rab.vetOwed>0){                        // the vet tax: half of what you earn pays down the tab
+    const tax=Math.min(rab.vetOwed, Math.ceil(n/2)); n-=tax; rab.vetOwed-=tax;
+    if(rab.vetOwed<=0) toast(`🩺 The vet bill is paid off. Every carrot is yours again.`);
+  }
   rab.carrots += n;
   if(n>0 && x!==undefined) spawnCarrot(x,y,n);
   if(rab.carrots>=100) unlockAch('rich');
@@ -2091,6 +2095,14 @@ function drawThumpFx(dt){
 /* ============================================================================ *
  *  NIGHT CUTSCENE  (zoomies) — also the daily rollover: age, goals, energy
  * ============================================================================ */
+// waking-up joy, plus the daily boost from each piece of cosy furniture that's in the room (put away doesn't count)
+function morningJoy(){
+  let j = 18;
+  if(shown('castle'))  j += 4;   // cardboard castle hideout
+  if(shown('hutch'))   j += 5;   // wooden hideaway
+  if(shown('hammock')) j += 8;   // lookout platform
+  return j;
+}
 function startNight(){ if(closeUp.on) endCloseUp(); rab.begLeft=0; rab.begUntil=0; cutscene={type:'night', t:0, dur:5.5}; }
 function endNight(){
   if(!cutscene) return;   // one-shot guard: the daily rollover must never run twice for a single night
@@ -2102,11 +2114,7 @@ function endNight(){
   stats.hunger=clamp(stats.hunger+52, 55, 100);
   stats.water=clamp(stats.water-16);
   // waking-up joy, plus the promised daily boosts from cosy furniture
-  let morningJoy = 18;
-  if(owns('castle'))  morningJoy += 4;   // cardboard castle hideout
-  if(owns('hutch'))   morningJoy += 5;   // rustic hidey-hutch
-  if(owns('hammock')) morningJoy += 8;   // lounged in style all night
-  stats.happy=clamp(stats.happy+morningJoy);
+  stats.happy=clamp(stats.happy+morningJoy());
   stats.energy=clamp(stats.energy+55, 40, 100);
   rab.cold=false; rab.thumps=clamp(rab.thumps-1,0,5);
   rab.x=world.rug.x;
@@ -2245,6 +2253,8 @@ function shown(id){
   const pick=rab.decor[k];
   return owns(pick) ? pick===id : SLOTS[k].find(owns)===id;
 }
+// a toy she can actually play with: owned AND in the room (a tower put away for the platform doesn't count)
+const toyInRoom = () => ['ball','tunnel','tower'].some(shown);
 // Losses stop at the ideal (100): hay, play and the resting burn trim EXTRA weight, but the diet the game
 // recommends can never starve her underweight. Gains are unlimited (that's the welfare-warning path).
 function addWeight(n){ rab.weight = clamp(n<0 ? Math.max(rab.weight+n, Math.min(rab.weight,100)) : rab.weight+n, 45, 175); }
@@ -2277,27 +2287,35 @@ function getSick(){
   fireFact('stasis');
   refreshActions();
 }
-// half your carrots, rounded up, capped at 100: rabbit vet bills are steep, but not ruinous
-const VET_CAP = 100;
-function emergencyVetBill(){ return Math.min(VET_CAP, Math.ceil(rab.carrots/2)); }
-function cureSick(free, bill){
+/* Vet prices climb the later a problem is caught, so the lesson is always "go early". Medical visits are
+   never refused: whatever you can't pay goes on a tab with the vet, and half of every carrot you earn goes
+   to paying it off (the vet tax, see addCarrots). The tab is capped so neglect can't dig a hole forever. */
+const VET = {checkup:25, early:40, emergency:150, collapse:250};
+const VET_DEBT_CAP = 400;
+// pay what you can now; the rest goes on the tab. Returns the part owed.
+function chargeVet(bill){
+  const paid=Math.min(rab.carrots, bill), owed=bill-paid;
+  rab.carrots-=paid; rab.vetOwed=Math.min(VET_DEBT_CAP, rab.vetOwed+owed);
+  return owed;
+}
+const tabNote = owed => owed>0 ? ` ${owed}🥕 went on your tab: half of what you earn goes to the vet until it's paid.` : '';
+function cureSick(free, owed=0){
   rab.sick=false; rab.health=clamp(Math.max(rab.health,68));
   if(checkupDueNow()) rab.nextCheckupDay=rab.day+5;   // the emergency visit doubles as the due checkup
   stats.hunger=clamp(stats.hunger-10);
   const p=parts(); for(let i=0;i<5;i++) spawnHeart(p.head.x+rand(-20,20),p.head.y);
   unlockAch('nurse');
   toast(free? `💊 The gut medicine worked — ${rab.name} is recovering. 💚`
-            : bill>=VET_CAP ? `🚑 Emergency vet: ${bill}🥕. The vet works on a sliding scale, and ${rab.name} is very cute. Recovering nicely. 💚`
-            : `🚑 Emergency vet: ${bill}🥕, half your carrots. ${rab.name} is recovering. 💚 Gut Medicine 💊 on hand is cheaper.`);
+            : `🚑 Emergency vet: ${VET.emergency}🥕. ${rab.name} is recovering. 💚${tabNote(owed)} Gut Medicine 💊 on hand is far cheaper.`);
   refreshActions();
 }
 function collapse(){
   // safety net so neglect stings without a hard game-over
-  const lost=emergencyVetBill();
-  rab.carrots-=lost; rab.sick=false; rab.health=42; rab.cold=false;
+  const owed=chargeVet(VET.collapse);
+  rab.sick=false; rab.health=42; rab.cold=false;
   stats.hunger=40; stats.hygiene=60; rab.thumps=2;
   const p=parts(); spawnStars(p.head.x,p.head.y);
-  toast(`🚑 Emergency vet! ${rab.name} pulled through, but it cost ${lost}🥕. Please take better care. 💔`);
+  toast(`🚑 Emergency vet! ${rab.name} pulled through, but it cost ${VET.collapse}🥕.${tabNote(owed)} Please take better care. 💔`);
   fireFact('vetbill');
   refreshActions();
 }
@@ -2720,7 +2738,8 @@ function playToy(){
   if(rab.sick){ toast(`${rab.name} is too poorly to play. See the Vet. 🩺`); return; }
   if(unwell()){ toast(`${rab.name} just watches the toy and stays hunched. Not in the mood.`); return; }
   if(rab.play) return;                       // already playing
-  if(!(owns('ball')||owns('tunnel')||owns('tower'))){ toast('Buy a toy from the Shop 🛒 first, then Play!'); return; }
+  if(!toyInRoom()){ toast(owns('tower') ? 'The Climbing Tower is put away. Switch it back in the Menu, or buy a toy from the Shop 🛒.'
+                                         : 'Buy a toy from the Shop 🛒 first, then Play!'); return; }
   if(stats.energy<12){ toast(`${rab.name} is too tired to play — try Rest 😴.`); return; }
   wake();
   rab.lastEngaged=now(); raisePlay(15);
@@ -2829,29 +2848,28 @@ function callVet(){
       if(rab.items.medicine<=0) delete rab.items.medicine;
       cureSick(true); refreshActions(); return; }
     // always affordable, never cheap: no rabbit goes untreated for want of carrots
-    const bill=emergencyVetBill(); rab.carrots-=bill;
-    cureSick(false, bill); fireFact('vetbill'); return;
+    cureSick(false, chargeVet(VET.emergency)); fireFact('vetbill'); return;
   }
   // caught early: an unwell (pre-stasis) bun is treated at checkup price and bounces back
   if(unwell()){
     const due = checkupDueNow();
-    if(!due && !spendCarrots(10)){ toast(`A checkup is 10🥕 — you have ${rab.carrots}. Keep an eye on ${P().o}…`); return; }
+    const owed = due ? 0 : chargeVet(VET.early);    // never turned away: going early is always the right call
     if(due) rab.nextCheckupDay = rab.day + 5;
     rab.health = clamp(Math.max(rab.health, 78));
     stats.happy=clamp(stats.happy+4); addXP(10);
-    toast(`🩺 Caught early${due?'':' (−10🥕)'} — the vet found ${rab.name}'s gut slowing down. Fibre, fluids and a tummy rub: ${P().s}'s eating again. Good eye. 💚`);
+    toast(`🩺 Caught early${due?'':` (${VET.early}🥕)`} — the vet found ${rab.name}'s gut slowing down. Fibre, fluids and a tummy rub: ${P().s}'s eating again. Good eye. 💚${tabNote(owed)}`);
     learnNote('droppings', true);
     save(); return;
   }
   // the required scheduled checkup is free when it's due/overdue
   if(checkupDueNow()){ completeCheckup(); return; }
-  // an optional off-schedule wellness checkup still costs 10🥕
-  if(spendCarrots(10)){
+  // an optional off-schedule wellness checkup is paid up front (only medical visits go on the tab)
+  if(spendCarrots(VET.checkup)){
     rab.health=clamp(rab.health+20); stats.happy=clamp(stats.happy+4);
     const ws=weightStatus();
-    toast(`🩺 Checkup (−10🥕): ideal for a ${BREEDS[rab.breed].name} is ~${ws.ideal} lb. ${cap(P().s)} is ${ws.lbs} lb — ${ws.txt}.`);
+    toast(`🩺 Checkup (−${VET.checkup}🥕): ideal for a ${BREEDS[rab.breed].name} is ~${ws.ideal} lb. ${cap(P().s)} is ${ws.lbs} lb — ${ws.txt}.`);
   } else {
-    toast(`A checkup is 10🥕 — you have ${rab.carrots}. Earn more by caring for ${P().o}.`);
+    toast(`A checkup is ${VET.checkup}🥕 — you have ${rab.carrots}. Earn more by caring for ${P().o}.`);
   }
 }
 function doTrick(){
@@ -3077,7 +3095,7 @@ function idleBrain(dt,t){
     if(stats.energy<30)  wants.push('😴');
     if(!wants.length && stats.happy>35 && !ill){                // content → mischief asks (never while unwell)
       wants.push('✋');
-      if(owns('ball')||owns('tunnel')||owns('tower')) wants.push(owns(rab.prefs.toy) ? TOYS[rab.prefs.toy].emoji : '🧸');   // her favourite toy, if you have it
+      if(toyInRoom()) wants.push(shown(rab.prefs.toy) ? TOYS[rab.prefs.toy].emoji : '🧸');   // her favourite toy, if you have it
       // asks for HER favourite treat — a quiet clue for players still working out what it is
       if(rab.favTreat!=='banana' || rab.bananasToday<2) wants.push(FAV_TREATS[rab.favTreat].emoji, FAV_TREATS[rab.favTreat].emoji);
     }
@@ -3184,7 +3202,7 @@ function frame(){
   stats.hunger=clamp(stats.hunger + stage.hunger*coldMul*dt);
   stats.hygiene=clamp(stats.hygiene - 0.72*coldMul*gutMul*dt);
   stats.water=clamp(stats.water - 0.62*(owns('bottle')?0.6:1)*coldMul*dt);   // Deluxe Water Bottle: water lasts longer
-  const happyDecay = 0.6 * (owns('castle')||owns('hutch')?0.82:1) * ((owns('ball')||owns('tunnel')||owns('tower'))?0.88:1);
+  const happyDecay = 0.6 * (shown('castle')||shown('hutch')?0.82:1) * (toyInRoom()?0.88:1);   // only what's in the room counts
   stats.happy=clamp(stats.happy - happyDecay*dt);
   if(rab.state==='rest'){
     const favNap = rab.napSpot===rab.prefs.nap;
@@ -3434,7 +3452,7 @@ function updateHUD(){
 /* Buttons that appear/disable based on ownership & state */
 function refreshActions(){
   const play=$('bPlay');
-  if(play) play.style.display = (owns('ball')||owns('tunnel')||owns('tower')) ? 'flex' : 'none';
+  if(play) play.style.display = toyInRoom() ? 'flex' : 'none';
 }
 
 /* ============================================================================ *
@@ -3657,7 +3675,7 @@ function renderMenu(){
       <div>Personality: ${rab.temper ? `${TEMPERS[rab.temper].emoji} ${TEMPERS[rab.temper].name}` : `still growing up (shows at Adult)`}</div>
       <div>Favourite treat: ${rab.favKnown ? `${FAV_TREATS[rab.favTreat].emoji} ${FAV_TREATS[rab.favTreat].name}` : 'not found yet'}</div>
       <div>Weight: ${Math.round(rab.weight)} · ${weightTxt}</div>
-      <div>Carrots: ${rab.carrots}🥕 · Achievements: ${achDone}/${achTotal} 🏆</div>
+      <div>Carrots: ${rab.carrots}🥕${rab.vetOwed>0?` · Vet bill owed: ${rab.vetOwed}🥕`:''} · Achievements: ${achDone}/${achTotal} 🏆</div>
     </div>
     <div class="mhdr">Room decor</div>
     <div class="mbtns">
@@ -3692,7 +3710,7 @@ function renderMenu(){
   $('bedBasic').onclick=()=>{ rab.decor.bed=null; save(); renderMenu(); };
   $('bedCloud').onclick=()=>{ if(owns('bed_cloud')){ rab.decor.bed='cloud'; save(); renderMenu(); } };
   body.querySelectorAll('[data-slot]').forEach(b=>b.onclick=()=>{ const id=b.dataset.slot;
-    if(owns(id)){ rab.decor[slotOf(id)]=id; rab.denUntil=0; save(); renderMenu(); } });
+    if(owns(id)){ rab.decor[slotOf(id)]=id; rab.denUntil=0; save(); refreshActions(); renderMenu(); } });
   $('mSave').onclick=()=>{ save(); toast('Game saved. 💾'); };
   $('mReset').onclick=()=>{
     if(confirm('Rehome your rabbit and start over? This erases your save.')){
