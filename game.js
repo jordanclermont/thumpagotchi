@@ -114,6 +114,9 @@ const BREED_COATS = {
   lionhead:   ['lhBroken','lhTort','lhREW','lhBlack','lhChocolate','lhSiameseSable','lhSmokePearl'],
 };
 const BREED_DEFAULT_COAT = { holland:'sableGrey', netherland:'ndBlackTan', lionhead:'lhBroken' };
+// The coats offered at adoption, for now: each breed's default plus one solid colour, while the rest are
+// checked. The others stay in BREED_COATS/COATS, so an existing rabbit with one keeps their coat.
+const ADOPT_COATS = { holland:['sableGrey','black'], netherland:['ndBlackTan','ndBlue'], lionhead:['lhBroken','lhBlack'] };
 
 /* Account-wide unlocks (persist across pets, e.g. the Lionhead breed) */
 const UNLOCK_KEY = STORE+'unlocks';
@@ -211,7 +214,7 @@ const NOTES = [
    text:'Rabbits count as exotic pets, and not every vet has much rabbit training, so find a rabbit-savvy vet before you need one. In Canada most pet insurers cover only cats and dogs, so rabbit vet bills usually come out of pocket. Rabbits hide illness until they are quite sick, so knowing what is normal for yours is how you catch it early.'},
   {id:'hay',     emoji:'🌾', title:'Hay first',       hint:'Overdo the pellets.',
    text:'Hay should be most of a rabbit’s diet and available at all times. It wears down ever-growing teeth and keeps the gut moving. Pellets are a small supplement.'},
-  {id:'sugar',   emoji:'🍌', title:'Easy on treats',  hint:'One banana too many.',
+  {id:'sugar',   emoji:'🍌', title:'Easy on treats',  hint:'One banana slice too many.',
    text:'Rabbits can’t vomit, and a hit of sugar throws their gut off. A bite of banana is a party; a whole one is a bellyache.'},
   {id:'grudge',  emoji:'🥶', title:'Grudges',         hint:'Push your rabbit too far.',
    text:'Rabbits remember how they’re treated. Trust is earned back with space, a favourite treat, and time.'},
@@ -444,7 +447,7 @@ const rab = {
   // realism pass: temperament, favourite treat, and runtime-only behaviour timers
   temper:null, upbringing:{mistakes:0, affection:0, play:0},
   favTreat:'banana', favKnown:false,
-  prefs:{pet:'forehead', toy:'ball', nap:'bed', dislike:'nose'}, prefKnown:{}, prefCount:{}, quizPaidDay:0, safePaidDay:0, guessPaidDay:0, tttPaidDay:0,
+  prefs:{pet:'forehead', toy:'ball', nap:'bed', dislike:'nose'}, prefKnown:{}, prefCount:{}, quizPaidDay:0, safePaidDay:0, guessPaidDay:0, tttPaidDay:0, snakePaidDay:0, catchPaidDay:0, foragePaidDay:0, digPaidDay:0,
   hayType:'alfalfa', haySwitchDay:0, napSpot:'bed', lastAnnoyed:0,
   lastEngaged:0, restCooldown:0, mischiefCooldown:0, digUntil:0, chewUntil:0, chinUntil:0, chinAt:0,
   purrCooldown:0, grindAt:0, flopCooldown:0, lean:0, leanDX:0, feetWarnUntil:0, mischiefAt:0, mischiefKind:null, chinName:null, hurdle:false,
@@ -504,7 +507,7 @@ function save(){
       firedCards:rab.firedCards, gamesRevealed:rab.gamesRevealed,
       baitDone:rab.baitDone, thumpSeen:rab.thumpSeen, exitBeatShown:rab.exitBeatShown,
       temper:rab.temper, upbringing:rab.upbringing, favTreat:rab.favTreat, favKnown:rab.favKnown,
-      prefs:rab.prefs, prefKnown:rab.prefKnown, prefCount:rab.prefCount, hayType:rab.hayType, haySwitchDay:rab.haySwitchDay, quizPaidDay:rab.quizPaidDay, safePaidDay:rab.safePaidDay, guessPaidDay:rab.guessPaidDay, tttPaidDay:rab.tttPaidDay,
+      prefs:rab.prefs, prefKnown:rab.prefKnown, prefCount:rab.prefCount, hayType:rab.hayType, haySwitchDay:rab.haySwitchDay, quizPaidDay:rab.quizPaidDay, safePaidDay:rab.safePaidDay, guessPaidDay:rab.guessPaidDay, tttPaidDay:rab.tttPaidDay, snakePaidDay:rab.snakePaidDay, catchPaidDay:rab.catchPaidDay, foragePaidDay:rab.foragePaidDay, digPaidDay:rab.digPaidDay,
       begMiss:rab.begMiss, begHint:rab.begHint, vetOwed:rab.vetOwed,
       lastSeen:Date.now(),
     };
@@ -597,6 +600,7 @@ function applySave(d){
   rab.quizPaidDay = num(d.quizPaidDay,0);
   rab.safePaidDay = num(d.safePaidDay,0);
   rab.guessPaidDay = num(d.guessPaidDay,0); rab.tttPaidDay = num(d.tttPaidDay,0);
+  for(const k of ['snakePaidDay','catchPaidDay','foragePaidDay','digPaidDay']) rab[k]=num(d[k],0);
   rab.temper = has(TEMPERS,d.temper) ? d.temper : null;
   if(!rab.temper && rab.ageDays>=7){
     rab.temper = (rab.maxAngerCount>=1 || rab.weightStrikes>=2) ? 'skittish'
@@ -2272,6 +2276,15 @@ function raising(){ return !rab.temper && rab.ageDays < 7; }
 function raiseMistake(n){ if(raising()) rab.upbringing.mistakes += n; }
 function raiseAffection(n){ if(raising()) rab.upbringing.affection += n; }
 function raisePlay(n){ if(raising()) rab.upbringing.play += n; }
+// A hint at how the upbringing is going, shown in the Menu while they grow up. It describes what the
+// rabbit is getting, never the personality it will lead to: that stays a surprise for Adult.
+function upbringingHint(){
+  const u=rab.upbringing, bits=[];
+  if(u.affection+u.play<1 && u.mistakes<1) return 'too early to tell';
+  if(u.affection+u.play>=1) bits.push(u.affection>=u.play ? 'lots of cuddles and gentle handling' : 'lots of play and exploring');
+  if(u.mistakes>=TEMPER_MISTAKES*0.5) bits.push(u.mistakes>=TEMPER_MISTAKES ? 'a lot of scares' : 'a few scares (rough handling, illness)');
+  return bits.join(', and ');
+}
 function settleTemperament(){
   const u = rab.upbringing;
   rab.temper = u.mistakes >= TEMPER_MISTAKES ? 'skittish'
@@ -2575,7 +2588,7 @@ function offerBanana(){
     stats.happy=clamp(stats.happy-14); stats.hunger=clamp(stats.hunger+8);
     rab.thumps=clamp(rab.thumps+0.6,0,5);
     rab.health=clamp(rab.health-8); addWeight(6);
-    toast(`That's ${P().p} 3rd banana — tummy ache! 🤢 Too much sugar hurts ${P().p} gut. (max 2/day)`);
+    toast(`That's ${P().p} 3rd slice of banana today — tummy ache! 🤢 Too much sugar hurts ${P().p} gut. (2 small slices a day, at most)`);
     fireFact('banana3');
     return;
   }
@@ -2584,7 +2597,7 @@ function offerBanana(){
   rab.thumps=clamp(rab.thumps-1,0,5); addWeight(5); addXP(2);
   startBinky();
   favReact('banana');
-  toast(`Banana! A full-body binky of joy. (${rab.bananasToday}/2 today)`);
+  toast(`A slice of banana! A full-body binky of joy. (${rab.bananasToday}/2 slices today)`);
 }
 function cleanLitter(){
   if(now()<feedLock.clean) return;          // one scoop per cooldown — no XP/happy farming on a held button
@@ -3673,6 +3686,7 @@ function renderMenu(){
       <div>Bond: Lv ${rab.bondLevel} (${rab.bondXP}/${xpNeeded(rab.bondLevel)} XP)</div>
       <div>Health: ${rab.sick?'🤒 in stasis — see the Vet':'watch how '+P().s+'’s eating'} · next checkup day ${rab.nextCheckupDay}</div>
       <div>Personality: ${rab.temper ? `${TEMPERS[rab.temper].emoji} ${TEMPERS[rab.temper].name}` : `still growing up (shows at Adult)`}</div>
+      ${rab.temper ? '' : `<div>Growing up with: ${upbringingHint()}</div>`}
       <div>Favourite treat: ${rab.favKnown ? `${FAV_TREATS[rab.favTreat].emoji} ${FAV_TREATS[rab.favTreat].name}` : 'not found yet'}</div>
       <div>Weight: ${Math.round(rab.weight)} · ${weightTxt}</div>
       <div>Carrots: ${rab.carrots}🥕${rab.vetOwed>0?` · Vet bill owed: ${rab.vetOwed}🥕`:''} · Achievements: ${achDone}/${achTotal} 🏆</div>
@@ -3854,7 +3868,7 @@ let chosenCoat='sableGrey', chosenSex='buck', chosenBreed='holland';
 const EXAMPLE_NAMES = { holland:'Mowgli', netherland:'Elvis', lionhead:'Tywin' };
 function renderSwatches(breed){
   const sw=$('swatches'); sw.innerHTML='';
-  const keys = BREED_COATS[breed] || BREED_COATS.holland;
+  const keys = ADOPT_COATS[breed] || ADOPT_COATS.holland;
   chosenCoat = BREED_DEFAULT_COAT[breed] || keys[0];
   keys.forEach(key=>{
     const co=COATS[key];
@@ -3998,6 +4012,11 @@ function startGame(fromSave, saved){
 /* ============================================================================ *
  *  BUNNY SNAKE — a self-contained minigame (you play as your rabbit)
  * ============================================================================ */
+/* Every minigame pays carrots and bond XP for its first scoring round of the day only; after that it's
+   just for fun. The rabbit's clock is paused during a minigame, so unlimited pay would turn replaying a
+   game into a carrot farm that never touches the rabbit. */
+function payToday(key){ if(rab[key]===rab.day) return false; rab[key]=rab.day; return true; }
+const FUN_ONLY = ' &middot; just for fun (today’s carrots are earned)';
 const SNAKE_BEST_KEY = STORE+'snakeBest';
 const SN = { cols:17, rows:15, cell:22, snake:[], dir:{x:1,y:0}, nextDir:{x:1,y:0},
              food:{x:0,y:0}, score:0, best:0, timer:null, stepMs:150, state:'idle', on:false };
@@ -4067,7 +4086,8 @@ function snStep(){
 function snGameOver(){
   SN.state='over'; SN.on=false;
   if(SN.timer){ clearInterval(SN.timer); SN.timer=null; }
-  const reward = SN.score;
+  const paid = SN.score>0 && payToday('snakePaidDay');
+  const reward = paid ? SN.score : 0;
   if(reward>0){ addCarrots(reward); addXP(Math.min(15, SN.score)); }   // via addCarrots so 🏆 Tycoon can trigger
   if(SN.score>=SNAKE_GOAL) incGoal('g_snake');                          // daily goal: score N in a run
   const isBest = SN.score>SN.best && SN.score>0;
@@ -4076,7 +4096,7 @@ function snGameOver(){
   save();
   const msg=$('snakeOverlayMsg');
   msg.innerHTML=`<div class="mgover"><h3>${SN.score>0?'Nice run!':'Oops!'}</h3>
-    <p>Score ${SN.score}${reward>0?` &middot; +${reward}🥕`:''}${isBest?' &middot; 🏆 new best!':''}</p>
+    <p>Score ${SN.score}${reward>0?` &middot; +${reward}🥕`:SN.score>0?FUN_ONLY:''}${isBest?' &middot; 🏆 new best!':''}</p>
     <div class="mgbtns"><button id="snRetry">Play again</button><button id="snDone">Done</button></div></div>`;
   msg.classList.add('show');
   $('snRetry').onclick=snReset;
@@ -4389,16 +4409,18 @@ function forageTap(c){
 }
 function forageEnd(){
   const all = FG.won===3;
-  const carrots = FG.won*4 + (all?4:0);
+  const paid = FG.won>0 && payToday('foragePaidDay');
+  const carrots = paid ? FG.won*4 + (all?4:0) : 0;
   if(carrots) addCarrots(carrots, rab.x, rab.baseY-60);
-  addXP(FG.won*3); stats.happy=clamp(stats.happy + FG.won*3);
+  if(paid) addXP(FG.won*3);
+  stats.happy=clamp(stats.happy + FG.won*3);
   learnNote('forage');
   if(all){ incGoal('g_forage'); startBinky(); }
   $('fStage').style.display='none'; $('fProg').textContent='';
   $('fFace').textContent = all ? '😻' : '🐰';
   $('fBubble').textContent = all ? 'Three for three! That was fun.' : 'Good foraging. Again?';
   const m=$('fMsg');
-  m.innerHTML=`<h3>${FG.won}/3 found${carrots?` · +${carrots}🥕`:''}</h3><div class="mgbtns"><button id="fAgain">Play again</button><button id="fDone">Done</button></div>`;
+  m.innerHTML=`<h3>${FG.won}/3 found${carrots?` · +${carrots}🥕`:''}</h3>${FG.won&&!paid?'<p>Just for fun: today’s carrots are earned.</p>':''}<div class="mgbtns"><button id="fAgain">Play again</button><button id="fDone">Done</button></div>`;
   m.className='gmsg show'; $('fAgain').onclick=openForage; $('fDone').onclick=closeForage;
   save();
 }
@@ -4464,13 +4486,15 @@ function digEnd(){
   const all = DG.found>=DG.total;
   // show where the rest were hiding
   [...$('dGrid').children].forEach((b,i)=>{ b.disabled=true; if(DG.cells[i]==='treat' && !b.classList.contains('found')){ b.textContent='🥕'; b.style.opacity='.45'; } });
-  const carrots = DG.found*2 + (all?5:0);
+  const paid = DG.found>0 && payToday('digPaidDay');
+  const carrots = paid ? DG.found*2 + (all?5:0) : 0;
   if(carrots) addCarrots(carrots, rab.x, rab.baseY-60);
-  addXP(DG.found*2); stats.happy=clamp(stats.happy + DG.found*2);
+  if(paid) addXP(DG.found*2);
+  stats.happy=clamp(stats.happy + DG.found*2);
   learnNote('forage');
   if(all){ incGoal('g_dig'); startBinky(); }
   const m=$('dMsg');
-  m.innerHTML=`<h3>${all?'Every treat found!':DG.misses>=DIG_MAX_MISS?`Out of digs · ${DG.found}/${DG.total} found`:`${DG.found}/${DG.total} found`}${carrots?` · +${carrots}🥕`:''}</h3><div class="mgbtns"><button id="dAgain">Dig again</button><button id="dDone">Done</button></div>`;
+  m.innerHTML=`<h3>${all?'Every treat found!':DG.misses>=DIG_MAX_MISS?`Out of digs · ${DG.found}/${DG.total} found`:`${DG.found}/${DG.total} found`}${carrots?` · +${carrots}🥕`:''}</h3>${DG.found&&!paid?'<p>Just for fun: today’s carrots are earned.</p>':''}<div class="mgbtns"><button id="dAgain">Dig again</button><button id="dDone">Done</button></div>`;
   m.className='gmsg show'; $('dAgain').onclick=openDig; $('dDone').onclick=closeDig;
   save();
 }
@@ -4759,8 +4783,9 @@ function ccFrame(){
 function ccEnd(){
   CC.over=true; CC.on=false;
   if(CC.raf){ cancelAnimationFrame(CC.raf); CC.raf=null; }
-  const reward=CC.score;
-  if(reward>0){ addCarrots(reward); addXP(Math.min(15,CC.score)); }   // 1🥕 per carrot caught
+  const paid = CC.score>0 && payToday('catchPaidDay');
+  const reward = paid ? CC.score : 0;
+  if(reward>0){ addCarrots(reward); addXP(Math.min(15,CC.score)); }   // 1🥕 per carrot caught, first run of the day
   const isBest = CC.score>CC.best && CC.score>0;
   if(isBest){ CC.best=CC.score; try{ localStorage.setItem(CATCH_BEST_KEY,CC.best); }catch(e){} }
   $('ccBest').textContent=CC.best;
@@ -4768,7 +4793,7 @@ function ccEnd(){
   save();
   const m=$('catchOverlayMsg');
   m.innerHTML=`<div class="mgover"><h3>${CC.score>0?'Nice catching!':'Butterfingers!'}</h3>
-    <p>Caught ${CC.score}${reward>0?` &middot; +${reward}🥕`:''}${isBest?' &middot; 🏆 new best!':''}</p>
+    <p>Caught ${CC.score}${reward>0?` &middot; +${reward}🥕`:CC.score>0?FUN_ONLY:''}${isBest?' &middot; 🏆 new best!':''}</p>
     <div class="mgbtns"><button id="ccRetry">Play again</button><button id="ccDone">Done</button></div></div>`;
   m.className='mgmsg show';
   $('ccRetry').onclick=ccReset; $('ccDone').onclick=closeCatch;

@@ -17,14 +17,16 @@ Open `index.html` in any modern browser (Chrome, Safari, Firefox, Edge). Works o
 desktop and touch. Keep the three files (`index.html`, `style.css`, `game.js`) together.
 
 **Adopt first:** pick your bun's **name**, **breed**, **sex**, and **coat colour**. Coats are
-real varieties for each breed, using their official ARBA names:
+real varieties for each breed, using their official ARBA names. For now each breed offers two:
 
-- **Holland Lop:** Sable Point (the default), Siamese Sable, Tortoise, Chestnut, Black,
-  Blue, Orange
-- **Netherland Dwarf:** Black Tan, Blue Otter, Chestnut Agouti, Tortoise Shell, Blue
-- **Lionhead** (unlocks at Bond 5): Broken Chestnut, Tortoise, Ruby-Eyed White, Black,
-  Chocolate, Siamese Sable, Smoke Pearl. All but Broken Chestnut are ARBA show colours;
-  Broken Chestnut is a real pet colour.
+- **Holland Lop:** Sable Point (the default), Black
+- **Netherland Dwarf:** Black Tan, Blue
+- **Lionhead** (unlocks at Bond 5): Broken Chestnut (a real pet colour, not an ARBA show colour), Black
+
+More colours are already built and will come back once they've been checked (Holland: Siamese Sable,
+Tortoise, Chestnut, Blue, Orange; Netherland: Blue Otter, Chestnut Agouti, Tortoise Shell; Lionhead:
+Tortoise, Ruby-Eyed White, Chocolate, Siamese Sable, Smoke Pearl). A rabbit adopted in one of them
+keeps it.
 
 In rabbits, "Blue" means a slate blue-grey, not a neutral grey.
 
@@ -35,7 +37,7 @@ tiny front teeth, and sable points blended in with canvas gradients.
 - **🌾 Hay** — refreshes the hay in the litter box (main food; lowers hunger a lot).
 - **🥣 Pellets** — a scoop of dry food from the bowl (lowers hunger).
 - **💧 Water** — refills the water bowl (there's a Water bar now).
-- **🍌 Banana** — instant joy + a binky; **max 2/day** (a 3rd = tummy ache).
+- **🍌 Banana** — a small slice: instant joy + a binky; **max 2 slices a day** (a 3rd = tummy ache).
 - **✋ Pet** — the camera zooms in close and your rabbit holds still. Stroke their head, cheeks, ears,
   back and shoulders: they lean into spots they love (find their favourite!), shrug off "meh" ones, and
   flinch from things they dislike. The **feet/tail** are sacred: ears go back as a warning, and touching
@@ -118,7 +120,7 @@ The bottom dock is organised into **🧺 Care · 🎾 Play · ❤️ Health** ta
   to the vet until it's paid off.
 - **Diet & weight** — hay keeps your rabbit trim, pellets/bananas add weight, activity burns
   it (down to their ideal weight, never below). Too much weight brings vet welfare warnings (it doesn't make them ill). Being
-  underweight does hurt their health. (Bananas are still capped at 2/day.)
+  underweight does hurt their health. (Banana is still capped at 2 small slices a day.)
 - **Trick mastery** — tricks improve with practice and pay more carrots the better your
   rabbit gets.
 - **🎮 Games** — the Games tab (from day 2) opens a menu of eight minigames that unlock over

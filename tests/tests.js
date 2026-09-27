@@ -347,6 +347,15 @@ group('temperament', async ()=>{
   check('many mistakes → skittish', settle({mistakes:7,affection:0,play:0})==='skittish');
   check('more affection → cuddly',  settle({mistakes:0,affection:50,play:10})==='cuddly');
   check('more play → bold',          settle({mistakes:0,affection:5,play:40})==='bold');
+  // growing-up hints in the Menu: what the rabbit is getting, never the personality itself
+  rab.temper=null; rab.ageDays=2;
+  const hint=u=>{ rab.upbringing=u; openPanel('menu'); const t=$('panelBody') ? $('panelBody').textContent : document.body.textContent; closePanel(); return t; };
+  check('a fresh kit: too early to tell', /Growing up with: too early to tell/.test(hint({mistakes:0,affection:0,play:0})));
+  check('lots of petting shows as cuddles', /Growing up with: lots of cuddles/.test(hint({mistakes:0,affection:30,play:10})));
+  check('lots of play shows as play', /Growing up with: lots of play/.test(hint({mistakes:0,affection:5,play:40})));
+  check('scares show up too', /a few scares/.test(hint({mistakes:3,affection:5,play:0})));
+  check('the hint never names the personality', !/Cuddly|Bold|Skittish/.test(hint({mistakes:7,affection:30,play:0}).split('Growing up with:')[1]||''));
+  rab.ageDays=0;
   rab.temper=null; rab.ageDays=6; rab.upbringing={mistakes:0,affection:1,play:0}; nextDay();
   check('temperament is set on the morning she turns Adult', rab.temper==='cuddly' && rab.ageDays===7, `${rab.temper} day ${rab.ageDays}`);
   const a=rab.upbringing.affection; raiseAffection(5);
@@ -433,6 +442,19 @@ group('games', async ()=>{
   check('an empty spot shows how many treats are next to it', kids[e].textContent===(n?`👃${n}`:'·'), kids[e].textContent);
   DG.cells.forEach((c,i)=>{ if(c==='treat') kids[i].click(); });
   check('finding every treat ends the round and pays', DG.over && DG.found===5 && rab.carrots>c0);
+  closeDig(); openDig(); const c0b=rab.carrots, x0b=rab.bondXP; [...$('dGrid').children].forEach((k,i)=>{ if(DG.cells[i]==='treat') k.click(); });
+  check('a second Dig Box round the same day pays no carrots or bond', DG.found===5 && rab.carrots===c0b && rab.bondXP===x0b, `${rab.carrots-c0b} ${rab.bondXP-x0b}`);
+  // the replayable games pay their first scoring round each day only
+  rab.snakePaidDay=rab.catchPaidDay=rab.foragePaidDay=0;   // the Forage checks above already used today's paid round
+  for(const [name,run] of [['Snake',()=>{ SN.score=8; snGameOver(); }], ['Carrot Catch',()=>{ CC.score=8; ccEnd(); }],
+                           ['Forage',()=>{ FG.won=2; forageEnd(); }]]){
+    const a=rab.carrots; run(); const first=rab.carrots-a;
+    const b=rab.carrots, xb=rab.bondXP; run();
+    check(`${name}: the first round pays, a replay the same day doesn't`, first>0 && rab.carrots===b && rab.bondXP===xb, `${first} then ${rab.carrots-b}`);
+  }
+  rab.day++; { const a=rab.carrots; SN.score=5; snGameOver(); check('...and it pays again the next day', rab.carrots===a+5, rab.carrots-a); }
+  closeSnake(); closeCatch(); closeForage();
+  rab.day--; rab.bondXP=0;   // back to the same day; and the XP above mustn't trigger a level-up bonus in the payout checks below
   closeDig(); openDig(); DG.time=1; await wait(1400);
   check('running out of time ends the round', DG.over); closeDig();
   // Safe or Not?
@@ -468,6 +490,10 @@ group('coats', async ()=>{
   check('every listed coat is defined', listed.every(k=>COATS[k]), listed.filter(k=>!COATS[k]).join(','));
   check('every coat colour is a valid hex', Object.values(COATS).every(c=>['body','bodySh','hi','point','pointMid'].every(f=>hexOK(c[f]))));
   check('every breed default is in its list', Object.entries(BREED_DEFAULT_COAT).every(([b,k])=>BREED_COATS[b].includes(k)));
+  check('adoption offers two coats per breed, all from its full list, default first',
+    Object.entries(ADOPT_COATS).every(([b,ks])=>ks.length===2 && ks[0]===BREED_DEFAULT_COAT[b] && ks.every(k=>BREED_COATS[b].includes(k))));
+  renderSwatches('holland'); check('the adoption screen shows only those', $('swatches').children.length===2, $('swatches').children.length);
+  { const d=loadRaw()||{}; applySave({...d, breed:'holland', coatKey:'hlTort'}); check('a rabbit in a hidden coat keeps it', coatKey==='hlTort', coatKey); }
   check('no made-up coat names remain', !Object.values(COATS).some(c=>/\(Grey\)|Fawn \//.test(c.name)));
   // draw every coat on every breed it belongs to for a few real frames
   for(const [b,ks] of Object.entries(BREED_COATS)) for(const k of ks){ rab.breed=b; coat=COATS[k]; coatKey=k; await wait(60); }
