@@ -132,6 +132,13 @@ group('layout', async ()=>{
       if(x0<-1 || x1>w+1 || y1>world.dockTop+1) bad.push(`${w}×${h} ${id} off screen or under the buttons`); }
     for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){ const a=B[ids[i]], b=B[ids[j]];
       if(a[0]<b[2]-2 && b[0]<a[2]-2 && a[1]<b[3]-2 && b[1]<a[3]-2) bad.push(`${w}×${h} ${ids[i]} overlaps ${ids[j]}`); }
+    const o=outletPos(), plug=[o.x-9,o.y-13,o.x+9,o.y+13];               // the wall plug is never covered
+    for(const id of ids){ const b=B[id]; if(plug[0]<b[2] && b[0]<plug[2] && plug[1]<b[3] && b[1]<plug[3]) bad.push(`${w}×${h} ${id} covers the plug`); }
+    if(o.x<12 || o.x>w-12) bad.push(`${w}×${h} plug off screen`);
+    if(world.win.y+world.win.h > world.floorY) bad.push(`${w}×${h} window reaches the floor`);
+    if(!(cordY()>world.floorY && cordY()<world.dockTop-10)) bad.push(`${w}×${h} charger cord off the floor`);
+    const cs=cordSpot(), cp=[cs.x-14, cs.y-14, cs.x+14, cs.y+14];
+    for(const id of ids){ const b=B[id]; if(cp[0]<b[2] && b[0]<cp[2] && cp[1]<b[3] && b[1]<cp[3]) bad.push(`${w}×${h} the charger lands on the ${id}`); }
   }
   W=keep[0]; H=keep[1]; resize();
   check('no furniture overlaps or sits under the buttons, at any screen size', !bad.length, [...new Set(bad)].slice(0,30).join('; '));

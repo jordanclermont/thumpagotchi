@@ -329,7 +329,9 @@ function resize(){
   const ctl=document.getElementById('controls');
   let dockTop = ctl && ctl.offsetHeight ? ctl.getBoundingClientRect().top - canvas.getBoundingClientRect().top : H*0.86;
   if(!(dockTop > H*0.4)) dockTop = H*0.86;
-  layoutWorld(dockTop, bs);
+  const hud=document.getElementById('hud');
+  const hudBottom = hud && hud.offsetHeight ? hud.getBoundingClientRect().bottom - canvas.getBoundingClientRect().top : H*0.12;
+  layoutWorld(dockTop, bs, hudBottom);
   rab.baseY = world.rug.y - 6;
   // Re-clamp her — and any in-flight hop — to the new floor bounds. A device rotation mid-hop
   // changes W, so hopFromX/hopToX (absolute pixels for the OLD width) can point off the new rug
@@ -340,7 +342,7 @@ function resize(){
   if(rab.hopping){ rab.hopFromX = clamp(rab.hopFromX, rugLo, rugHi); rab.hopToX = clamp(rab.hopToX, rugLo, rugHi); }
   // The charger cord bakes absolute pixels (outlet + H-fraction); a rotation would strand its
   // tap target off-screen. Re-derive it from the fresh layout, same as the rabbit re-clamp above.
-  if(dayEvent && dayEvent.type==='hazard'){ const o=outletPos(); dayEvent.cord.x=o.x+78; dayEvent.cord.y=H*0.80; }
+  if(dayEvent && dayEvent.type==='hazard'){ const c=cordSpot(); dayEvent.cord.x=c.x; dayEvent.cord.y=c.y; }
 }
 window.addEventListener('resize', resize);
 /* Where everything sits, for the current W×H and the top of the control dock (tests call this
@@ -348,7 +350,7 @@ window.addEventListener('resize', resize);
 /* One scale for the whole room — the rabbit, her hops and every piece of furniture — so they stay
    in proportion on any screen. Limited by width on phones and by the floor's height on wide screens. */
 function roomU(){ return world.U || Math.min(W,H)/560; }
-function layoutWorld(dockTop, bs){
+function layoutWorld(dockTop, bs, hudBottom=H*0.12){
   const mobile = (H/W > 1.15);
   world.mobile = mobile;
   // The floor is laid out in the BAND between the wall and the top of the control dock, so no
@@ -358,6 +360,7 @@ function layoutWorld(dockTop, bs){
   world.floorY = Math.min(H*(mobile? 0.50 : 0.56), dockTop - Math.max(200, dockTop*0.45));
   const top = world.floorY, band = dockTop - 6 - top;
   world.band = band;
+  world.wall = {top:hudBottom+6, bot:world.floorY-10};          // the strip of wall you can actually see
   // Everything in the room is sized in RABBITS: RW is an adult Holland's body width on screen, and
   // each piece of furniture is a multiple of it (a hideaway is ~1.6 rabbits wide, its doorways ~¾ of
   // her height). Each row is packed left to right, so if a row can't fit at full size, the whole
@@ -399,9 +402,13 @@ function layoutWorld(dockTop, bs){
   world.bed.y = top + band*0.95 - world.bed.r*0.56;
   world.tube  = {x:fx.tunnel, y:0, w:1.75*K, h:0.62*K};            // lying along the front, side-on
   world.tube.y = top + band*0.93 - world.tube.h/2;
+  // the wall plug sits in the gap between the up-high spot and the hideout, where nothing covers it
+  world.outletX = ((bx.perch + 0.6*K) + (bx.hideout - 0.8*K)) / 2;
   world.win   = mobile
     ? {x:W*0.5-W*0.165, y:H*0.045, w:W*0.33, h:H*0.31}   // bigger window fills the shorter wall
     : {x:W*0.5-W*0.11,  y:H*0.06,  w:W*0.22, h:H*0.28};
+  const sill = world.floorY - 16;                                 // the window never reaches the floor
+  if(world.win.y + world.win.h > sill) world.win.h = Math.max(30, sill - world.win.y);
 }
 
 /* ============================================================================ *
@@ -845,7 +852,8 @@ function drawFrame(x,y,w,kind){
   }
 }
 function drawShelf(){
-  const sx=W*0.81, sy=H*0.255, sw=W*0.22;   // clear of the enlarged window
+  const sx=W*0.81, sw=W*0.22, sy=Math.max(H*0.255, world.wall.top+30);   // clear of the enlarged window
+  if(sy > world.wall.bot-6) return;                                         // no room on this wall
   ctx.fillStyle='rgba(0,0,0,.12)'; ctx.fillRect(sx-sw/2+3, sy+8, sw, 5);
   ctx.fillStyle='#a97e4e'; roundRect(sx-sw/2, sy, sw, 8, 2); ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.28)'; ctx.fillRect(sx-sw/2, sy, sw, 2);
@@ -862,7 +870,8 @@ function drawShelf(){
   }
 }
 function drawHangingPlant(){
-  const hx=W*0.115, potY=H*0.135;
+  const hx=W*0.115, potY=Math.max(H*0.135, world.wall.top+2);
+  if(potY+70 > world.wall.bot) return;                                       // no room on this wall
   ctx.strokeStyle='rgba(90,70,50,.5)'; ctx.lineWidth=1.5;
   ctx.beginPath();ctx.moveTo(hx-13,0);ctx.lineTo(hx,potY);ctx.moveTo(hx+13,0);ctx.lineTo(hx,potY);ctx.stroke();
   /* trailing vines WITH leaf pairs along them — bare strokes read as a jellyfish */
@@ -1025,7 +1034,8 @@ function drawRoomNight(){
 function drawSky(){
   // Interior wall + wall decor, then the window pane (sky/sun/stars). Ported from props-lab v2.
   drawWall(); drawWallArt(); drawShelf();
-  drawFrame(W*0.885, H*0.42, Math.min(56,W*0.055), 'carrot');
+  const wl=world.wall, wh=wl.bot-wl.top, cf=Math.min(56, W*0.055, wh*0.6/1.15);
+  if(cf>=20) drawFrame(W*0.885, wl.top+wh*0.62, cf, 'carrot');
   drawHangingPlant();
   drawWindow();
 }
@@ -1036,7 +1046,9 @@ function cloud(x,y,r){
   ctx.fill();
 }
 // a little framed portrait on the wall — a cosy touch of home
-function drawWallArt(){ drawFrame(W*0.115, H*0.365, Math.min(74,W*0.072), 'bunny'); }
+// wall decor lives in the strip of wall between the stat bars and the floor, sized to fit — or is left off
+function drawWallArt(){ const wl=world.wall, wh=wl.bot-wl.top, f=Math.min(74, W*0.072, wh*0.75/1.15);
+  if(f>=22) drawFrame(W*0.115, wl.top+wh*0.5, f, 'bunny'); }
 
 function drawRoom(){
   // baseboard + outlet at the wall/floor join, floor, the rug, then the props — each gets a
@@ -1455,7 +1467,20 @@ function drawHideHint(t){
 /* --- Phone-charger hazard --- */
 // The wall outlet is a PERMANENT fixture of the room (drawn on the baseboard in drawRoom); only
 // the charger cord + phone appear when the hazard fires, plugged into that fixed outlet.
-function outletPos(){ return {x: Math.max(24, W*0.085), y: world.floorY - 18}; }
+/* where the charger lands when the hazard event fires: the nearest clear patch of floor to the plug,
+   off every piece of furniture that could be in the room */
+function cordSpot(){
+  const o=outletPos(), ids=['litter','hammock','tower','hutch','castle','tunnel','bed','food','water','ball'];
+  const clear=(x,y)=> x>16 && x<W-16 && ids.every(id=>{ const b=propBounds(id); return !(x-16<b[2] && b[0]<x+16 && y-16<b[3] && b[1]<y+16); });
+  for(const fy of [0.50,0.46,0.54,0.42,0.58,0.62,0.38,0.66,0.70])
+    for(const dx of [30,-30,60,-60,90,-90,120,-120,0]){
+      const x=o.x+dx, y=world.floorY+world.band*fy;
+      if(clear(x,y)) return {x,y};
+    }
+  return {x:o.x+30, y:world.floorY+world.band*0.5};
+}
+function cordY(){ return cordSpot().y; }
+function outletPos(){ return {x: world.outletX || Math.max(24, W*0.085), y: world.floorY - 18}; }
 function drawOutlet(){
   const o=outletPos();
   ctx.fillStyle='#efe6d4'; roundRect(o.x-9, o.y-13, 18, 26, 3); ctx.fill();
@@ -1464,7 +1489,7 @@ function drawOutlet(){
 }
 function startHazardEvent(){
   const o=outletPos();
-  dayEvent={type:'hazard', cord:{x:o.x+78, y:H*0.80}, secured:false, chewed:false, nearT:0, nextTemptt:now()+rand(4,8)};
+  dayEvent={type:'hazard', cord:cordSpot(), secured:false, chewed:false, nearT:0, nextTemptt:now()+rand(4,8)};
 }
 function tapCord(px,py){
   if(!dayEvent || dayEvent.type!=='hazard' || dayEvent.secured || dayEvent.chewed) return false;
