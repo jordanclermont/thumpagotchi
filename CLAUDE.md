@@ -44,9 +44,11 @@ pass, a gameplay/balance change, a notable bug fix or decision — **add an entr
   The `storage` test group guards this.
 - When a save's meaning changes: first run `python3 tests/make_fixture.py <last commit> <name>`, then bump
   `SAVE_VERSION`, and add a `MIGRATIONS` step. Old fixtures must keep passing the `migrate` group.
-- `beta` branch → `/beta/` (tester build, own save slot); `main` → the public demo. A push to either
-  publishes through `.github/workflows/pages.yml` after the tests pass. Both are public, so push only
-  when Jo says so.
+- `main` is the public demo: GitHub Pages serves it straight from the branch, so a push publishes
+  immediately. The tests also run on GitHub (`.github/workflows/pages.yml`), but they don't block
+  publishing, so run them locally first. Push only when Jo says so.
+- The tester build (`beta` branch → `/beta/`) is retired for now (Sep 2026). Its separate save slot is
+  still in game.js (`BETA`, `STORE`) and the `beta` test group, dormant, in case it comes back.
 
 ## Art / prop iteration
 
